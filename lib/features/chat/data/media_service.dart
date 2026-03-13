@@ -114,6 +114,29 @@ class MediaService {
     }
   }
 
+
+  /// Upload un média de statut (image ou vidéo)
+  Future<String> uploadStatusMedia({
+    required File file,
+    required String userId,
+    required String type, // 'image' ou 'video'
+  }) async {
+    try {
+      final response = await _cloudinary.uploadFile(
+        CloudinaryFile.fromFile(
+          file.path,
+          folder:       'talky/statuses/$userId',
+          resourceType: type == 'video'
+              ? CloudinaryResourceType.Video
+              : CloudinaryResourceType.Image,
+        ),
+      );
+      return response.secureUrl;
+    } catch (e) {
+      throw Exception('Erreur upload statut: \$e');
+    }
+  }
+
   // ── Utilitaires ───────────────────────────────────────────────────
   static String formatFileSize(int bytes) {
     if (bytes < 1024) return '${bytes}B';

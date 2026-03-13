@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../chat/presentation/conversations_screen.dart';
 import '../../groups/presentation/groups_screen.dart';
+import '../../status/presentation/status_screen.dart';
+import '../../calls/presentation/calls_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,8 +21,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = const [
     ConversationsScreen(),
     GroupsScreen(),                                                    // ← ✅ réel
-    _PlaceholderScreen(icon: '🌀', label: 'Statuts',    phase: 'Phase 3 — à venir'),
-    _PlaceholderScreen(icon: '📞', label: 'Appels',     phase: 'Phase 6 — WebRTC'),
+    StatusScreen(),
+    CallsScreen(),
     _PlaceholderScreen(icon: '⚙️', label: 'Paramètres', phase: 'Phase 7'),
   ];
 
