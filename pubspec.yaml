@@ -1,0 +1,72 @@
+name: talky
+description: Application de messagerie d'entreprise Talky
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_storage: ^12.4.10
+  firebase_messaging: ^15.2.10
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # UI
+  google_fonts: ^6.3.3
+  flutter_animate: ^4.5.0
+  cached_network_image: ^3.4.1
+  video_player: ^2.8.7
+  just_audio: ^0.9.36
+
+  # Internationalisation
+  intl: ^0.19.0
+
+  # Médias
+  image_picker: ^1.1.2
+
+  # Appels (Phase 6)
+  flutter_webrtc: ^0.14.2
+
+  # Auth & sécurité
+  local_auth: ^2.3.0
+  encrypt: ^5.0.3
+
+  # Network
+  socket_io_client: ^2.0.3+1
+
+  # Stockage local
+  sqflite: ^2.4.1
+  path_provider: ^2.1.5
+
+  # Sélecteur pays
+  country_code_picker: ^3.0.0
+
+  # Utils
+  permission_handler: ^11.3.1
+  uuid: ^4.5.1
+  cloudinary_public: ^0.23.1
+  record: ^6.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/
