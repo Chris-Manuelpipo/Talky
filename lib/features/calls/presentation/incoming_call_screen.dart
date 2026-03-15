@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../data/call_providers.dart';
 import 'call_screen.dart';
@@ -172,6 +173,40 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                         children: [
                           GestureDetector(
                             onTap: () async {
+                              final micStatus = await Permission.microphone.request();
+                              if (!micStatus.isGranted) {
+                                if (micStatus.isPermanentlyDenied) {
+                                  await openAppSettings();
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Permission microphone refusée'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+
+                              if (callState.isVideo) {
+                                final camStatus = await Permission.camera.request();
+                                if (!camStatus.isGranted) {
+                                  if (camStatus.isPermanentlyDenied) {
+                                    await openAppSettings();
+                                  }
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Permission caméra refusée'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                              }
+
                               await ref.read(callProvider.notifier).answerCall();
                               if (mounted) {
                                 Navigator.pushReplacement(

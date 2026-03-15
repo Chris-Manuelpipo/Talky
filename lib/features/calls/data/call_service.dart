@@ -46,6 +46,7 @@ class CallService {
   String? _myUserId;
   String? _remoteUserId;
   bool _isVideo = false;
+  String? _lastError;
 
   // Streams pour notifier l'UI
   final _eventCtrl   = StreamController<CallEvent>.broadcast();
@@ -57,6 +58,7 @@ class CallService {
   MediaStream? get localStream  => _localStream;
   MediaStream? get remoteStream => _remoteStream;
   bool get isConnected => _socket?.connected ?? false;
+  String? get lastError => _lastError;
 
   // ── Connexion au serveur de signaling ─────────────────────────────
   void connect(String userId) {
@@ -122,6 +124,7 @@ class CallService {
 
     _socket!.on('call_failed', (data) {
       _cleanup();
+      _lastError = data is Map ? data['reason']?.toString() : null;
       _eventCtrl.add(CallEvent.callFailed);
     });
   }

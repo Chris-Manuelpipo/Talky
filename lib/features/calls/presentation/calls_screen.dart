@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_service.dart';
@@ -20,6 +21,17 @@ class CallsScreen extends ConsumerWidget {
     ref.listen(callProvider, (prev, next) {
       if (next.status == CallStatus.ringing && prev?.status != CallStatus.ringing) {
         _showIncomingCall(context, ref);
+      }
+      if (next.status == CallStatus.idle &&
+          next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     });
 
@@ -72,16 +84,66 @@ class CallsScreen extends ConsumerWidget {
     String? photo,
     bool isVideo,
   ) async {
-    await ref.read(callProvider.notifier).startCall(
-      targetUserId: userId,
-      targetName:   name,
-      targetPhoto:  photo,
-      isVideo:      isVideo,
-    );
+    final micStatus = await Permission.microphone.request();
+    if (!micStatus.isGranted) {
+      if (micStatus.isPermanentlyDenied) {
+        await openAppSettings();
+      }
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permission microphone refusée'),
+            backgroundColor: Colors.red));
+      return;
+    }
 
-    if (context.mounted) {
-      Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const CallScreen()));
+    if (isVideo) {
+      final camStatus = await Permission.camera.request();
+      if (!camStatus.isGranted) {
+        if (camStatus.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission caméra refusée'),
+              backgroundColor: Colors.red));
+        return;
+      }
+    }
+
+    final service = ref.read(callServiceProvider);
+    if (!service.isConnected) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connexion au serveur en cours... Réessaie dans 5s'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await ref.read(callProvider.notifier).startCall(
+        targetUserId: userId,
+        targetName:   name,
+        targetPhoto:  photo,
+        isVideo:      isVideo,
+      );
+
+      if (context.mounted) {
+        Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const CallScreen()));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur appel: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 }
@@ -165,6 +227,40 @@ class _IncomingCallOverlay extends ConsumerWidget {
                     label: 'Répondre',
                     color: const Color(0xFF00C851),
                     onTap: () async {
+                      final micStatus = await Permission.microphone.request();
+                      if (!micStatus.isGranted) {
+                        if (micStatus.isPermanentlyDenied) {
+                          await openAppSettings();
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Permission microphone refusée'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      if (callState.isVideo) {
+                        final camStatus = await Permission.camera.request();
+                        if (!camStatus.isGranted) {
+                          if (camStatus.isPermanentlyDenied) {
+                            await openAppSettings();
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Permission caméra refusée'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                      }
+
                       await ref.read(callProvider.notifier).answerCall();
                       if (context.mounted) {
                         Navigator.pop(context);

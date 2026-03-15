@@ -8,6 +8,12 @@ import '../../chat/data/chat_providers.dart';
 final callServiceProvider = Provider<CallService>((ref) {
   final service = CallService();
 
+  // Connecter immédiatement si déjà connecté
+  final user = ref.read(authStateProvider).value;
+  if (user != null) {
+    service.connect(user.uid);
+  }
+
   // Connecter au serveur dès que l'utilisateur est connecté
   ref.listen(authStateProvider, (_, next) {
     final user = next.value;
@@ -34,6 +40,7 @@ class CallState {
   final bool isMuted;
   final bool isCameraOff;
   final IncomingCallData? incomingCall;
+  final String? errorMessage;
 
   const CallState({
     this.status      = CallStatus.idle,
@@ -44,6 +51,7 @@ class CallState {
     this.isMuted     = false,
     this.isCameraOff = false,
     this.incomingCall,
+    this.errorMessage,
   });
 
   CallState copyWith({
@@ -55,6 +63,7 @@ class CallState {
     bool? isMuted,
     bool? isCameraOff,
     IncomingCallData? incomingCall,
+    String? errorMessage,
   }) => CallState(
     status:       status       ?? this.status,
     remoteUserId: remoteUserId ?? this.remoteUserId,
@@ -64,6 +73,7 @@ class CallState {
     isMuted:      isMuted      ?? this.isMuted,
     isCameraOff:  isCameraOff  ?? this.isCameraOff,
     incomingCall: incomingCall ?? this.incomingCall,
+    errorMessage: errorMessage ?? this.errorMessage,
   );
 }
 
@@ -88,7 +98,10 @@ class CallNotifier extends StateNotifier<CallState> {
           state = const CallState();
           break;
         case CallEvent.callFailed:
-          state = const CallState();
+          state = state.copyWith(
+            status: CallStatus.idle,
+            errorMessage: _mapError(_service.lastError),
+          );
           break;
         case CallEvent.incomingCall:
           break;
@@ -122,6 +135,7 @@ class CallNotifier extends StateNotifier<CallState> {
       remoteName:   targetName,
       remotePhoto:  targetPhoto,
       isVideo:      isVideo,
+      errorMessage: null,
     );
 
     await _service.callUser(
@@ -163,6 +177,15 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   Future<void> switchCamera() => _service.switchCamera();
+
+  String? _mapError(String? reason) {
+    switch (reason) {
+      case 'user_offline':
+        return 'L’utilisateur n’est pas connecté';
+      default:
+        return reason == null ? 'Échec de l’appel' : 'Erreur: $reason';
+    }
+  }
 }
 
 final callProvider = StateNotifierProvider<CallNotifier, CallState>((ref) {

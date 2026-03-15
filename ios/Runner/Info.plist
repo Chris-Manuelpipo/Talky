@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Cette application a besoin de la caméra pour les appels vidéo.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Cette application a besoin du micro pour les appels audio et vidéo.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
