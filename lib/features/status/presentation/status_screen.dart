@@ -11,11 +11,26 @@ import 'add_status_screen.dart';
 import 'status_viewer_screen.dart';
 import 'widgets/status_ring.dart';
 
-class StatusScreen extends ConsumerWidget {
+class StatusScreen extends ConsumerStatefulWidget {
   const StatusScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StatusScreen> createState() => _StatusScreenState();
+}
+
+class _StatusScreenState extends ConsumerState<StatusScreen> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final groupsAsync   = ref.watch(statusGroupsProvider);
     final currentUserId = ref.watch(authStateProvider).value?.uid ?? '';
 
@@ -23,16 +38,37 @@ class StatusScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('Statuts',
-          style: TextStyle(
-            color:      AppColors.textPrimary,
-            fontSize:   22,
-            fontWeight: FontWeight.w700,
-          )),
+        title: _searching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Statuts',
+                style: TextStyle(
+                  color:      AppColors.textPrimary,
+                  fontSize:   22,
+                  fontWeight: FontWeight.w700,
+                )),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-            onPressed: () {},
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded,
+                color: AppColors.textSecondary),
+            onPressed: () {
+              setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              });
+            },
           ),
           IconButton(
             icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
@@ -50,8 +86,14 @@ class StatusScreen extends ConsumerWidget {
         data: (groups) {
           final myGroup = groups.where((g) => g.isMyStatus).firstOrNull;
           final others  = groups.where((g) => !g.isMyStatus).toList();
-          final unread  = others.where((g) => g.hasUnviewed(currentUserId)).toList();
-          final read    = others.where((g) => !g.hasUnviewed(currentUserId)).toList();
+
+          final filtered = _query.trim().isEmpty
+              ? others
+              : others.where((g) =>
+                  g.userName.toLowerCase().contains(_query)).toList();
+
+          final unread  = filtered.where((g) => g.hasUnviewed(currentUserId)).toList();
+          final read    = filtered.where((g) => !g.hasUnviewed(currentUserId)).toList();
 
           return CustomScrollView(
             slivers: [

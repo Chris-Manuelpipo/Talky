@@ -11,11 +11,26 @@ import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../../chat/domain/conversation_model.dart';
 
-class GroupsScreen extends ConsumerWidget {
+class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
+}
+
+class _GroupsScreenState extends ConsumerState<GroupsScreen> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final conversations = ref.watch(conversationsProvider);
     final currentUid    = ref.watch(authStateProvider).value?.uid ?? '';
 
@@ -23,9 +38,33 @@ class GroupsScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('Groupes',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+        title: _searching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher un groupe...',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Groupes',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
         actions: [
+          IconButton(
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
+            onPressed: () {
+              setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.group_add_rounded),
             onPressed: () => context.push(AppRoutes.createGroup),
@@ -37,11 +76,23 @@ class GroupsScreen extends ConsumerWidget {
         error:   (e, _) => Center(child: Text('Erreur: $e')),
         data:    (list) {
           final groups = list.where((c) => c.isGroup).toList();
-          if (groups.isEmpty) return _EmptyGroupsState();
+          final filtered = _query.trim().isEmpty
+              ? groups
+              : groups.where((g) =>
+                  (g.groupName ?? '').toLowerCase().contains(_query)).toList();
+
+          if (filtered.isEmpty) {
+            return _searching && _query.isNotEmpty
+                ? const Center(
+                    child: Text('Aucun groupe trouvé',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                  )
+                : _EmptyGroupsState();
+          }
           return ListView.builder(
-            itemCount: groups.length,
+            itemCount: filtered.length,
             itemBuilder: (_, i) => _GroupTile(
-              group: groups[i], currentUserId: currentUid,
+              group: filtered[i], currentUserId: currentUid,
             ).animate(delay: (i * 40).ms).fadeIn().slideX(begin: 0.1),
           );
         },

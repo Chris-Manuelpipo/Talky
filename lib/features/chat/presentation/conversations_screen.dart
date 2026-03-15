@@ -13,11 +13,27 @@ import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
 
-class ConversationsScreen extends ConsumerWidget {
+class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConversationsScreen> createState() =>
+      _ConversationsScreenState();
+}
+
+class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final conversations = ref.watch(conversationsProvider);
     final authState    = ref.watch(authStateProvider);
     final currentUid   = authState.value?.uid ?? '';
@@ -44,12 +60,32 @@ class ConversationsScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('Discussions',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+        title: _searching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Discussions',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () => context.push(AppRoutes.newChat),
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
+            onPressed: () {
+              setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              });
+            },
           ),
           IconButton(
             icon: const Icon(Icons.edit_rounded),
@@ -61,6 +97,15 @@ class ConversationsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erreur: $e')),
         data: (list) {
+          if (_searching) {
+            return _SearchResults(
+              conversations: list,
+              currentUserId: currentUid,
+              query: _query,
+              onOpenChat: (userId, name, photo) =>
+                  _startChat(context, userId, name, photo),
+            );
+          }
           if (list.isEmpty) return _EmptyState();
           return ListView.builder(
             itemCount: list.length,
@@ -78,6 +123,175 @@ class ConversationsScreen extends ConsumerWidget {
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.chat_rounded, color: Colors.white),
       ),
+    );
+  }
+
+  Future<void> _startChat(
+    BuildContext context,
+    String otherUserId,
+    String otherUserName,
+    String? otherUserPhoto,
+  ) async {
+    final currentUser = ref.read(authStateProvider).value;
+    if (currentUser == null) return;
+
+    try {
+      final myName = await ref.read(currentUserNameProvider.future);
+      final myPhoto = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get()
+          .then((d) => d.data()?['photoUrl'] as String?);
+
+      final convId = await ref.read(chatServiceProvider).getOrCreateConversation(
+        currentUserId:    currentUser.uid,
+        currentUserName:  myName,
+        currentUserPhoto: myPhoto,
+        otherUserId:      otherUserId,
+        otherUserName:    otherUserName,
+        otherUserPhoto:   otherUserPhoto,
+      );
+
+      if (context.mounted) {
+        context.push(
+          AppRoutes.chat.replaceAll(':conversationId', convId),
+          extra: {'name': otherUserName, 'photo': otherUserPhoto},
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+}
+
+class _SearchResults extends ConsumerWidget {
+  final List<ConversationModel> conversations;
+  final String currentUserId;
+  final String query;
+  final void Function(String, String, String?) onOpenChat;
+
+  const _SearchResults({
+    required this.conversations,
+    required this.currentUserId,
+    required this.query,
+    required this.onOpenChat,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final q = query.trim();
+    final convMatches = q.isEmpty
+        ? conversations
+        : conversations.where((c) {
+            final name = c.getDisplayName(currentUserId).toLowerCase();
+            final groupName = (c.groupName ?? '').toLowerCase();
+            final last = (c.lastMessage ?? '').toLowerCase();
+            return name.contains(q) || groupName.contains(q) || last.contains(q);
+          }).toList();
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: ref.read(chatServiceProvider).usersStream(currentUserId),
+      builder: (context, snap) {
+        final users = snap.data ?? [];
+        final contactMatches = q.isEmpty
+            ? <Map<String, dynamic>>[]
+            : users.where((u) {
+                final name = (u['name'] as String? ?? '').toLowerCase();
+                final phone = (u['phone'] as String? ?? '').toLowerCase();
+                return name.contains(q) || phone.contains(q);
+              }).toList();
+
+        if (convMatches.isEmpty && contactMatches.isEmpty) {
+          return const Center(
+            child: Text('Aucun résultat',
+              style: TextStyle(color: AppColors.textSecondary)),
+          );
+        }
+
+        final items = <Widget>[];
+        if (convMatches.isNotEmpty) {
+          final groupConvs = convMatches.where((c) => c.isGroup).toList();
+          final directConvs = convMatches.where((c) => !c.isGroup).toList();
+
+          if (directConvs.isNotEmpty) {
+            items.add(const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Discussions',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                )),
+            ));
+            items.addAll(directConvs.map((c) => _ConversationTile(
+              conversation: c,
+              currentUserId: currentUserId,
+            )));
+          }
+
+          if (groupConvs.isNotEmpty) {
+            items.add(const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Groupes',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                )),
+            ));
+            items.addAll(groupConvs.map((c) => _ConversationTile(
+              conversation: c,
+              currentUserId: currentUserId,
+            )));
+          }
+        }
+
+        if (contactMatches.isNotEmpty) {
+          items.add(const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text('Contacts',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              )),
+          ));
+          items.addAll(contactMatches.map((u) {
+            final name = u['name'] as String? ?? 'Utilisateur';
+            final photo = u['photoUrl'] as String?;
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor: AppColors.primary,
+                backgroundImage: photo != null ? NetworkImage(photo) : null,
+                child: photo == null
+                    ? Text(name[0].toUpperCase(),
+                        style: const TextStyle(color: Colors.white))
+                    : null,
+              ),
+              title: Text(name,
+                style: const TextStyle(color: AppColors.textPrimary)),
+              subtitle: Text(u['phone'] as String? ?? '',
+                style: const TextStyle(color: AppColors.textSecondary)),
+              onTap: () => onOpenChat(
+                u['id'] as String,
+                name,
+                photo,
+              ),
+            );
+          }));
+        }
+
+        return ListView(
+          children: items,
+        );
+      },
     );
   }
 }
