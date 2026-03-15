@@ -25,6 +25,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Timer? _hideTimer;
   StreamSubscription<MediaStream?>? _localStreamSub;
   StreamSubscription<MediaStream?>? _remoteStreamSub;
+  bool _swapViews = false;
 
   @override
   void initState() {
@@ -100,6 +101,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
   }
 
+  void _toggleSwap() {
+    setState(() => _swapViews = !_swapViews);
+  }
+
   String get _formattedDuration {
     final m = _durationSeconds ~/ 60;
     final s = _durationSeconds % 60;
@@ -121,6 +126,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Widget build(BuildContext context) {
     final callState = ref.watch(callProvider);
     final isVideo   = callState.isVideo;
+    final mainIsLocal = _swapViews;
+    final pipIsLocal = !_swapViews;
+    final mainRenderer = _swapViews ? _localRenderer : _remoteRenderer;
+    final pipRenderer = _swapViews ? _remoteRenderer : _localRenderer;
 
     // Quand l'appel se termine → fermer l'écran
     ref.listen(callProvider, (prev, next) {
@@ -145,10 +154,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             // ── Vidéo remote (plein écran) ────────────────────────
             if (isVideo)
               Positioned.fill(
-                child: _remoteRenderer.srcObject == null
+                child: mainRenderer.srcObject == null
                     ? _VideoWaiting(callState: callState)
                     : RTCVideoView(
-                        _remoteRenderer,
+                        mainRenderer,
+                        mirror: mainIsLocal,
                         objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       ),
               )
@@ -176,31 +186,42 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               ),
 
             // ── Vidéo locale (petit coin) ──────────────────────────
-            if (isVideo && _showControls)
+            if (isVideo)
               Positioned(
                 right: 16, top: 72,
-                child: Container(
-                  width: 110, height: 150,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 16,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: callState.isCameraOff
-                        ? Container(
-                            color: Colors.black,
-                            child: const Icon(Icons.videocam_off_rounded,
-                                color: Colors.white, size: 32),
-                          )
-                        : RTCVideoView(_localRenderer, mirror: true),
+                child: GestureDetector(
+                  onTap: _toggleSwap,
+                  child: Container(
+                    width: 110, height: 150,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: pipIsLocal
+                          ? (callState.isCameraOff
+                              ? Container(
+                                  color: Colors.black,
+                                  child: const Icon(Icons.videocam_off_rounded,
+                                      color: Colors.white, size: 32),
+                                )
+                              : RTCVideoView(pipRenderer, mirror: true))
+                          : (pipRenderer.srcObject == null
+                              ? Container(
+                                  color: Colors.black,
+                                  child: const Icon(Icons.person_rounded,
+                                      color: Colors.white54, size: 28),
+                                )
+                              : RTCVideoView(pipRenderer, mirror: false)),
+                    ),
                   ),
                 ),
               ),
