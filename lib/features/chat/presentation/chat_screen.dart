@@ -15,6 +15,7 @@ import '../data/chat_providers.dart';
 import '../data/media_service.dart';
 import '../domain/message_model.dart';
 import '../domain/conversation_model.dart';
+import 'chat_details_screen.dart';
 import 'widgets/media_picker_sheet.dart';
 import 'widgets/message_image_bubble.dart';
 import 'widgets/voice_recorder_widget.dart';
@@ -359,7 +360,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 )
               : () => _showCallDisabled(context, isGroup),
         ),
-        IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: () {}),
+        IconButton(
+          icon: const Icon(Icons.more_vert_rounded),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatDetailsScreen(
+                  conversationId: widget.conversationId,
+                  contactName: widget.contactName,
+                  contactPhoto: widget.contactPhoto,
+                  contactUserId: otherUserId,
+                  isGroup: isGroup,
+                  conversation: convo,
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }

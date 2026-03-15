@@ -1,0 +1,635 @@
+// lib/features/chat/presentation/chat_details_screen.dart
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../auth/data/auth_providers.dart';
+import '../data/chat_providers.dart';
+import '../domain/conversation_model.dart';
+import '../domain/message_model.dart';
+import 'share_contact_screen.dart';
+
+class ChatDetailsScreen extends ConsumerWidget {
+  final String conversationId;
+  final String contactName;
+  final String? contactPhoto;
+  final String? contactUserId;
+  final bool isGroup;
+  final ConversationModel? conversation;
+
+  const ChatDetailsScreen({
+    super.key,
+    required this.conversationId,
+    required this.contactName,
+    this.contactPhoto,
+    this.contactUserId,
+    required this.isGroup,
+    this.conversation,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final messages = ref.watch(messagesProvider(conversationId));
+    final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        title: const Text('Détails',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _HeaderCard(
+            name: contactName,
+            photoUrl: contactPhoto,
+            isGroup: isGroup,
+            presenceUserId: isGroup ? null : contactUserId,
+          ),
+          const SizedBox(height: 14),
+          if (isGroup && conversation != null)
+            _GroupMembersCard(
+              conversation: conversation!,
+              currentUserId: currentUid,
+            )
+          else
+            _ContactInfoCard(userId: contactUserId),
+          const SizedBox(height: 14),
+          _MediaSection(messages: messages),
+          const SizedBox(height: 16),
+          if (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.share_rounded),
+                label: const Text('Partager le contact'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ShareContactScreen(
+                        contactUserId: contactUserId!,
+                        contactName: contactName,
+                        contactPhoto: contactPhoto,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  final String name;
+  final String? photoUrl;
+  final bool isGroup;
+  final String? presenceUserId;
+
+  const _HeaderCard({
+    required this.name,
+    required this.photoUrl,
+    required this.isGroup,
+    required this.presenceUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _Avatar(name: name, photoUrl: photoUrl, isGroup: isGroup),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                if (isGroup)
+                  const Text('Groupe',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary))
+                else if (presenceUserId != null && presenceUserId!.isNotEmpty)
+                  _PresenceLine(userId: presenceUserId!)
+                else
+                  const Text('Hors ligne',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactInfoCard extends StatelessWidget {
+  final String? userId;
+  const _ContactInfoCard({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    if (userId == null || userId!.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text('Informations indisponibles',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data() ?? {};
+        final phone = data['phone'] as String? ?? '';
+        final about = data['about'] as String? ?? '';
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Infos',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 10),
+              if (phone.isNotEmpty)
+                _InfoRow(
+                  icon: Icons.phone_rounded,
+                  label: 'Téléphone',
+                  value: phone,
+                ),
+              if (about.isNotEmpty)
+                _InfoRow(
+                  icon: Icons.info_outline_rounded,
+                  label: 'À propos',
+                  value: about,
+                ),
+              if (phone.isEmpty && about.isEmpty)
+                const Text('Aucune information',
+                    style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GroupMembersCard extends StatelessWidget {
+  final ConversationModel conversation;
+  final String currentUserId;
+  const _GroupMembersCard({
+    required this.conversation,
+    required this.currentUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final members = conversation.participantIds
+        .where((id) => id != currentUserId)
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Membres (${members.length})',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 10),
+          if (members.isEmpty)
+            const Text('Aucun membre',
+                style: TextStyle(color: AppColors.textSecondary))
+          else
+            ...members.map((id) {
+              final name = conversation.participantNames[id] ?? 'Utilisateur';
+              final photo = conversation.participantPhotos[id];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    _Avatar(name: name, photoUrl: photo, isGroup: false),
+                    const SizedBox(width: 10),
+                    Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaSection extends StatelessWidget {
+  final AsyncValue<List<MessageModel>> messages;
+  const _MediaSection({required this.messages});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Médias partagés',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 10),
+          messages.when(
+            loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary)),
+            error: (e, _) => Text('Erreur: $e'),
+            data: (list) {
+              final media = list.where((m) {
+                final isMedia = m.type == MessageType.image ||
+                    m.type == MessageType.video;
+                return !m.isDeleted && isMedia && (m.mediaUrl ?? '').isNotEmpty;
+              }).toList();
+
+              if (media.isEmpty) {
+                return const Text('Aucun média pour l’instant',
+                    style: TextStyle(color: AppColors.textSecondary));
+              }
+
+              final items = media.reversed.take(12).toList();
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                ),
+                itemBuilder: (_, i) => _MediaTile(message: items[i]),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaTile extends StatelessWidget {
+  final MessageModel message;
+  const _MediaTile({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVideo = message.type == MessageType.video;
+    final url = message.mediaUrl ?? '';
+
+    return GestureDetector(
+      onTap: () {
+        if (url.isEmpty) return;
+        if (isVideo) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => FullscreenVideo(url: url),
+          ));
+        } else {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => FullscreenImage(url: url),
+          ));
+        }
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (isVideo)
+              Container(
+                color: Colors.black,
+                child: const Icon(Icons.play_arrow_rounded,
+                    color: Colors.white70, size: 30),
+              )
+            else
+              CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(
+                  color: AppColors.background,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.primary, strokeWidth: 2),
+                  ),
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  color: AppColors.background,
+                  child: const Icon(Icons.broken_image_rounded,
+                      color: AppColors.textHint),
+                ),
+              ),
+            if (isVideo)
+              Container(
+                color: Colors.black.withOpacity(0.15),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary)),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  final String name;
+  final String? photoUrl;
+  final bool isGroup;
+
+  const _Avatar({
+    required this.name,
+    required this.photoUrl,
+    required this.isGroup,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56, height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: photoUrl == null
+            ? const LinearGradient(
+                colors: [AppColors.primary, AppColors.accent])
+            : null,
+        image: photoUrl != null
+            ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
+            : null,
+      ),
+      child: photoUrl == null
+          ? Center(
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : (isGroup ? 'G' : '?'),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _PresenceLine extends StatelessWidget {
+  final String userId;
+  const _PresenceLine({required this.userId});
+
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final date = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
+
+    if (date == today) {
+      return 'Aujourd\'hui à ${_two(lastSeen.hour)}:${_two(lastSeen.minute)}';
+    }
+    if (date == yesterday) {
+      return 'Hier à ${_two(lastSeen.hour)}:${_two(lastSeen.minute)}';
+    }
+    return 'Vu le ${_two(lastSeen.day)}/${_two(lastSeen.month)}/${lastSeen.year} '
+        '${_two(lastSeen.hour)}:${_two(lastSeen.minute)}';
+  }
+
+  String _two(int v) => v.toString().padLeft(2, '0');
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data();
+        final isOnline = data?['isOnline'] == true;
+        final lastSeenTs = data?['lastSeen'];
+        DateTime? lastSeen;
+        if (lastSeenTs is Timestamp) {
+          lastSeen = lastSeenTs.toDate();
+        }
+
+        if (isOnline) {
+          return const Text('En ligne',
+              style: TextStyle(fontSize: 12, color: AppColors.accent));
+        }
+        if (lastSeen != null) {
+          return Text(_formatLastSeen(lastSeen),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary));
+        }
+        return const Text('Hors ligne',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary));
+      },
+    );
+  }
+}
+
+class FullscreenImage extends StatelessWidget {
+  final String url;
+  const FullscreenImage({super.key, required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.contain,
+            placeholder: (_, __) =>
+                const CircularProgressIndicator(color: AppColors.primary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FullscreenVideo extends StatefulWidget {
+  final String url;
+  const FullscreenVideo({super.key, required this.url});
+
+  @override
+  State<FullscreenVideo> createState() => _FullscreenVideoState();
+}
+
+class _FullscreenVideoState extends State<FullscreenVideo> {
+  VideoPlayerController? _controller;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      await ctrl.initialize();
+      ctrl.setLooping(false);
+      if (!mounted) return;
+      setState(() => _controller = ctrl);
+    } catch (_) {
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: _hasError
+            ? const Icon(Icons.broken_image_rounded,
+                color: AppColors.textHint, size: 48)
+            : _controller == null
+                ? const CircularProgressIndicator(color: AppColors.primary)
+                : AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        VideoPlayer(_controller!),
+                        Positioned(
+                          bottom: 20,
+                          left: 20,
+                          right: 20,
+                          child: VideoProgressIndicator(
+                            _controller!,
+                            allowScrubbing: true,
+                            colors: VideoProgressColors(
+                              playedColor: AppColors.primary,
+                              bufferedColor: Colors.white24,
+                              backgroundColor: Colors.white12,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            if (_controller!.value.isPlaying) {
+                              _controller!.pause();
+                            } else {
+                              _controller!.play();
+                            }
+                            setState(() {});
+                          },
+                          child: Container(
+                            width: 64, height: 64,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _controller!.value.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              color: Colors.white, size: 36,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+      ),
+    );
+  }
+}
