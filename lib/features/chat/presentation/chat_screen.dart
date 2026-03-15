@@ -151,23 +151,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final uid = ref.read(authStateProvider).value?.uid;
       if (uid == null) return;
       next.whenData((list) {
-        final hasUnread = list.any(
-          (m) => m.senderId != uid && m.status != MessageStatus.read,
-        );
-        if (hasUnread) {
-          ref.read(chatServiceProvider).markAsRead(
+        final toRead = list
+            .where((m) => m.senderId != uid && m.status != MessageStatus.read)
+            .map((m) => m.id)
+            .toList();
+        // ignore: avoid_print
+        print('[ChatScreen] toRead=${toRead.length} uid=$uid');
+        if (toRead.isNotEmpty) {
+          ref.read(chatServiceProvider).markMessagesReadByIds(
             conversationId: widget.conversationId,
             userId: uid,
-          );
-        }
-
-        final hasSentFromOther = list.any(
-          (m) => m.senderId != uid && m.status == MessageStatus.sent,
-        );
-        if (hasSentFromOther) {
-          ref.read(chatServiceProvider).markAsDelivered(
-            conversationId: widget.conversationId,
-            userId: uid,
+            messageIds: toRead,
           );
         }
       });

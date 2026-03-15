@@ -235,19 +235,58 @@ class ChatService {
     }
   }
 
+  Future<void> markMessagesReadByIds({
+    required String conversationId,
+    required String userId,
+    required List<String> messageIds,
+  }) async {
+    if (messageIds.isEmpty) return;
+
+    try {
+      final batch = _db.batch();
+      for (final id in messageIds) {
+        final ref = _messages(conversationId).doc(id);
+        batch.update(ref, {
+          'status': MessageStatus.read.name,
+          'readAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+
+      await _conversations.doc(conversationId).update({
+        'unreadCount.$userId': 0,
+      });
+
+      final convSnap = await _conversations.doc(conversationId).get();
+      final convData = convSnap.data() as Map<String, dynamic>?;
+      final lastSender = convData?['lastMessageSenderId'] as String?;
+      if (lastSender != null && lastSender != userId) {
+        await _conversations.doc(conversationId).update({
+          'lastMessageStatus': MessageStatus.read.name,
+        });
+      }
+    } catch (e) {
+      // Debug pour voir si Firestore bloque l'update
+      // ignore: avoid_print
+      print('[ChatService] markMessagesReadByIds error: $e');
+    }
+  }
+
   Future<void> markAsDelivered({
     required String conversationId,
     required String userId,
   }) async {
     final unread = await _messages(conversationId)
         .where('status', isEqualTo: MessageStatus.sent.name)
-        .where('senderId', isNotEqualTo: userId)
         .get();
 
     if (unread.docs.isEmpty) return;
 
     final batch = _db.batch();
     for (final doc in unread.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final senderId = data['senderId'] as String?;
+      if (senderId == userId) continue;
       batch.update(doc.reference, {
         'status': MessageStatus.delivered.name,
       });
