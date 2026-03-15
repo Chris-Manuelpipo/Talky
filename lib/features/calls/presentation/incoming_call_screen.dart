@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
 import '../data/call_providers.dart';
 import 'call_screen.dart';
 
@@ -131,7 +132,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     fontWeight: FontWeight.w700)),
 
                 const SizedBox(height: 8),
-                Text(callState.isVideo ? '📹 Vidéo' : '🎙️ Audio',
+                Text(callState.isVideo ? 'Vidéo' : 'Audio',
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 16)),
 

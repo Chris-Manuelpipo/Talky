@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../shared/widgets/talky_button.dart';
 import '../../../shared/widgets/talky_text_field.dart';
 import '../../auth/data/auth_providers.dart';
@@ -79,7 +81,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         phone:             phone,
         photoUrl:          photoUrl,
         status:            _statusController.text.trim().isEmpty
-                               ? '👋 Disponible sur Talky'
+                               ? 'Disponible sur Talky'
                                : _statusController.text.trim(),
         preferredLanguage: _selectedLanguage,
         isOnline:          true,
@@ -154,7 +156,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                 : null,
                           ),
                           child: _localImagePath == null
-                              ? const Center(child: Text('👤', style: TextStyle(fontSize: 42)))
+                              ? Icon(AppIcons.person, size: 42, color: AppColors.primary)
                               : null,
                         ),
                         Positioned(
@@ -204,7 +206,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 TalkyTextField(
                   controller: _statusController,
                   label: 'Statut (optionnel)',
-                  hint: '👋 Disponible sur Talky',
+                  hint: ' Disponible sur Talky',
                   prefixIcon: Icons.edit_outlined,
                 ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2, end: 0),
 

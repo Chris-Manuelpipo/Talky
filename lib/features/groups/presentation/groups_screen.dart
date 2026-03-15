@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../../chat/domain/conversation_model.dart';
@@ -133,7 +135,9 @@ class _GroupTile extends StatelessWidget {
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
               ),
-              child: const Center(child: Text('👥', style: TextStyle(fontSize: 24))),
+              child: Center(
+                child: Icon(AppIcons.group, color: Colors.white, size: 24),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -208,11 +212,12 @@ class _GroupTile extends StatelessWidget {
 class _EmptyGroupsState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('👥', style: TextStyle(fontSize: 64))
+          Icon(AppIcons.group, size: 64, color: colors.textHint)
               .animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 16),
           Text('Aucun groupe', style: Theme.of(context).textTheme.titleLarge),
@@ -220,7 +225,7 @@ class _EmptyGroupsState extends StatelessWidget {
           Text('Créez un groupe pour discuter\navec plusieurs personnes',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: AppColors.textSecondary)),
+                ?.copyWith(color: colors.textSecondary)),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => context.push(AppRoutes.createGroup),

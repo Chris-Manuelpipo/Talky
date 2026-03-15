@@ -1,0 +1,369 @@
+// lib/features/settings/presentation/profile_settings_screen.dart
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cloudinary_public/cloudinary_public.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors_provider.dart';
+import '../../auth/data/auth_providers.dart';
+import '../../auth/domain/user_model.dart';
+import '../../auth/data/auth_service.dart';
+
+class ProfileSettingsScreen extends ConsumerStatefulWidget {
+  const ProfileSettingsScreen({super.key});
+
+  @override
+  ConsumerState<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
+}
+
+class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
+  final _nameController = TextEditingController();
+  final _statusController = TextEditingController();
+  bool _isLoading = false;
+  String? _photoUrl;
+  String? _phone;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final userProfile = await ref.read(currentUserProfileProvider.future);
+    if (userProfile != null) {
+      _nameController.text = userProfile.name;
+      _statusController.text = userProfile.status;
+      setState(() {
+        _photoUrl = userProfile.photoUrl;
+        _phone = userProfile.phone;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _statusController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final result = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+
+    if (result != null) {
+      setState(() => _isLoading = true);
+
+      try {
+        // Upload to Cloudinary
+        final cloudinary = CloudinaryPublic('talky-app', 'talky-profile', cache: true);
+        final uploadResult = await cloudinary.uploadFile(
+          CloudinaryFile.fromFile(result.path, folder: 'profiles'),
+        );
+
+        setState(() {
+          _photoUrl = uploadResult.secureUrl;
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur lors de l\'upload: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Le nom ne peut pas être vide'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final authState = ref.read(authStateProvider).value;
+      if (authState == null) return;
+
+      final user = UserModel(
+        uid: authState.uid,
+        name: _nameController.text.trim(),
+        phone: _phone ?? authState.phoneNumber ?? '',
+        photoUrl: _photoUrl,
+        status: _statusController.text.trim().isEmpty
+            ? 'Disponible sur Talky'
+            : _statusController.text.trim(),
+      );
+
+      await ref.read(authServiceProvider).saveUserProfile(user);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Profil mis à jour'),
+            backgroundColor: context.appThemeColors.success,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    return Scaffold(
+      backgroundColor: colors.background,
+      appBar: AppBar(
+        backgroundColor: colors.background,
+        title: const Text(
+          'Profil',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _saveProfile,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    'Enregistrer',
+                    style: TextStyle(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Photo de profil
+            Center(
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colors.surfaceVariant,
+                        border: Border.all(
+                          color: colors.primary,
+                          width: 3,
+                        ),
+                        image: _photoUrl != null && _photoUrl!.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(_photoUrl!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _photoUrl == null || _photoUrl!.isEmpty
+                          ? Icon(
+                              Icons.person_rounded,
+                              size: 60,
+                              color: colors.textSecondary,
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: _pickImage,
+                child: Text(
+                  'Modifier la photo',
+                  style: TextStyle(color: colors.primary),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Nom d'affichage
+            const Text(
+              'Nom d\'affichage',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Votre nom',
+                filled: true,
+                fillColor: AppColors.surfaceVariant,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Statut / Bio
+            const Text(
+              'Statut / Bio',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _statusController,
+              maxLength: 150,
+              maxLines: 3,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Dites quelque chose sur vous...',
+                filled: true,
+                fillColor: AppColors.surfaceVariant,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Numéro de téléphone
+            const Text(
+              'Numéro de téléphone',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.phone_android_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _phone ?? 'Non défini',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    color: AppColors.textHint,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Le numéro de téléphone ne peut pas être modifié',
+              style: TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

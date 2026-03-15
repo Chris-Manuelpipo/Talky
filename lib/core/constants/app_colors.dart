@@ -5,49 +5,91 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // ── Couleurs primaires ──────────────────────────────────────────────
-  static const Color primary        = Color(0xFF7C5CFC); // Violet signature Talky
+  // ═══════════════════════════════════════════════════════════════════════
+  // ── PRIMARY COLORS (Violet Talky) - Common to both themes ─────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  static const Color primary        = Color(0xFF7C5CFC); // Violet signature
   static const Color primaryLight   = Color(0xFF9D84FD);
   static const Color primaryDark    = Color(0xFF5A3DD8);
 
-  // ── Accent ─────────────────────────────────────────────────────────
-  static const Color accent         = Color(0xFF4FC3F7); // Cyan bleu électrique
+  // Accent
+  static const Color accent         = Color(0xFF4FC3F7);
   static const Color accentDark     = Color(0xFF0288D1);
 
-  // ── Fonds (Dark theme) ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // ── DARK THEME COLORS (Default) ──────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  // Backgrounds
   static const Color background     = Color(0xFF0A0A0F); // Noir profond
-  static const Color surface        = Color(0xFF12121A); // Surface légèrement plus claire
-  static const Color surfaceVariant = Color(0xFF1C1C28); // Cards, containers
-  static const Color surfaceHigh    = Color(0xFF252535); // Éléments surélevés
+  static const Color surface        = Color(0xFF12121A);
+  static const Color surfaceVariant = Color(0xFF1C1C28);
+  static const Color surfaceHigh    = Color(0xFF252535);
   static const Color inputFill      = surfaceVariant;
-
-  // ── Textes ─────────────────────────────────────────────────────────
-  static const Color textPrimary    = Color(0xFFF0EEFF); // Blanc cassé violet
-  static const Color textSecondary  = Color(0xFF9B96B8); // Gris violet
-  static const Color textHint       = Color(0xFF5A5570);  // Placeholder
-
-  // ── Messages ───────────────────────────────────────────────────────
-  static const Color bubbleSent     = Color(0xFF7C5CFC); // Violet (messages envoyés)
-  static const Color bubbleReceived = Color(0xFF1C1C28); // Surface sombre (messages reçus)
+  
+  // Text
+  static const Color textPrimary    = Color(0xFFF0EEFF);
+  static const Color textSecondary  = Color(0xFF9B96B8);
+  static const Color textHint       = Color(0xFF5A5570);
+  
+  // Messages
+  static const Color bubbleSent     = Color(0xFF7C5CFC);
+  static const Color bubbleReceived = Color(0xFF1C1C28);
   static const Color bubbleSentText     = Color(0xFFFFFFFF);
   static const Color bubbleReceivedText = Color(0xFFF0EEFF);
+  
+  // Dividers & Borders
+  static const Color divider  = Color(0xFF1C1C28);
+  static const Color border   = Color(0xFF2A2A3C);
 
-  // ── États & feedbacks ──────────────────────────────────────────────
+  // Status colors
   static const Color success  = Color(0xFF4CAF82);
   static const Color warning  = Color(0xFFFFB547);
   static const Color error    = Color(0xFFFF5C7A);
   static const Color online   = Color(0xFF4CAF82);
   static const Color offline  = Color(0xFF5A5570);
 
-  // ── Séparateurs & bordures ─────────────────────────────────────────
-  static const Color divider  = Color(0xFF1C1C28);
-  static const Color border   = Color(0xFF2A2A3C);
+  // Overlay
+  static const Color overlay  = Color(0x807C5CFC);
+  static const Color shadow   = Color(0x997C5CFC);
 
-  // ── Overlay & ombres ───────────────────────────────────────────────
-  static const Color overlay  = Color(0x807C5CFC); // Violet transparent
-  static const Color shadow   = Color(0x997C5CFC); // Ombre violette
+  // ═══════════════════════════════════════════════════════════════════════
+  // ── LIGHT THEME COLORS - Amélioré pour une meilleure harmonie ─────────
+  // ═══════════════════════════════════════════════════════════════════════
+  
+  // Backgrounds - Version améliorée avec subtils reflets bleutés
+  static const Color backgroundLight     = Color(0xFFF8F9FC);  // Gris très clair bleuté
+  static const Color surfaceLight        = Color(0xFFFFFFFF);  // Blanc pur
+  static const Color surfaceVariantLight = Color(0xFFF0F2F5);  // Gris clair
+  static const Color surfaceHighLight    = Color(0xFFE8EAED);  // Gris moyen
+  static const Color inputFillLight      = Color(0xFFF0F2F5);
+  
+  // Text - Meilleure lisibilité avec noir bleuté
+  static const Color textPrimaryLight    = Color(0xFF1A1A2E);  // Noir bleuté
+  static const Color textSecondaryLight  = Color(0xFF5A5A7A);  // Gris foncé
+  static const Color textHintLight       = Color(0xFF9E9EA8);  // Gris moyen
+  
+  // Messages - Couleurs harmonieuses
+  static const Color bubbleSentLight     = Color(0xFF7C5CFC);  // Violet primaire
+  static const Color bubbleReceivedLight = Color(0xFFF0F2F5);  // Gris clair
+  static const Color bubbleSentTextLight     = Color(0xFFFFFFFF);
+  static const Color bubbleReceivedTextLight = Color(0xFF1A1A2E);
+  
+  // Status colors - Version plus visible sur fond clair
+  static const Color successLight  = Color(0xFF2E7D32);   // Vert foncé
+  static const Color warningLight  = Color(0xFFF57C00);   // Orange foncé
+  static const Color errorLight    = Color(0xFFD32F2F);   // Rouge foncé
+  static const Color onlineLight   = Color(0xFF2E7D32);   // Vert foncé
+  static const Color offlineLight  = Color(0xFF9E9EA8);   // Gris moyen
+  
+  // Dividers & Borders
+  static const Color dividerLight  = Color(0xFFE0E2E5);
+  static const Color borderLight   = Color(0xFFD0D2D5);
 
-  // ── Gradients ──────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  // ── GRADIENTS ─────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════
+  
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, accent],
     begin: Alignment.topLeft,
@@ -56,6 +98,12 @@ class AppColors {
 
   static const LinearGradient backgroundGradient = LinearGradient(
     colors: [Color(0xFF0A0A0F), Color(0xFF0D0D1A)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient backgroundGradientLight = LinearGradient(
+    colors: [Color(0xFFFFFFFF), Color(0xFFF5F5F5)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

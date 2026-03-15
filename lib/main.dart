@@ -5,12 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/constants/app_colors.dart';
 import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
 import 'core/services/notification_service.dart';
+import 'features/settings/data/settings_providers.dart';
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
 @pragma('vm:entry-point')
@@ -27,6 +30,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize SharedPreferences
+  final sharedPreferences = await SharedPreferences.getInstance();
+
   // Enregistrer le handler background FCM
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -38,19 +44,22 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Style de la barre de statut
+  // Style de la barre de statut (sera mis à jour selon le thème)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0A0A0F),
+      systemNavigationBarColor: AppColors.background,
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 
   runApp(
-    const ProviderScope(
-      child: TalkyApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: const TalkyApp(),
     ),
   );
 }
@@ -105,12 +114,14 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp.router(
       title: 'Talky',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      themeMode: settings.themeMode,
       routerConfig: ref.watch(routerProvider),
     );
   }

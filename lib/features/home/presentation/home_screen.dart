@@ -2,11 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../chat/presentation/conversations_screen.dart';
 import '../../groups/presentation/groups_screen.dart';
 import '../../status/presentation/status_screen.dart';
 import '../../calls/presentation/calls_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,10 +22,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final List<Widget> _screens = const [
     ConversationsScreen(),
-    GroupsScreen(),                                                    // ← ✅ réel
+    GroupsScreen(),
     StatusScreen(),
     CallsScreen(),
-    _PlaceholderScreen(icon: '⚙️', label: 'Paramètres', phase: 'Phase 7'),
+    SettingsScreen(),
   ];
 
   @override
@@ -41,6 +42,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    
     return Scaffold(
       body: PageView(
         controller: _pageController,
@@ -57,76 +60,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             curve: Curves.easeOut,
           );
         },
-        backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primary.withOpacity(0.2),
+        backgroundColor: colors.surface,
+        indicatorColor: colors.primary.withValues(alpha: 0.15),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon:         Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label:        'Discussions',
+            icon: Icon(Icons.chat_bubble_outline_rounded, color: colors.textHint),
+            selectedIcon: Icon(Icons.chat_bubble_rounded, color: colors.primary),
+            label: 'Discussions',
           ),
           NavigationDestination(
-            icon:         Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group_rounded),
-            label:        'Groupes',
+            icon: Icon(Icons.group_outlined, color: colors.textHint),
+            selectedIcon: Icon(Icons.group_rounded, color: colors.primary),
+            label: 'Groupes',
           ),
           NavigationDestination(
-            icon:         Icon(Icons.circle_outlined),
-            selectedIcon: Icon(Icons.circle_rounded),
-            label:        'Statuts',
+            icon: Icon(Icons.circle_outlined, color: colors.textHint),
+            selectedIcon: Icon(Icons.circle_rounded, color: colors.primary),
+            label: 'Statuts',
           ),
           NavigationDestination(
-            icon:         Icon(Icons.call_outlined),
-            selectedIcon: Icon(Icons.call_rounded),
-            label:        'Appels',
+            icon: Icon(Icons.call_outlined, color: colors.textHint),
+            selectedIcon: Icon(Icons.call_rounded, color: colors.primary),
+            label: 'Appels',
           ),
           NavigationDestination(
-            icon:         Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label:        'Paramètres',
+            icon: Icon(Icons.settings_outlined, color: colors.textHint),
+            selectedIcon: Icon(Icons.settings_rounded, color: colors.primary),
+            label: 'Paramètres',
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Placeholder pour les onglets pas encore développés ─────────────────
-class _PlaceholderScreen extends StatelessWidget {
-  final String icon;
-  final String label;
-  final String phase;
-
-  const _PlaceholderScreen({
-    required this.icon,
-    required this.label,
-    required this.phase,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 64)),
-            const SizedBox(height: 16),
-            Text(label,
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(phase,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 13)),
-          ],
-        ),
       ),
     );
   }

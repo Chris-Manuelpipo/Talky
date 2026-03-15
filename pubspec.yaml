@@ -52,6 +52,7 @@ dependencies:
   # Stockage local
   sqflite: ^2.4.1
   path_provider: ^2.1.5
+  shared_preferences: ^2.3.3
 
   # Sélecteur pays
   country_code_picker: ^3.0.0

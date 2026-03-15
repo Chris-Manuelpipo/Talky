@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_icons.dart';
 
 class VoiceRecorderWidget extends StatefulWidget {
   final void Function(String path, int durationSeconds) onRecordingComplete;
@@ -415,7 +416,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('🎤', style: TextStyle(fontSize: 10)),
+                              Icon(AppIcons.mic, color: Colors.white.withOpacity(0.8), size: 10),
                               Text(
                                 shownDuration.inSeconds > 0
                                     ? _formatDurationFromDuration(shownDuration)

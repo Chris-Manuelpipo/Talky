@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/widgets/talky_button.dart';
 import '../data/auth_providers.dart';
@@ -133,7 +134,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                 ),
-                child: const Center(child: Text('💬', style: TextStyle(fontSize: 30))),
+                child: Center(
+                  child: Icon(AppIcons.verify, color: AppColors.accent, size: 30),
+                ),
               ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
 
               const SizedBox(height: 24),

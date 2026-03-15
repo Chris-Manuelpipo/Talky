@@ -7,11 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
+import '../domain/contact_model.dart';
 
 class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
@@ -56,16 +59,18 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       });
     });
 
+    final colors = context.appThemeColors;
+    
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: colors.background,
         title: _searching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 onChanged: (v) => setState(() => _query = v.toLowerCase()),
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
                 decoration: const InputDecoration(
                   hintText: 'Rechercher...',
                   hintStyle: TextStyle(color: AppColors.textHint),
@@ -193,15 +198,16 @@ class _SearchResults extends ConsumerWidget {
             return name.contains(q) || groupName.contains(q) || last.contains(q);
           }).toList();
 
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: ref.read(chatServiceProvider).usersStream(currentUserId),
+    // Utiliser les contacts au lieu de tous les utilisateurs
+    return StreamBuilder<List<ContactModel>>(
+      stream: ref.read(chatServiceProvider).contactsStream(currentUserId),
       builder: (context, snap) {
-        final users = snap.data ?? [];
+        final contacts = snap.data ?? [];
         final contactMatches = q.isEmpty
-            ? <Map<String, dynamic>>[]
-            : users.where((u) {
-                final name = (u['name'] as String? ?? '').toLowerCase();
-                final phone = (u['phone'] as String? ?? '').toLowerCase();
+            ? <ContactModel>[]
+            : contacts.where((c) {
+                final name = c.contactName.toLowerCase();
+                final phone = (c.phoneNumber ?? '').toLowerCase();
                 return name.contains(q) || phone.contains(q);
               }).toList();
 
@@ -263,9 +269,9 @@ class _SearchResults extends ConsumerWidget {
                 letterSpacing: 0.5,
               )),
           ));
-          items.addAll(contactMatches.map((u) {
-            final name = u['name'] as String? ?? 'Utilisateur';
-            final photo = u['photoUrl'] as String?;
+          items.addAll(contactMatches.map((c) {
+            final name = c.contactName;
+            final photo = c.contactPhoto;
             return ListTile(
               leading: CircleAvatar(
                 backgroundColor: AppColors.primary,
@@ -277,10 +283,10 @@ class _SearchResults extends ConsumerWidget {
               ),
               title: Text(name,
                 style: const TextStyle(color: AppColors.textPrimary)),
-              subtitle: Text(u['phone'] as String? ?? '',
+              subtitle: Text(c.phoneNumber ?? '',
                 style: const TextStyle(color: AppColors.textSecondary)),
               onTap: () => onOpenChat(
-                u['id'] as String,
+                c.id,
                 name,
                 photo,
               ),
@@ -415,7 +421,8 @@ class _ConversationTile extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 13,
                             color: unread > 0
-                                ? AppColors.textPrimary : AppColors.textSecondary,
+                                ? Theme.of(context).textTheme.bodyLarge?.color
+                                : Theme.of(context).textTheme.bodySmall?.color,
                             fontWeight: unread > 0
                                 ? FontWeight.w500 : FontWeight.w400,
                           ),
@@ -459,11 +466,11 @@ class _ConversationTile extends ConsumerWidget {
   String _getLastMessagePreview(ConversationModel conv) {
     if (conv.lastMessage == null) return 'Démarrez la conversation';
     switch (conv.lastMessageType) {
-      case MessageType.image:   return '📷 Photo';
-      case MessageType.video:   return '🎥 Vidéo';
-      case MessageType.audio:   return '🎤 Vocal';
-      case MessageType.file:    return '📎 Fichier';
-      case MessageType.deleted: return '🚫 Message supprimé';
+      case MessageType.image:   return 'Photo';
+      case MessageType.video:   return 'Vidéo';
+      case MessageType.audio:   return 'Vocal';
+      case MessageType.file:    return 'Fichier';
+      case MessageType.deleted: return 'Message supprimé';
       default:                  return conv.lastMessage!;
     }
   }
@@ -492,14 +499,16 @@ class _Avatar extends StatelessWidget {
           image: NetworkImage(photoUrl!), fit: BoxFit.cover) : null,
       ),
       child: photoUrl == null ? Center(
-        child: Text(
-          isGroup ? '👥' : name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: isGroup ? 22 : 20,
-          ),
-        ),
+        child: isGroup 
+            ? const Icon(AppIcons.group, color: Colors.white, size: 24)
+            : Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                ),
+              ),
       ) : null,
     );
   }
@@ -529,11 +538,12 @@ class _LastStatusIcon extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('💬', style: TextStyle(fontSize: 64))
+          Icon(AppIcons.chat, size: 64, color: colors.textHint)
               .animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 16),
           Text('Aucune discussion',
@@ -542,7 +552,7 @@ class _EmptyState extends StatelessWidget {
           Text('Appuyez sur le bouton + pour démarrer\nune nouvelle conversation',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary)),
+              color: colors.textSecondary)),
         ],
       ),
     );

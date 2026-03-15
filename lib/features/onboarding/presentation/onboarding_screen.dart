@@ -9,21 +9,21 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/router/app_router.dart';
 
 class _OnboardingPage {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String subtitle;
   final Color accentColor;
-  const _OnboardingPage({required this.emoji, required this.title, required this.subtitle, required this.accentColor});
+  const _OnboardingPage({required this.icon, required this.title, required this.subtitle, required this.accentColor});
 }
 
 const _pages = [
-  _OnboardingPage(emoji: '💬', title: 'Messagerie\ninstantanée',
+  _OnboardingPage(icon: Icons.chat_outlined, title: 'Messagerie\ninstantanée',
       subtitle: 'Échangez en temps réel avec vos collègues. Messages, médias, vocaux — tout en un.',
       accentColor: AppColors.primary),
-  _OnboardingPage(emoji: '🌍', title: 'Traduction\ninstantanée',
+  _OnboardingPage(icon: Icons.language_outlined, title: 'Traduction\ninstantanée',
       subtitle: 'Parlez votre langue, soyez compris dans la leur. La barrière linguistique n\'existe plus.',
       accentColor: AppColors.accent),
-  _OnboardingPage(emoji: '🔒', title: 'Mode\nconfidentiel',
+  _OnboardingPage(icon: Icons.lock_outline_rounded, title: 'Mode\nconfidentiel',
       subtitle: 'Messages éphémères, verrouillage biométrique et chiffrement de bout en bout.',
       accentColor: Color(0xFFAD7BFF)),
 ];
@@ -146,7 +146,7 @@ class _OnboardingPageWidget extends StatelessWidget {
               color: page.accentColor.withValues(alpha: 0.08),
               border: Border.all(color: page.accentColor.withValues(alpha: 0.2), width: 1),
             ),
-            child: Center(child: Text(page.emoji, style: const TextStyle(fontSize: 72))),
+            child: Center(child: Icon(page.icon, size: 72, color: page.accentColor)),
           ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack).fadeIn(duration: 400.ms),
           const SizedBox(height: 48),
           Text(page.title, textAlign: TextAlign.center,

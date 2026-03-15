@@ -127,10 +127,10 @@ class ChatService {
     int? mediaDuration,
   }) async {
     final previews = {
-      MessageType.image: '📷 Photo',
-      MessageType.video: '🎥 Vidéo',
-      MessageType.audio: '🎤 Vocal',
-      MessageType.file:  '📎 Fichier',
+      MessageType.image: 'Photo',
+      MessageType.video: 'Vidéo',
+      MessageType.audio: 'Vocal',
+      MessageType.file:  'Fichier',
     };
 
     await _sendMessageInternal(
@@ -389,6 +389,47 @@ class ChatService {
         .toList();
   }
 
+  /// Rechercher un utilisateur par numéro de téléphone
+  Future<Map<String, dynamic>?> findUserByPhone(String phone) async {
+    // Normaliser le numéro de téléphone
+    final normalizedPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Rechercher dans Firestore par téléphone
+    final snap = await _db
+        .collection('users')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) {
+      return null;
+    }
+
+    return {'id': snap.docs.first.id, ...snap.docs.first.data()};
+  }
+
+  /// Rechercher des utilisateurs par phones (pour matching avec contacts)
+  Future<List<Map<String, dynamic>>> findUsersByPhones(List<String> phones) async {
+    final results = <Map<String, dynamic>>[];
+    
+    for (final phone in phones) {
+      final normalizedPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+      if (normalizedPhone.length < 8) continue; // Skip invalid numbers
+      
+      final snap = await _db
+          .collection('users')
+          .where('phone', isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        results.add({'id': snap.docs.first.id, ...snap.docs.first.data()});
+      }
+    }
+
+    return results;
+  }
+
   // ── CONTACTS ─────────────────────────────────────────────────────────
 
   /// Stream des contacts de l'utilisateur
@@ -413,6 +454,7 @@ class ChatService {
     String? contactPhoto,
     String? phoneNumber,
   }) async {
+    // Sauvegarder le contact
     await _db
         .collection('users')
         .doc(currentUserId)
@@ -424,6 +466,25 @@ class ChatService {
       'phoneNumber': phoneNumber,
       'addedAt': DateTime.now(),
     }, SetOptions(merge: true));
+
+    // Mettre à jour le nom dans les conversations existantes
+    final convs = await _conversations
+        .where('participantIds', arrayContains: currentUserId)
+        .where('isGroup', isEqualTo: false)
+        .get();
+
+    for (final doc in convs.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final ids = List<String>.from(data['participantIds'] ?? []);
+      if (ids.contains(contactUserId) && ids.length == 2) {
+        // Mettre à jour le nom du contact dans la conversation
+        await doc.reference.update({
+          'participantNames.$contactUserId': contactName,
+          if (contactPhoto != null)
+            'participantPhotos.$contactUserId': contactPhoto,
+        });
+      }
+    }
   }
 
   /// Supprimer un contact

@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 48),
 
                 Text(
-                  'Bon retour 👋',
+                  'Bon retour',
                   style: Theme.of(context).textTheme.displaySmall,
                 )
                 .animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),

@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_icons.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 //import '../data/chat_service.dart';
@@ -685,19 +687,27 @@ class _DeletedBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: colors.divider),
         ),
-        child: const Text('🚫 Message supprimé',
-          style: TextStyle(color: AppColors.textHint,
-              fontStyle: FontStyle.italic, fontSize: 13)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.deleted, color: colors.textHint, size: 16),
+            const SizedBox(width: 6),
+            Text('Message supprimé',
+              style: TextStyle(color: colors.textHint,
+                  fontStyle: FontStyle.italic, fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
@@ -896,7 +906,7 @@ class _AvatarWidget extends StatelessWidget {
 class _EmojiPicker extends StatelessWidget {
   final ValueChanged<String> onSelect;
   const _EmojiPicker({required this.onSelect});
-
+  //KILO don't touch these _emojis
   static const _emojis = [
     '😀','😁','😂','🤣','😊','😍','😘','😎','🤩','🥳',
     '😇','🙂','🙃','😉','😌','😜','🤪','😢','😭','😡',
@@ -1064,17 +1074,18 @@ class _EmptyChatState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('👋', style: TextStyle(fontSize: 48)),
+          Icon(AppIcons.waving, size: 48, color: colors.textHint),
           const SizedBox(height: 12),
           Text('Dites bonjour à $name !',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text("Aucun message pour l'instant.",
-              style: TextStyle(color: AppColors.textHint, fontSize: 13)),
+          Text("Aucun message pour l'instant.",
+              style: TextStyle(color: colors.textHint, fontSize: 13)),
         ],
       ),
     );
