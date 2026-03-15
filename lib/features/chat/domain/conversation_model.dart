@@ -1,6 +1,7 @@
 // lib/features/chat/domain/conversation_model.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'message_model.dart';
 
 class ConversationModel {
   final String id;
@@ -10,6 +11,7 @@ class ConversationModel {
   final String? lastMessage;
   final String? lastMessageSenderId;
   final MessageType lastMessageType;
+  final MessageStatus lastMessageStatus;
   final DateTime? lastMessageAt;
   final Map<String, int> unreadCount;
   final bool isGroup;
@@ -24,6 +26,7 @@ class ConversationModel {
     this.lastMessage,
     this.lastMessageSenderId,
     this.lastMessageType = MessageType.text,
+    this.lastMessageStatus = MessageStatus.sent,
     this.lastMessageAt,
     required this.unreadCount,
     this.isGroup = false,
@@ -42,6 +45,9 @@ class ConversationModel {
       lastMessageType:      MessageType.values.firstWhere(
                               (e) => e.name == (map['lastMessageType'] ?? 'text'),
                               orElse: () => MessageType.text),
+      lastMessageStatus:    MessageStatus.values.firstWhere(
+                              (e) => e.name == (map['lastMessageStatus'] ?? 'sent'),
+                              orElse: () => MessageStatus.sent),
       lastMessageAt:        (map['lastMessageAt'] as Timestamp?)?.toDate(),
       unreadCount:          Map<String, int>.from(map['unreadCount'] ?? {}),
       isGroup:              map['isGroup'] ?? false,
@@ -57,6 +63,7 @@ class ConversationModel {
     'lastMessage':         lastMessage,
     'lastMessageSenderId': lastMessageSenderId,
     'lastMessageType':     lastMessageType.name,
+    'lastMessageStatus':   lastMessageStatus.name,
     'lastMessageAt':       lastMessageAt != null ? Timestamp.fromDate(lastMessageAt!) : null,
     'unreadCount':         unreadCount,
     'isGroup':             isGroup,

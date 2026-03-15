@@ -194,6 +194,7 @@ class ChatService {
       'lastMessage':          lastMessagePreview,
       'lastMessageSenderId':  senderId,
       'lastMessageType':      type.name,
+      'lastMessageStatus':    MessageStatus.sent.name,
       'lastMessageAt':        FieldValue.serverTimestamp(),
       ...unreadUpdate,
     });
@@ -222,6 +223,46 @@ class ChatService {
       });
     }
     if (unread.docs.isNotEmpty) await batch.commit();
+
+    // Si le dernier message n'est pas de moi, il vient d'être lu
+    final convSnap = await _conversations.doc(conversationId).get();
+    final convData = convSnap.data() as Map<String, dynamic>?;
+    final lastSender = convData?['lastMessageSenderId'] as String?;
+    if (lastSender != null && lastSender != userId) {
+      await _conversations.doc(conversationId).update({
+        'lastMessageStatus': MessageStatus.read.name,
+      });
+    }
+  }
+
+  Future<void> markAsDelivered({
+    required String conversationId,
+    required String userId,
+  }) async {
+    final unread = await _messages(conversationId)
+        .where('status', isEqualTo: MessageStatus.sent.name)
+        .where('senderId', isNotEqualTo: userId)
+        .get();
+
+    if (unread.docs.isEmpty) return;
+
+    final batch = _db.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {
+        'status': MessageStatus.delivered.name,
+      });
+    }
+    await batch.commit();
+
+    // Si le dernier message n'est pas de moi, il vient d'être délivré
+    final convSnap = await _conversations.doc(conversationId).get();
+    final convData = convSnap.data() as Map<String, dynamic>?;
+    final lastSender = convData?['lastMessageSenderId'] as String?;
+    if (lastSender != null && lastSender != userId) {
+      await _conversations.doc(conversationId).update({
+        'lastMessageStatus': MessageStatus.delivered.name,
+      });
+    }
   }
 
   Future<void> deleteMessage({

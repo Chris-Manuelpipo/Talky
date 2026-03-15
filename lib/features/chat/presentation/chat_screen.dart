@@ -146,6 +146,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
     final convos     = ref.watch(conversationsProvider);
 
+    ref.listen(messagesProvider(widget.conversationId), (_, next) {
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid == null) return;
+      next.whenData((list) {
+        final hasUnread = list.any(
+          (m) => m.senderId != uid && m.status != MessageStatus.read,
+        );
+        if (hasUnread) {
+          ref.read(chatServiceProvider).markAsRead(
+            conversationId: widget.conversationId,
+            userId: uid,
+          );
+        }
+
+        final hasSentFromOther = list.any(
+          (m) => m.senderId != uid && m.status == MessageStatus.sent,
+        );
+        if (hasSentFromOther) {
+          ref.read(chatServiceProvider).markAsDelivered(
+            conversationId: widget.conversationId,
+            userId: uid,
+          );
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context, convos, currentUid),
@@ -271,6 +297,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           participantNames: const {},
           participantPhotos: const {},
           unreadCount: const {},
+          lastMessageStatus: MessageStatus.sent,
         ),
       ),
       orElse: () => null,

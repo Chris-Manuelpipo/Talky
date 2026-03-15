@@ -11,6 +11,7 @@ import '../../../core/router/app_router.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
+import '../domain/message_model.dart';
 
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key});
@@ -20,6 +21,24 @@ class ConversationsScreen extends ConsumerWidget {
     final conversations = ref.watch(conversationsProvider);
     final authState    = ref.watch(authStateProvider);
     final currentUid   = authState.value?.uid ?? '';
+
+    // Marquer comme délivré quand l'utilisateur reçoit des messages
+    ref.listen(conversationsProvider, (_, next) {
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid == null) return;
+      next.whenData((list) {
+        for (final c in list) {
+          if (c.lastMessageSenderId != null &&
+              c.lastMessageSenderId != uid &&
+              c.lastMessageStatus == MessageStatus.sent) {
+            ref.read(chatServiceProvider).markAsDelivered(
+              conversationId: c.id,
+              userId: uid,
+            );
+          }
+        }
+      });
+    });
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -142,15 +161,27 @@ class _ConversationTile extends ConsumerWidget {
                         ),
                       ),
                       if (conversation.lastMessageAt != null)
-                        Text(
-                          _formatTime(conversation.lastMessageAt!),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: unread > 0
-                                ? AppColors.primary : AppColors.textHint,
-                            fontWeight: unread > 0
-                                ? FontWeight.w600 : FontWeight.w400,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatTime(conversation.lastMessageAt!),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: unread > 0
+                                    ? AppColors.primary : AppColors.textHint,
+                                fontWeight: unread > 0
+                                    ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                            ),
+                            if (isMe && conversation.lastMessage != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: _LastStatusIcon(
+                                  status: conversation.lastMessageStatus,
+                                ),
+                              ),
+                          ],
                         ),
                     ],
                   ),
@@ -257,6 +288,26 @@ class _Avatar extends StatelessWidget {
         ),
       ) : null,
     );
+  }
+}
+
+// ── Statut du dernier message ──────────────────────────────────────────
+class _LastStatusIcon extends StatelessWidget {
+  final MessageStatus status;
+  const _LastStatusIcon({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (status) {
+      case MessageStatus.sending:
+        return const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textHint);
+      case MessageStatus.sent:
+        return const Icon(Icons.check_rounded, size: 12, color: AppColors.textHint);
+      case MessageStatus.delivered:
+        return const Icon(Icons.done_all_rounded, size: 12, color: AppColors.textHint);
+      case MessageStatus.read:
+        return const Icon(Icons.done_all_rounded, size: 12, color: AppColors.accent);
+    }
   }
 }
 
