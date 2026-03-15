@@ -31,6 +31,7 @@ class StatusService {
       createdAt:       now,
       expiresAt:       now.add(const Duration(hours: 24)),
       viewedBy:        [],
+      viewedAt:        const {},
     );
     await _statuses.add(model.toMap());
   }
@@ -61,6 +62,7 @@ class StatusService {
       createdAt: now,
       expiresAt: now.add(const Duration(hours: 24)),
       viewedBy:  [],
+      viewedAt:  const {},
     );
     await _statuses.add(model.toMap());
   }
@@ -91,6 +93,7 @@ class StatusService {
       createdAt: now,
       expiresAt: now.add(const Duration(hours: 24)),
       viewedBy:  [],
+      viewedAt:  const {},
     );
     await _statuses.add(model.toMap());
   }
@@ -149,8 +152,10 @@ class StatusService {
   Future<void> markAsViewed(String statusId, String viewerId) async {
     await _statuses.doc(statusId).update({
       'viewedBy': FieldValue.arrayUnion([viewerId]),
+      'viewedAt.$viewerId': FieldValue.serverTimestamp(),
     });
   }
+
 
   // ── Supprimer mon statut ───────────────────────────────────────────
   Future<void> deleteStatus(String statusId) async {

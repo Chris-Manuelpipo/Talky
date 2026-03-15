@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/status_providers.dart';
@@ -51,6 +53,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
   }
 
+
   void _next() {
     if (_currentIndex < widget.group.statuses.length - 1) {
       setState(() => _currentIndex++);
@@ -66,6 +69,59 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
       setState(() => _currentIndex--);
       _progressCtrl.forward(from: 0);
     }
+  }
+
+  Future<void> _showViewers(BuildContext context, StatusModel status) async {
+    final viewers = status.viewedBy;
+    if (viewers.isEmpty) return;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('Vu par ${viewers.length}',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                )),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: viewers.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final uid = viewers[i];
+                    return _ViewerTile(
+                      userId: uid,
+                      viewedAt: status.viewedAt[uid],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -124,55 +180,60 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           ),
 
           // ── Header (avatar + nom + heure) ────────────────────────
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.primary,
-                    backgroundImage: widget.group.userPhoto != null
-                        ? NetworkImage(widget.group.userPhoto!) : null,
-                    child: widget.group.userPhoto == null
-                        ? Text(widget.group.userName[0].toUpperCase(),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.primary,
+                      backgroundImage: widget.group.userPhoto != null
+                          ? NetworkImage(widget.group.userPhoto!) : null,
+                      child: widget.group.userPhoto == null
+                          ? Text(widget.group.userName[0].toUpperCase(),
+                              style: const TextStyle(
+                                  color: Colors.white, fontWeight: FontWeight.w700))
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.group.isMyStatus
+                              ? 'Mon statut' : widget.group.userName,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w700))
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.group.isMyStatus
-                            ? 'Mon statut' : widget.group.userName,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15)),
-                        Text(_timeAgo(status.createdAt),
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 12)),
-                      ],
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15)),
+                          Text(_timeAgo(status.createdAt),
+                            style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 12)),
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  if (isMyStatus)
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded,
-                          color: Colors.white),
-                      onPressed: () async {
-                        await ref.read(statusServiceProvider)
-                            .deleteStatus(status.id);
-                        if (mounted) Navigator.pop(context);
-                      },
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                ],
+                    if (isMyStatus)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded,
+                            color: Colors.white),
+                        onPressed: () async {
+                          await ref.read(statusServiceProvider)
+                              .deleteStatus(status.id);
+                          if (mounted) Navigator.pop(context);
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -182,23 +243,26 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
             Positioned(
               bottom: 32, left: 0, right: 0,
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.visibility_outlined,
-                          color: Colors.white, size: 16),
-                      const SizedBox(width: 6),
-                      Text('${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 13)),
-                    ],
+                child: GestureDetector(
+                  onTap: () => _showViewers(context, status),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.visibility_outlined,
+                            color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text('${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 13)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -276,6 +340,57 @@ class _StatusContent extends StatelessWidget {
           child: Icon(Icons.play_circle_outline_rounded,
               color: Colors.white, size: 80));
     }
+  }
+}
+
+class _ViewerTile extends ConsumerWidget {
+  final String userId;
+  final DateTime? viewedAt;
+  const _ViewerTile({required this.userId, this.viewedAt});
+
+  String _formatViewedAt(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final date = DateTime(dt.year, dt.month, dt.day);
+
+    if (date == today) {
+      return 'Aujourd\'hui à ${DateFormat('HH:mm').format(dt)}';
+    }
+    if (date == yesterday) {
+      return 'Hier à ${DateFormat('HH:mm').format(dt)}';
+    }
+    return 'Vu le ${DateFormat('dd/MM/yyyy HH:mm').format(dt)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final name = (data?['name'] as String?) ?? 'Utilisateur';
+        final photo = data?['photoUrl'] as String?;
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: AppColors.primary,
+            backgroundImage: photo != null ? NetworkImage(photo) : null,
+            child: photo == null
+                ? Text(name[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white))
+                : null,
+          ),
+          title: Text(name,
+            style: const TextStyle(color: AppColors.textPrimary)),
+          subtitle: viewedAt != null
+              ? Text(
+                  _formatViewedAt(viewedAt!),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                )
+              : null,
+        );
+      },
+    );
   }
 }
 

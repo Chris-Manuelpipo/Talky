@@ -924,6 +924,21 @@ class _PresenceText extends StatelessWidget {
   final String userId;
   const _PresenceText({required this.userId});
 
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final date = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
+
+    if (date == today) {
+      return 'Aujourd\'hui à ${DateFormat('HH:mm').format(lastSeen)}';
+    }
+    if (date == yesterday) {
+      return 'Hier à ${DateFormat('HH:mm').format(lastSeen)}';
+    }
+    return 'Vu le ${DateFormat('dd/MM/yyyy HH:mm').format(lastSeen)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -943,12 +958,7 @@ class _PresenceText extends StatelessWidget {
         }
 
         if (lastSeen != null) {
-          final now = DateTime.now();
-          final sameDay = now.year == lastSeen.year &&
-              now.month == lastSeen.month &&
-              now.day == lastSeen.day;
-          final fmt = sameDay ? 'HH:mm' : 'dd/MM HH:mm';
-          return Text('Vu à ${DateFormat(fmt).format(lastSeen)}',
+          return Text(_formatLastSeen(lastSeen),
             style: const TextStyle(fontSize: 11, color: AppColors.textSecondary));
         }
 

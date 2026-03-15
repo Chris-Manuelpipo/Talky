@@ -50,6 +50,8 @@ class StatusScreen extends ConsumerWidget {
         data: (groups) {
           final myGroup = groups.where((g) => g.isMyStatus).firstOrNull;
           final others  = groups.where((g) => !g.isMyStatus).toList();
+          final unread  = others.where((g) => g.hasUnviewed(currentUserId)).toList();
+          final read    = others.where((g) => !g.hasUnviewed(currentUserId)).toList();
 
           return CustomScrollView(
             slivers: [
@@ -72,7 +74,7 @@ class StatusScreen extends ConsumerWidget {
                       myGroup:        myGroup,
                       currentUserId:  currentUserId,
                     ),
-                    if (others.isNotEmpty) ...[
+                    if (unread.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                         child: Text('Récents',
@@ -92,10 +94,34 @@ class StatusScreen extends ConsumerWidget {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _StatusTile(
-                    group:         others[i],
+                    group:         unread[i],
                     currentUserId: currentUserId,
                   ),
-                  childCount: others.length,
+                  childCount: unread.length,
+                ),
+              ),
+
+              if (read.isNotEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    child: Text('Déjà vus',
+                      style: TextStyle(
+                        color:      AppColors.textSecondary,
+                        fontSize:   13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      )),
+                  ),
+                ),
+
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _StatusTile(
+                    group:         read[i],
+                    currentUserId: currentUserId,
+                  ),
+                  childCount: read.length,
                 ),
               ),
 

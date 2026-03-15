@@ -16,6 +16,7 @@ class StatusModel {
   final DateTime createdAt;
   final DateTime expiresAt;      // createdAt + 24h
   final List<String> viewedBy;   // uids qui ont vu
+  final Map<String, DateTime> viewedAt; // uid -> date de vue
 
   const StatusModel({
     required this.id,
@@ -29,6 +30,7 @@ class StatusModel {
     required this.createdAt,
     required this.expiresAt,
     required this.viewedBy,
+    required this.viewedAt,
   });
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
@@ -51,6 +53,13 @@ class StatusModel {
       expiresAt:       (map['expiresAt'] as Timestamp?)?.toDate() ??
                          DateTime.now().add(const Duration(hours: 24)),
       viewedBy:        List<String>.from(map['viewedBy'] ?? []),
+      viewedAt:        (map['viewedAt'] as Map<String, dynamic>? ?? {})
+                         .map((k, v) {
+                           if (v is Timestamp) {
+                             return MapEntry(k, v.toDate());
+                           }
+                           return MapEntry(k, DateTime.now());
+                         }),
     );
   }
 
@@ -65,6 +74,7 @@ class StatusModel {
     'createdAt':       Timestamp.fromDate(createdAt),
     'expiresAt':       Timestamp.fromDate(expiresAt),
     'viewedBy':        viewedBy,
+    'viewedAt':        viewedAt.map((k, v) => MapEntry(k, Timestamp.fromDate(v))),
   };
 }
 
