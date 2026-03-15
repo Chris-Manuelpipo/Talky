@@ -8,6 +8,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/data/auth_providers.dart';
+import 'core/services/presence_service.dart';
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
 @pragma('vm:entry-point')
@@ -50,11 +52,55 @@ void main() async {
   );
 }
 
-class TalkyApp extends ConsumerWidget {
+class TalkyApp extends ConsumerStatefulWidget {
   const TalkyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TalkyApp> createState() => _TalkyAppState();
+}
+
+class _TalkyAppState extends ConsumerState<TalkyApp>
+    with WidgetsBindingObserver {
+  ProviderSubscription? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    _authSub = ref.listenManual(authStateProvider, (_, next) {
+      final user = next.value;
+      if (user != null) {
+        ref.read(authServiceProvider).setOnlineStatus(true);
+        PresenceService.instance.start(user.uid);
+      } else {
+        PresenceService.instance.stop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSub?.close();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final user = ref.read(authStateProvider).value;
+    if (user == null) return;
+    if (state == AppLifecycleState.resumed) {
+      ref.read(authServiceProvider).setOnlineStatus(true);
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      ref.read(authServiceProvider).setOnlineStatus(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Talky',
       debugShowCheckedModeBanner: false,

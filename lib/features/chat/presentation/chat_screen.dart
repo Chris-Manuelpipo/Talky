@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
@@ -331,8 +332,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             children: [
               Text(widget.contactName,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              const Text('En ligne',
-                style: TextStyle(fontSize: 11, color: AppColors.accent)),
+              if (isGroup)
+                const Text('Groupe',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary))
+              else if (otherUserId != null && otherUserId.isNotEmpty)
+                _PresenceText(userId: otherUserId)
+              else
+                const Text('Hors ligne',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
             ],
           ),
         ],
@@ -914,6 +921,46 @@ class _EmojiPicker extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+// ── Présence utilisateur ──────────────────────────────────────────────
+class _PresenceText extends StatelessWidget {
+  final String userId;
+  const _PresenceText({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, snap) {
+        final data = snap.data?.data();
+        final isOnline = data?['isOnline'] == true;
+        final lastSeenTs = data?['lastSeen'];
+        DateTime? lastSeen;
+        if (lastSeenTs is Timestamp) {
+          lastSeen = lastSeenTs.toDate();
+        }
+
+        if (isOnline) {
+          return const Text('En ligne',
+            style: TextStyle(fontSize: 11, color: AppColors.accent));
+        }
+
+        if (lastSeen != null) {
+          final now = DateTime.now();
+          final sameDay = now.year == lastSeen.year &&
+              now.month == lastSeen.month &&
+              now.day == lastSeen.day;
+          final fmt = sameDay ? 'HH:mm' : 'dd/MM HH:mm';
+          return Text('Vu à ${DateFormat(fmt).format(lastSeen)}',
+            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary));
+        }
+
+        return const Text('Hors ligne',
+          style: TextStyle(fontSize: 11, color: AppColors.textSecondary));
+      },
     );
   }
 }
