@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'chat_service.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
+import '../domain/contact_model.dart';
 import '../../auth/data/auth_providers.dart';
 
 // ── Service ────────────────────────────────────────────────────────────

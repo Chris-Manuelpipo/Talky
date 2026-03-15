@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
+import '../domain/contact_model.dart';
 import '../../../core/services/fcm_sender.dart';
 
 class ChatService {
@@ -386,5 +387,87 @@ class ChatService {
         .where((doc) => doc.id != currentUserId)
         .map((doc) => {'id': doc.id, ...doc.data()})
         .toList();
+  }
+
+  // ── CONTACTS ─────────────────────────────────────────────────────────
+
+  /// Stream des contacts de l'utilisateur
+  Stream<List<ContactModel>> contactsStream(String userId) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('contacts')
+        .orderBy('addedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ContactModel.fromMap(
+                doc.data() as Map<String, dynamic>, doc.id))
+            .toList());
+  }
+
+  /// Ajouter ou mettre à jour un contact
+  Future<void> addOrUpdateContact({
+    required String currentUserId,
+    required String contactUserId,
+    required String contactName,
+    String? contactPhoto,
+    String? phoneNumber,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .doc(contactUserId)
+        .set({
+      'contactName': contactName,
+      'contactPhoto': contactPhoto,
+      'phoneNumber': phoneNumber,
+      'addedAt': DateTime.now(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Supprimer un contact
+  Future<void> removeContact({
+    required String currentUserId,
+    required String contactUserId,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .doc(contactUserId)
+        .delete();
+  }
+
+  /// Vérifier si un utilisateur est déjà un contact
+  Future<bool> isContact({
+    required String currentUserId,
+    required String contactUserId,
+  }) async {
+    final doc = await _db
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .doc(contactUserId)
+        .get();
+    return doc.exists;
+  }
+
+  /// Obtenir un contact spécifique
+  Future<ContactModel?> getContact({
+    required String currentUserId,
+    required String contactUserId,
+  }) async {
+    final doc = await _db
+        .collection('users')
+        .doc(currentUserId)
+        .collection('contacts')
+        .doc(contactUserId)
+        .get();
+    if (doc.exists) {
+      return ContactModel.fromMap(
+          doc.data() as Map<String, dynamic>, doc.id);
+    }
+    return null;
   }
 }

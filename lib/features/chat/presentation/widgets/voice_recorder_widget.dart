@@ -221,6 +221,8 @@ class VoiceMessageBubble extends StatefulWidget {
   final String? audioUrl;
   final int? durationSeconds;
   final bool isMine;
+  final bool isGroup;
+  final String senderName;
   final DateTime sentAt;
 
   const VoiceMessageBubble({
@@ -228,6 +230,8 @@ class VoiceMessageBubble extends StatefulWidget {
     this.audioUrl,
     this.durationSeconds,
     required this.isMine,
+    required this.isGroup,
+    required this.senderName,
     required this.sentAt,
   });
 
@@ -334,73 +338,93 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       alignment: widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.72,
-          minWidth: 200,
-        ),
-        decoration: BoxDecoration(
-          gradient: widget.isMine ? const LinearGradient(
-            colors: [AppColors.primary, Color(0xFF9B7DFF)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
-          ) : null,
-          color: widget.isMine ? null : AppColors.surface,
-          borderRadius: BorderRadius.only(
-            topLeft:     const Radius.circular(18),
-            topRight:    const Radius.circular(18),
-            bottomLeft:  Radius.circular(widget.isMine ? 18 : 4),
-            bottomRight: Radius.circular(widget.isMine ? 4 : 18),
-          ),
-        ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: widget.isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: _togglePlay,
-              child: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.2),
+            // Afficher le nom de l'expéditeur pour les messages de groupe
+            if (!widget.isMine && widget.isGroup && widget.senderName.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, bottom: 4),
+                child: Text(
+                  widget.senderName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
                 ),
-                child: _hasError
-                    ? const Icon(Icons.error_outline_rounded,
-                        color: Colors.white, size: 22)
-                    : Icon(
-                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                        color: Colors.white, size: 24),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.72,
+                minWidth: 200,
+              ),
+              decoration: BoxDecoration(
+                gradient: widget.isMine ? const LinearGradient(
+                  colors: [AppColors.primary, Color(0xFF9B7DFF)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ) : null,
+                color: widget.isMine ? null : AppColors.surface,
+                borderRadius: BorderRadius.only(
+                  topLeft:     const Radius.circular(18),
+                  topRight:    const Radius.circular(18),
+                  bottomLeft:  Radius.circular(widget.isMine ? 18 : 4),
+                  bottomRight: Radius.circular(widget.isMine ? 4 : 18),
+                ),
+              ),
+              child: Row(
                 children: [
-                  SliderTheme(
-                    data: SliderThemeData(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                      activeTrackColor: Colors.white,
-                      inactiveTrackColor: Colors.white.withOpacity(0.3),
-                      thumbColor: Colors.white,
-                    ),
-                    child: Slider(
-                      value: _progress,
-                      onChanged: _seek,
+                  GestureDetector(
+                    onTap: _togglePlay,
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.2),
+                      ),
+                      child: _hasError
+                          ? const Icon(Icons.error_outline_rounded,
+                              color: Colors.white, size: 22)
+                          : Icon(
+                              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              color: Colors.white, size: 24),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('🎤', style: TextStyle(fontSize: 10)),
-                        Text(
-                          shownDuration.inSeconds > 0
-                              ? _formatDurationFromDuration(shownDuration)
-                              : _formatDuration(widget.durationSeconds),
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                        SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 3,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                            activeTrackColor: Colors.white,
+                            inactiveTrackColor: Colors.white.withOpacity(0.3),
+                            thumbColor: Colors.white,
+                          ),
+                          child: Slider(
+                            value: _progress,
+                            onChanged: _seek,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('🎤', style: TextStyle(fontSize: 10)),
+                              Text(
+                                shownDuration.inSeconds > 0
+                                    ? _formatDurationFromDuration(shownDuration)
+                                    : _formatDuration(widget.durationSeconds),
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

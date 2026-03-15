@@ -9,11 +9,13 @@ import 'package:intl/intl.dart';
 class MessageImageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isMine;
+  final bool isGroup;
 
   const MessageImageBubble({
     super.key,
     required this.message,
     required this.isMine,
+    required this.isGroup,
   });
 
   @override
@@ -48,6 +50,27 @@ class MessageImageBubble extends StatelessWidget {
             ),
             child: Stack(
               children: [
+                // Nom de l'expéditeur pour les messages de groupe
+                if (!isMine && isGroup && message.senderName.isNotEmpty)
+                  Positioned(
+                    top: 8,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        message.senderName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 // Image
                 CachedNetworkImage(
                   imageUrl:    message.mediaUrl ?? '',

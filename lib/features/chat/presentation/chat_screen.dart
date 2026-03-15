@@ -180,6 +180,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               error:   (e, _) => Center(child: Text('Erreur: $e')),
               data:    (list) {
                 if (list.isEmpty) return _EmptyChatState(name: widget.contactName);
+                
+                // Déterminer si c'est un groupe
+                final isGroup = convos.maybeWhen(
+                  data: (convoList) {
+                    final convo = convoList.firstWhere(
+                      (c) => c.id == widget.conversationId,
+                      orElse: () => ConversationModel(
+                        id: widget.conversationId,
+                        participantIds: const [],
+                        participantNames: const {},
+                        participantPhotos: const {},
+                        unreadCount: const {},
+                        lastMessageStatus: MessageStatus.sent,
+                      ),
+                    );
+                    return convo.isGroup;
+                  },
+                  orElse: () => false,
+                );
+                
                 WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
                 return ListView.builder(
                   controller:  _scrollCtrl,
@@ -193,7 +213,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     return Column(
                       children: [
                         if (showDate) _DateDivider(date: msg.sentAt),
-                        _buildMessageWidget(msg, isMine),
+                        _buildMessageWidget(msg, isMine, isGroup),
                       ],
                     );
                   },
@@ -251,27 +271,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildMessageWidget(MessageModel msg, bool isMine) {
+  Widget _buildMessageWidget(MessageModel msg, bool isMine, bool isGroup) {
     if (msg.isDeleted) {
       return _DeletedBubble(isMine: isMine);
     }
 
     switch (msg.type) {
       case MessageType.image:
-        return MessageImageBubble(message: msg, isMine: isMine);
+        return MessageImageBubble(message: msg, isMine: isMine, isGroup: isGroup);
       case MessageType.audio:
         return VoiceMessageBubble(
           audioUrl:        msg.mediaUrl,
           durationSeconds: msg.mediaDuration,
           isMine:          isMine,
+          isGroup:         isGroup,
+          senderName:      msg.senderName,
           sentAt:          msg.sentAt,
         );
       case MessageType.video:
-        return VideoMessageBubble(message: msg, isMine: isMine);
+        return VideoMessageBubble(message: msg, isMine: isMine, isGroup: isGroup);
       default:
         return _MessageBubble(
           message:  msg,
           isMine:   isMine,
+          isGroup:  isGroup,
           onReply:  () => setState(() => _replyTo = msg),
           onDelete: isMine ? () => _deleteMessage(msg) : null,
         );
@@ -507,12 +530,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 class _MessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isMine;
+  final bool isGroup;
   final VoidCallback onReply;
   final VoidCallback? onDelete;
 
   const _MessageBubble({
     required this.message,
     required this.isMine,
+    required this.isGroup,
     required this.onReply,
     this.onDelete,
   });
@@ -549,6 +574,19 @@ class _MessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Afficher le nom de l'expéditeur pour les messages de groupe
+                if (!isMine && isGroup && message.senderName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      message.senderName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
                 if (message.replyToContent != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 6),
