@@ -69,7 +69,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       );
 
       if (mounted) {
-        context.go(
+        context.push(
           AppRoutes.chat.replaceAll(':conversationId', convId),
           extra: {'name': _nameCtrl.text.trim(), 'photo': null},
         );

@@ -187,7 +187,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
         otherUserPhoto:   otherUser['photoUrl'] as String?,
       );
       if (context.mounted) {
-        context.go(
+        context.push(
           AppRoutes.chat.replaceAll(':conversationId', convId),
           extra: {
             'name':  otherUser['name'] ?? 'Utilisateur',
