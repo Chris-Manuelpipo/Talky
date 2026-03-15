@@ -89,6 +89,9 @@ class CallNotifier extends StateNotifier<CallState> {
     _service.events.listen((event) {
       switch (event) {
         case CallEvent.callAnswered:
+          state = state.copyWith(status: CallStatus.calling);
+          break;
+        case CallEvent.callConnected:
           state = state.copyWith(status: CallStatus.connected);
           break;
         case CallEvent.callRejected:
@@ -149,7 +152,7 @@ class CallNotifier extends StateNotifier<CallState> {
     if (state.incomingCall == null) return;
     await _service.answerCall(state.incomingCall!);
     state = state.copyWith(
-      status:       CallStatus.connected,
+      status:       CallStatus.calling,
       remoteUserId: state.incomingCall!.callerId,
     );
   }

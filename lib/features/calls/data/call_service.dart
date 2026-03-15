@@ -13,6 +13,7 @@ const _signalingUrl = 'https://talky-signaling.onrender.com';
 enum CallEvent {
   incomingCall,
   callAnswered,
+  callConnected,
   callRejected,
   callEnded,
   callFailed,
@@ -52,9 +53,13 @@ class CallService {
   // Streams pour notifier l'UI
   final _eventCtrl   = StreamController<CallEvent>.broadcast();
   final _incomingCtrl = StreamController<IncomingCallData>.broadcast();
+  final _localStreamCtrl = StreamController<MediaStream?>.broadcast();
+  final _remoteStreamCtrl = StreamController<MediaStream?>.broadcast();
 
   Stream<CallEvent>       get events       => _eventCtrl.stream;
   Stream<IncomingCallData> get incomingCalls => _incomingCtrl.stream;
+  Stream<MediaStream?> get localStreamUpdates => _localStreamCtrl.stream;
+  Stream<MediaStream?> get remoteStreamUpdates => _remoteStreamCtrl.stream;
 
   MediaStream? get localStream  => _localStream;
   MediaStream? get remoteStream => _remoteStream;
@@ -254,11 +259,16 @@ class CallService {
     _peerConnection!.onTrack = (event) {
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
+        _remoteStreamCtrl.add(_remoteStream);
       }
     };
 
     _peerConnection!.onConnectionState = (state) {
       debugPrint('[WebRTC] Connection state: $state');
+      if (state ==
+          RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        _eventCtrl.add(CallEvent.callConnected);
+      }
     };
   }
 
@@ -276,6 +286,7 @@ class CallService {
     _localStream!.getTracks().forEach((track) {
       _peerConnection!.addTrack(track, _localStream!);
     });
+    _localStreamCtrl.add(_localStream);
   }
 
   // ── Nettoyage ─────────────────────────────────────────────────────
@@ -287,6 +298,8 @@ class CallService {
     _peerConnection?.close();
     _peerConnection = null;
     _remoteUserId = null;
+    _localStreamCtrl.add(null);
+    _remoteStreamCtrl.add(null);
   }
 
   void disconnect() {
@@ -300,5 +313,7 @@ class CallService {
     _socket?.disconnect();
     _eventCtrl.close();
     _incomingCtrl.close();
+    _localStreamCtrl.close();
+    _remoteStreamCtrl.close();
   }
 }

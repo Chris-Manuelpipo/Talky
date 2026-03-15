@@ -1,6 +1,7 @@
 // lib/features/calls/presentation/call_screen.dart
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -22,12 +23,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   int _durationSeconds  = 0;
   bool _showControls    = true;
   Timer? _hideTimer;
+  StreamSubscription<MediaStream?>? _localStreamSub;
+  StreamSubscription<MediaStream?>? _remoteStreamSub;
 
   @override
   void initState() {
     super.initState();
     _initRenderers();
-    _startDurationTimer();
+    _listenStreamUpdates();
     _scheduleHideControls();
   }
 
@@ -52,10 +55,33 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     });
   }
 
+  void _listenStreamUpdates() {
+    final service = ref.read(callServiceProvider);
+    _localStreamSub = service.localStreamUpdates.listen((stream) {
+      if (mounted) {
+        setState(() => _localRenderer.srcObject = stream);
+      }
+    });
+    _remoteStreamSub = service.remoteStreamUpdates.listen((stream) {
+      if (mounted) {
+        setState(() => _remoteRenderer.srcObject = stream);
+      }
+    });
+  }
+
   void _startDurationTimer() {
+    _durationTimer?.cancel();
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _durationSeconds++);
     });
+  }
+
+  void _stopDurationTimer({bool reset = false}) {
+    _durationTimer?.cancel();
+    _durationTimer = null;
+    if (reset && mounted) {
+      setState(() => _durationSeconds = 0);
+    }
   }
 
   void _scheduleHideControls() {
@@ -66,8 +92,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   void _onTap() {
-    setState(() => _showControls = true);
-    _scheduleHideControls();
+    setState(() => _showControls = !_showControls);
+    if (_showControls) {
+      _scheduleHideControls();
+    } else {
+      _hideTimer?.cancel();
+    }
   }
 
   String get _formattedDuration {
@@ -82,6 +112,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _remoteRenderer.dispose();
     _durationTimer?.cancel();
     _hideTimer?.cancel();
+    _localStreamSub?.cancel();
+    _remoteStreamSub?.cancel();
     super.dispose();
   }
 
@@ -92,7 +124,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     // Quand l'appel se termine → fermer l'écran
     ref.listen(callProvider, (prev, next) {
+      if (next.status == CallStatus.calling && mounted) {
+        _stopDurationTimer(reset: true);
+      }
+      if (next.status == CallStatus.connected && mounted) {
+        _startDurationTimer();
+      }
       if (next.status == CallStatus.idle && mounted) {
+        _stopDurationTimer(reset: true);
         Navigator.pop(context);
       }
     });
@@ -106,26 +145,61 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             // ── Vidéo remote (plein écran) ────────────────────────
             if (isVideo)
               Positioned.fill(
-                child: RTCVideoView(
-                  _remoteRenderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                ),
+                child: _remoteRenderer.srcObject == null
+                    ? _VideoWaiting(callState: callState)
+                    : RTCVideoView(
+                        _remoteRenderer,
+                        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      ),
               )
             else
               _AudioCallBackground(callState: callState),
 
-            // ── Vidéo locale (petit coin) ──────────────────────────
+            // ── Soft top overlay for readability ────────────────────
             if (isVideo)
               Positioned(
-                right: 16, top: 60,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 100, height: 140,
+                top: 0, left: 0, right: 0, height: 180,
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.75),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // ── Vidéo locale (petit coin) ──────────────────────────
+            if (isVideo && _showControls)
+              Positioned(
+                right: 16, top: 72,
+                child: Container(
+                  width: 110, height: 150,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
                     child: callState.isCameraOff
-                        ? Container(color: Colors.black,
+                        ? Container(
+                            color: Colors.black,
                             child: const Icon(Icons.videocam_off_rounded,
-                                color: Colors.white, size: 32))
+                                color: Colors.white, size: 32),
+                          )
                         : RTCVideoView(_localRenderer, mirror: true),
                   ),
                 ),
@@ -138,22 +212,42 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 duration: const Duration(milliseconds: 300),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(callState.remoteName ?? 'Appel',
-                        style: const TextStyle(
-                          color: Colors.white, fontSize: 28,
-                          fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      Text(
-                        callState.status == CallStatus.calling
-                            ? 'Appel en cours...'
-                            : _formattedDuration,
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 16)),
-                    ],
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.12),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(callState.remoteName ?? 'Appel',
+                                style: const TextStyle(
+                                  color: Colors.white, fontSize: 20,
+                                  fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 4),
+                              Text(
+                                callState.status == CallStatus.calling
+                                    ? 'Connexion...'
+                                    : _formattedDuration,
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                    fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -166,75 +260,101 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 opacity: _showControls || !isVideo ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end:   Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.8),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Micro
-                      _CallButton(
-                        icon:      callState.isMuted
-                            ? Icons.mic_off_rounded
-                            : Icons.mic_rounded,
-                        label:     callState.isMuted ? 'Micro off' : 'Micro',
-                        color:     callState.isMuted
-                            ? Colors.red.withOpacity(0.8)
-                            : Colors.white.withOpacity(0.2),
-                        onPressed: () => ref.read(callProvider.notifier).toggleMute(),
-                      ),
-
-                      // Terminer
-                      _CallButton(
-                        icon:      Icons.call_end_rounded,
-                        label:     'Terminer',
-                        color:     Colors.red,
-                        size:      64,
-                        onPressed: () => ref.read(callProvider.notifier).endCall(),
-                      ),
-
-                      // Caméra (si vidéo) ou haut-parleur (si audio)
-                      if (isVideo)
-                        _CallButton(
-                          icon:      callState.isCameraOff
-                              ? Icons.videocam_off_rounded
-                              : Icons.videocam_rounded,
-                          label:     'Caméra',
-                          color:     callState.isCameraOff
-                              ? Colors.red.withOpacity(0.8)
-                              : Colors.white.withOpacity(0.2),
-                          onPressed: () => ref.read(callProvider.notifier).toggleCamera(),
-                        )
-                      else
-                        _CallButton(
-                          icon:      Icons.volume_up_rounded,
-                          label:     'HP',
-                          color:     Colors.white.withOpacity(0.2),
-                          onPressed: () {},
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.45),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
                         ),
-                    ],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            // Micro
+                            _CallButton(
+                              icon:      callState.isMuted
+                                  ? Icons.mic_off_rounded
+                                  : Icons.mic_rounded,
+                              label:     callState.isMuted ? 'Micro off' : 'Micro',
+                              color:     callState.isMuted
+                                  ? Colors.red.withOpacity(0.85)
+                                  : Colors.white.withOpacity(0.18),
+                              onPressed: () =>
+                                  ref.read(callProvider.notifier).toggleMute(),
+                            ),
+
+                            // Terminer
+                            _CallButton(
+                              icon:      Icons.call_end_rounded,
+                              label:     'Terminer',
+                              color:     Colors.red,
+                              size:      64,
+                              onPressed: () =>
+                                  ref.read(callProvider.notifier).endCall(),
+                            ),
+
+                            // Caméra (si vidéo) ou haut-parleur (si audio)
+                            if (isVideo)
+                              _CallButton(
+                                icon:      callState.isCameraOff
+                                    ? Icons.videocam_off_rounded
+                                    : Icons.videocam_rounded,
+                                label:     'Caméra',
+                                color:     callState.isCameraOff
+                                    ? Colors.red.withOpacity(0.85)
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () =>
+                                    ref.read(callProvider.notifier).toggleCamera(),
+                              )
+                            else
+                              _CallButton(
+                                icon:      Icons.volume_up_rounded,
+                                label:     'HP',
+                                color:     Colors.white.withOpacity(0.18),
+                                onPressed: () {},
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
 
             // ── Bouton retourner caméra ────────────────────────────
-            if (isVideo)
+            if (isVideo && _showControls)
               Positioned(
-                top: 60, left: 16,
+                top: 72, left: 16,
                 child: SafeArea(
-                  child: IconButton(
-                    icon: const Icon(Icons.flip_camera_ios_rounded,
-                        color: Colors.white, size: 28),
-                    onPressed: () => ref.read(callProvider.notifier).switchCamera(),
+                  child: ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.35),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.flip_camera_ios_rounded,
+                              color: Colors.white, size: 22),
+                          onPressed: () =>
+                              ref.read(callProvider.notifier).switchCamera(),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -299,6 +419,41 @@ class _AudioCallBackground extends StatelessWidget {
             const Text('Appel audio',
               style: TextStyle(
                   color: Colors.white54, fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Placeholder vidéo en attente ──────────────────────────────────────
+class _VideoWaiting extends StatelessWidget {
+  final CallState callState;
+  const _VideoWaiting({required this.callState});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF101018), Color(0xFF0B0F14)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.videocam_rounded,
+                color: Colors.white54, size: 64),
+            const SizedBox(height: 12),
+            Text(
+              callState.status == CallStatus.calling
+                  ? 'Connexion vidéo...'
+                  : 'En attente de la caméra…',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
           ],
         ),
       ),
