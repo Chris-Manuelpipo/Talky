@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
@@ -17,6 +18,8 @@ import 'widgets/media_picker_sheet.dart';
 import 'widgets/message_image_bubble.dart';
 import 'widgets/voice_recorder_widget.dart';
 import 'widgets/video_message_bubble.dart';
+import '../../calls/data/call_providers.dart';
+import '../../calls/presentation/call_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -75,6 +78,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _openEmojiPicker() async {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EmojiPicker(
+        onSelect: (emoji) {
+          Navigator.pop(context);
+          _insertEmoji(emoji);
+        },
+      ),
+    );
+  }
+
+  void _insertEmoji(String emoji) {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final newText = text.replaceRange(start, end, emoji);
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+    setState(() => _isTyping = newText.trim().isNotEmpty);
+  }
+
   Future<void> _openMediaPicker() async {
     final user = ref.read(authStateProvider).value;
     if (user == null) return;
@@ -114,10 +144,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final messages   = ref.watch(messagesProvider(widget.conversationId));
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
+    final convos     = ref.watch(conversationsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, convos, currentUid),
       body: Column(
         children: [
           // Liste messages
@@ -189,6 +220,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onSend:     _send,
               onAttach:   _openMediaPicker,
               onMicHold:  () => setState(() => _isRecording = true),
+              onEmoji:    _openEmojiPicker,
               onChanged:  (v) => setState(() => _isTyping = v.isNotEmpty),
               isTyping:   _isTyping,
             ),
@@ -224,8 +256,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    AsyncValue<List<ConversationModel>> convos,
+    String currentUid,
+  ) {
     final canPop = Navigator.of(context).canPop();
+    final convo = convos.maybeWhen(
+      data: (list) => list.firstWhere(
+        (c) => c.id == widget.conversationId,
+        orElse: () => ConversationModel(
+          id: widget.conversationId,
+          participantIds: const [],
+          participantNames: const {},
+          participantPhotos: const {},
+          unreadCount: const {},
+        ),
+      ),
+      orElse: () => null,
+    );
+
+    final isGroup = convo?.isGroup ?? false;
+    final otherUserId = (convo == null || currentUid.isEmpty)
+        ? null
+        : convo.participantIds.firstWhere(
+            (id) => id != currentUid,
+            orElse: () => '',
+          );
+    final canCall = !isGroup && otherUserId != null && otherUserId.isNotEmpty;
+
     return AppBar(
       backgroundColor: AppColors.surface,
       automaticallyImplyLeading: false,
@@ -252,11 +311,122 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.videocam_rounded), onPressed: () {}),
-        IconButton(icon: const Icon(Icons.call_rounded), onPressed: () {}),
+        IconButton(
+          icon: const Icon(Icons.videocam_rounded),
+          onPressed: canCall
+              ? () => _startCallFromChat(
+                  context,
+                  otherUserId!,
+                  isVideo: true,
+                )
+              : () => _showCallDisabled(context, isGroup),
+        ),
+        IconButton(
+          icon: const Icon(Icons.call_rounded),
+          onPressed: canCall
+              ? () => _startCallFromChat(
+                  context,
+                  otherUserId!,
+                  isVideo: false,
+                )
+              : () => _showCallDisabled(context, isGroup),
+        ),
         IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: () {}),
       ],
     );
+  }
+
+  void _showCallDisabled(BuildContext context, bool isGroup) {
+    final msg = isGroup
+        ? 'Appel de groupe non supporté'
+        : 'Contact indisponible';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _startCallFromChat(
+    BuildContext context,
+    String targetUserId, {
+    required bool isVideo,
+  }) async {
+    final micStatus = await Permission.microphone.request();
+    if (!micStatus.isGranted) {
+      if (micStatus.isPermanentlyDenied) {
+        await openAppSettings();
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permission microphone refusée'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (isVideo) {
+      final camStatus = await Permission.camera.request();
+      if (!camStatus.isGranted) {
+        if (camStatus.isPermanentlyDenied) {
+          await openAppSettings();
+        }
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Permission caméra refusée'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final service = ref.read(callServiceProvider);
+    if (!service.isConnected) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connexion au serveur en cours... Réessaie dans 5s'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await ref.read(callProvider.notifier).startCall(
+        targetUserId: targetUserId,
+        targetName:   widget.contactName,
+        targetPhoto:  widget.contactPhoto,
+        isVideo:      isVideo,
+      );
+
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CallScreen()),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur appel: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _deleteMessage(MessageModel msg) async {
@@ -516,6 +686,7 @@ class _InputBar extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onAttach;
   final VoidCallback onMicHold;
+  final VoidCallback onEmoji;
   final ValueChanged<String> onChanged;
   final bool isTyping;
 
@@ -524,6 +695,7 @@ class _InputBar extends StatelessWidget {
     required this.onSend,
     required this.onAttach,
     required this.onMicHold,
+    required this.onEmoji,
     required this.onChanged,
     required this.isTyping,
   });
@@ -549,7 +721,7 @@ class _InputBar extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.emoji_emotions_outlined,
                           color: AppColors.textHint),
-                      onPressed: () {},
+                      onPressed: onEmoji,
                     ),
                     Expanded(
                       child: TextField(
@@ -632,6 +804,81 @@ class _AvatarWidget extends StatelessWidget {
         child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
           style: const TextStyle(color: Colors.white,
               fontWeight: FontWeight.w700))) : null,
+    );
+  }
+}
+
+// ── Emoji picker (stickers simples) ────────────────────────────────────
+class _EmojiPicker extends StatelessWidget {
+  final ValueChanged<String> onSelect;
+  const _EmojiPicker({required this.onSelect});
+
+  static const _emojis = [
+    '😀','😁','😂','🤣','😊','😍','😘','😎','🤩','🥳',
+    '😇','🙂','🙃','😉','😌','😜','🤪','😢','😭','😡',
+    '😤','😱','🥶','🥵','🤯','😴','🤔','🤫','🤐','😬',
+    '👍','👎','👏','🙏','🤝','💪','✌️','🤟','🤘','👌',
+    '🔥','✨','🎉','💯','💥','⭐','🌈','⚡','☀️','🌙',
+    '❤️','💔','💙','💚','💛','🧡','💜','🤍','🤎','🖤',
+    '🐶','🐱','🐻','🐼','🐨','🐯','🦁','🐸','🐵','🐧',
+    '🍕','🍔','🍟','🌭','🥗','🍣','🍩','🍪','🍫','🍰',
+    '⚽','🏀','🏈','🎮','🎧','🎵','🎬','📷','✈️','🚗',
+    '🏡','🌍','🧠','💡','📌','✅','❌','🔔','📞','🎁',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Stickers (emojis)',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              )),
+            const SizedBox(height: 16),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 8,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+              ),
+              itemCount: _emojis.length,
+              itemBuilder: (_, i) {
+                final emoji = _emojis[i];
+                return GestureDetector(
+                  onTap: () => onSelect(emoji),
+                  child: Center(
+                    child: Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
