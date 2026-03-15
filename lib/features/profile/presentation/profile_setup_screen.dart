@@ -86,6 +86,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       );
 
       await authService.saveUserProfile(user);
+      await authService.saveFcmToken(uid);
 
       // Mettre à jour nom + photo dans toutes les conversations existantes
       await _updateNameInConversations(uid, _nameController.text.trim(), photoUrl);

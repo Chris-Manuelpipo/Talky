@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
+import '../../../core/services/fcm_sender.dart';
 
 class ChatService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -200,6 +201,17 @@ class ChatService {
     });
 
     await batch.commit();
+
+    // Notify other participants (best-effort).
+    for (final uid in participantIds) {
+      if (uid == senderId) continue;
+      await FcmSender.sendMessageNotification(
+        toUserId: uid,
+        senderName: senderName,
+        message: lastMessagePreview,
+        conversationId: conversationId,
+      );
+    }
   }
 
   Future<void> markAsRead({

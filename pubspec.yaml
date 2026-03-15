@@ -17,6 +17,7 @@ dependencies:
   firebase_storage: ^12.4.10
   firebase_messaging: ^15.2.10
   firebase_database: ^11.3.1
+  flutter_local_notifications: ^18.0.1
 
   # State management
   flutter_riverpod: ^2.6.1
@@ -60,6 +61,7 @@ dependencies:
   uuid: ^4.5.1
   cloudinary_public: ^0.23.1
   record: ^6.2.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

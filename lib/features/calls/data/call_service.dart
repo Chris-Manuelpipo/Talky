@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import '../../../core/services/fcm_sender.dart';
 
 // ⚠️ Remplace par ton URL Render après déploiement
 const _signalingUrl = 'https://talky-signaling.onrender.com';
@@ -156,6 +157,15 @@ class CallService {
         'type': offer.type,
       },
     });
+
+    if (_myUserId != null) {
+      await FcmSender.sendCallNotification(
+        toUserId: targetUserId,
+        callerName: callerName,
+        isVideo: isVideo,
+        callerId: _myUserId!,
+      );
+    }
   }
 
   // ── Accepter un appel ──────────────────────────────────────────────

@@ -39,6 +39,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           if (mounted) {
             context.go(isComplete ? AppRoutes.home : AppRoutes.profileSetup);
           }
+          if (isComplete) {
+            await ref.read(authServiceProvider).saveFcmToken(user.uid);
+          }
         }
       },
       loading: () => context.go(AppRoutes.onboarding),

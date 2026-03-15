@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../domain/user_model.dart';
 
 class AuthService {
@@ -104,6 +105,26 @@ class AuthService {
       'isOnline': isOnline,
       'lastSeen': FieldValue.serverTimestamp(),
     });
+  }
+
+  // ── FCM ───────────────────────────────────────────────────────────
+  Future<void> saveFcmToken(String userId) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+
+      await _firestore.collection('users').doc(userId).update({
+        'fcmToken': token,
+      });
+
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        _firestore.collection('users').doc(userId).update({
+          'fcmToken': newToken,
+        });
+      });
+    } catch (_) {
+      // Best-effort: FCM token may be unavailable on some devices.
+    }
   }
 
   // ── DÉCONNEXION ───────────────────────────────────────────────────

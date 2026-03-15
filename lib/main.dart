@@ -10,12 +10,13 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
+import 'core/services/notification_service.dart';
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // TODO Phase 3 : traiter la notification en arrière-plan
+  await NotificationService.instance.showNotificationFromMessage(message);
 }
 
 void main() async {
@@ -28,6 +29,8 @@ void main() async {
 
   // Enregistrer le handler background FCM
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await NotificationService.instance.init();
 
   // Orientation portrait uniquement
   await SystemChrome.setPreferredOrientations([
@@ -73,6 +76,7 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
       if (user != null) {
         ref.read(authServiceProvider).setOnlineStatus(true);
         PresenceService.instance.start(user.uid);
+        NotificationService.instance.registerTokenForUser(user.uid);
       } else {
         PresenceService.instance.stop();
       }

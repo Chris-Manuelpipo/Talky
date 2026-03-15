@@ -26,6 +26,8 @@ abstract class AppRoutes {
   static const chat         = '/chat/:conversationId';
 }
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 // ── Provider profil complet ────────────────────────────────────────────
 // Vérifie dans Firestore si le profil de l'utilisateur est complet
 final profileCompleteProvider = FutureProvider<bool>((ref) async {
@@ -42,6 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    navigatorKey: rootNavigatorKey,
     refreshListenable: _RouterNotifier(ref),
     redirect: (context, state) {
       final isLoading  = authState.isLoading || profileComplete.isLoading;
