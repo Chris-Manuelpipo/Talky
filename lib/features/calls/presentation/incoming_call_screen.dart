@@ -6,12 +6,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../../core/constants/app_icons.dart';
 import '../data/call_providers.dart';
+import '../data/call_service.dart';
 import 'call_screen.dart';
 
 class IncomingCallScreen extends ConsumerStatefulWidget {
-  const IncomingCallScreen({super.key});
+  final String? callerId;
+  final String? callerName;
+  final bool? isVideo;
+  final Map<String, dynamic>? offer;
+
+  const IncomingCallScreen({
+    super.key,
+    this.callerId,
+    this.callerName,
+    this.isVideo,
+    this.offer,
+  });
 
   @override
   ConsumerState<IncomingCallScreen> createState() => _IncomingCallScreenState();
@@ -34,6 +45,22 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     // Auto-rejeter après 60s
     _autoRejectTimer = Timer(const Duration(seconds: 60), () {
       if (mounted) ref.read(callProvider.notifier).rejectCall();
+    });
+    
+    // Si des paramètres d'appel sont passés (via notification), mettre à jour le callProvider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.callerId != null) {
+        // Créer des données d'appel entrantes avec l'offre SDP
+        final incomingData = IncomingCallData(
+          callerId: widget.callerId!,
+          callerName: widget.callerName ?? 'Appel entrant',
+          callerPhoto: null,
+          isVideo: widget.isVideo ?? false,
+          offer: widget.offer ?? const <String, dynamic>{},
+        );
+        // Mettre à jour le callProvider avec les données d'appel
+        ref.read(callProvider.notifier).setIncomingCallData(incomingData);
+      }
     });
   }
 

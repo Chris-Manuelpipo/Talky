@@ -1,5 +1,6 @@
 // lib/core/services/notification_service.dart
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../router/app_router.dart';
+import '../../features/calls/presentation/incoming_call_screen.dart';
 
 class NotificationService {
   NotificationService._();
@@ -15,6 +17,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  
+  // Stocker les données d'appel entrant pour les utiliser après navigation
+  static Map<String, dynamic>? _pendingIncomingCall;
+  
+  static Map<String, dynamic>? get pendingIncomingCall => _pendingIncomingCall;
 
   static const _messageChannel = AndroidNotificationChannel(
     'messages',
@@ -147,6 +154,55 @@ class NotificationService {
   void _handleMessageNavigation(RemoteMessage message) {
     final data = message.data;
     final type = data['type'] as String?;
+    
+    // Gérer les appels entrants - afficher l'écran d'appel
+    if (type == 'call') {
+      final callerId = data['callerId'] as String?;
+      final callerName = message.notification?.title ?? data['title'] as String? ?? 'Appel entrant';
+      final isVideo = (data['body'] as String?)?.contains('vidéo') ?? false;
+      
+      // Extraire l'offre SDP de la notification (si présent)
+      Map<String, dynamic> offer = {};
+      if (data['offer'] != null) {
+        final offerData = data['offer'];
+        if (offerData is Map) {
+          offer = Map<String, dynamic>.from(offerData);
+        } else if (offerData is String && offerData.isNotEmpty) {
+          // Parser le JSON stringifié si nécessaire
+          try {
+            offer = Map<String, dynamic>.from(
+              jsonDecode(offerData) as Map
+            );
+          } catch (_) {
+            // Garder offer vide si le parsing échoue
+          }
+        }
+      }
+      
+      if (callerId != null && rootNavigatorKey.currentContext != null) {
+        // Stocker les données d'appel pour les utiliser après la navigation
+        _pendingIncomingCall = {
+          'callerId': callerId,
+          'callerName': callerName,
+          'isVideo': isVideo,
+          'offer': offer,
+        };
+        
+        Navigator.of(rootNavigatorKey.currentContext!, rootNavigator: true).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => IncomingCallScreen(
+              callerId: callerId,
+              callerName: callerName,
+              isVideo: isVideo,
+              offer: offer,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    
     if (type == 'message') {
       final convId = data['conversationId'] as String?;
       final name = data['name'] as String? ?? 'Discussion';

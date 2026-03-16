@@ -32,6 +32,7 @@ class FcmSender {
     required String callerName,
     required bool isVideo,
     required String callerId,
+    Map<String, dynamic>? offer,
   }) async {
     try {
       await http.post(
@@ -43,6 +44,7 @@ class FcmSender {
           'body': isVideo ? 'Appel video entrant' : 'Appel audio entrant',
           'type': 'call',
           'callerId': callerId,
+          'offer': offer,
         }),
       );
     } catch (_) {

@@ -164,7 +164,7 @@ class AboutScreen extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '© 2024 Talky',
+                  '© 2026 Talky',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,

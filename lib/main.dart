@@ -14,6 +14,8 @@ import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
 import 'core/services/notification_service.dart';
 import 'features/settings/data/settings_providers.dart';
+import 'features/calls/data/call_providers.dart'; 
+import 'features/calls/presentation/incoming_call_screen.dart';
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
 @pragma('vm:entry-point')
@@ -86,11 +88,33 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
         ref.read(authServiceProvider).setOnlineStatus(true);
         PresenceService.instance.start(user.uid);
         NotificationService.instance.registerTokenForUser(user.uid);
+        ref.read(callServiceProvider); // ← AJOUTER CETTE LIGNE
       } else {
         PresenceService.instance.stop();
       }
     });
+
+    // Écouter les appels entrants globalement
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.listenManual(callProvider, (prev, next) {
+        if (next.status == CallStatus.ringing &&
+            prev?.status != CallStatus.ringing) {
+          _showIncomingCall();
+        }
+      });
+    });
   }
+  
+  void _showIncomingCall() {
+  final context = rootNavigatorKey.currentContext;
+  if (context == null) return;
+  Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => const IncomingCallScreen(),
+    ),
+  );
+}
 
   @override
   void dispose() {

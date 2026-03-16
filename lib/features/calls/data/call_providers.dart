@@ -164,6 +164,16 @@ class CallNotifier extends StateNotifier<CallState> {
     state = const CallState();
   }
 
+  void setIncomingCallData(IncomingCallData incoming) {
+    state = state.copyWith(
+      status:      CallStatus.ringing,
+      incomingCall: incoming,
+      remoteName:  incoming.callerName,
+      remotePhoto: incoming.callerPhoto,
+      isVideo:     incoming.isVideo,
+    );
+  }
+
   void endCall() {
     _service.endCall();
     state = const CallState();

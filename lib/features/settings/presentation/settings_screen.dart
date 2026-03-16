@@ -206,7 +206,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.description_outlined,
             title: 'Conditions d\'utilisation',
             subtitle: 'Lire les conditions',
-            onTap: () => _showComingSoon(context),
+            onTap: () => _showTerms(context),
             trailing: Icon(
               Icons.chevron_right_rounded,
               color: colors.textSecondary,
@@ -223,6 +223,84 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+    void _showTerms(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textHint,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Conditions d\'utilisation',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: const [
+                  _TermsSection(
+                    title: '1. Acceptation des conditions',
+                    content:
+                        'En utilisant Talky, vous acceptez les présentes conditions d\'utilisation. '
+                        'Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser l\'application.',
+                  ),
+                  _TermsSection(
+                    title: '2. Utilisation du service',
+                    content:
+                        'Talky est une application de messagerie destinée à un usage personnel et professionnel. '
+                        'Vous vous engagez à utiliser le service conformément aux lois applicables.',
+                  ),
+                  _TermsSection(
+                    title: '3. Confidentialité',
+                    content:
+                        'Vos données personnelles sont traitées conformément à notre politique de confidentialité. '
+                        'Nous utilisons le chiffrement de bout en bout pour protéger vos messages.',
+                  ),
+                  _TermsSection(
+                    title: '4. Contenu',
+                    content:
+                        'Vous êtes responsable du contenu que vous partagez via Talky. '
+                        'Tout contenu illicite ou inapproprié est strictement interdit.',
+                  ),
+                  _TermsSection(
+                    title: '5. Résiliation',
+                    content:
+                        'Nous nous réservons le droit de suspendre ou résilier votre compte en cas de violation des présentes conditions.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -568,6 +646,46 @@ class _LogoutButton extends ConsumerWidget {
               backgroundColor: colors.error,
             ),
             child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _TermsSection extends StatelessWidget {
+  final String title;
+  final String content;
+
+  const _TermsSection({
+    required this.title,
+    required this.content,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
           ),
         ],
       ),

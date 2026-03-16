@@ -6,7 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/services/fcm_sender.dart';
 
-// ⚠️ Remplace par ton URL Render après déploiement
+// serveur signaling
 const _signalingUrl = 'https://talky-signaling.onrender.com';
 
 // Événements émis par le service
@@ -68,19 +68,53 @@ class CallService {
 
   // ── Connexion au serveur de signaling ─────────────────────────────
   void connect(String userId) {
-    if (_socket != null && _socket!.connected) return;
-
     _myUserId = userId;
+
+    // Si socket existe mais déconnecté → nettoyer et reconnecter
+    if (_socket != null) {
+      if (_socket!.connected) return; // déjà connecté ✅
+      _socket!.dispose();
+      _socket = null;
+    }
+
     _socket = io.io(_signalingUrl, io.OptionBuilder()
         .setTransports(['websocket'])
         .disableAutoConnect()
+        .enableReconnection()         // ← reconnexion auto
+        .setReconnectionAttempts(10) // ← Augmenté à 10 tentatives
+        .setReconnectionDelay(2000)  // ← attendre 2s entre chaque
+        .setReconnectionDelayMax(10000) // ← max 10s entre tentatives
         .build());
 
     _socket!.connect();
 
     _socket!.onConnect((_) {
       debugPrint('[Socket] Connecté ✅');
-      _socket!.emit('register', userId);
+      if (_myUserId != null) {
+        _socket!.emit('register', _myUserId);
+      }
+    });
+
+    _socket!.onReconnect((_) {
+      debugPrint('[Socket] Reconnecté ✅');
+      if (_myUserId != null) {
+        _socket!.emit('register', _myUserId);
+      }
+    }); 
+
+    _socket!.onReconnectAttempt((attempt) {
+      debugPrint('[Socket] Tentative de reconnexion $attempt...');
+      _lastError = 'Connexion au serveur en cours. Réessaie dans ${11 - attempt} secondes';
+    });
+
+    _socket!.onReconnectFailed((_) {
+      debugPrint('[Socket] Échec de reconnexion');
+      _lastError = 'Impossible de se connecter au serveur';
+    });
+
+    _socket!.onConnectError((error) {
+      debugPrint('[Socket] Erreur de connexion: $error');
+      _lastError = 'Erreur de connexion au serveur';
     });
 
     _socket!.onDisconnect((_) => debugPrint('[Socket] Déconnecté'));
@@ -145,6 +179,13 @@ class CallService {
     _remoteUserId = targetUserId;
     _isVideo      = isVideo;
 
+    // Vérifier si le socket est connecté
+    if (_socket == null || !_socket!.connected) {
+      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
+      _eventCtrl.add(CallEvent.callFailed);
+      return;
+    }
+
     await _setupPeerConnection();
     await _getLocalStream(isVideo: isVideo);
 
@@ -169,12 +210,23 @@ class CallService {
         callerName: callerName,
         isVideo: isVideo,
         callerId: _myUserId!,
+        offer: {
+          'sdp': offer.sdp,
+          'type': offer.type,
+        },
       );
     }
   }
 
   // ── Accepter un appel ──────────────────────────────────────────────
   Future<void> answerCall(IncomingCallData incoming) async {
+    // Vérifier si le socket est connecté
+    if (_socket == null || !_socket!.connected) {
+      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
+      _eventCtrl.add(CallEvent.callFailed);
+      return;
+    }
+
     await _setupPeerConnection();
     await _getLocalStream(isVideo: incoming.isVideo);
 
@@ -238,9 +290,17 @@ class CallService {
   Future<void> _setupPeerConnection() async {
     final config = {
       'iceServers': [
+        // Serveurs STUN publics de Google
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun1.l.google.com:19302'},
+        {'urls': 'stun:stun2.l.google.com:19302'},
+        {'urls': 'stun:stun3.l.google.com:19302'},
+        {'urls': 'stun:stun4.l.google.com:19302'},
+        // Serveurs STUN supplémentaires
+        {'urls': 'stun:stun.freecall.com:3478'},
+        {'urls': 'stun:stun.qq.com:3478'},
       ],
+      'iceCandidatePoolSize': 10,
     };
 
     _peerConnection = await createPeerConnection(config);

@@ -13,6 +13,7 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_setup_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/calls/presentation/incoming_call_screen.dart';
 
 abstract class AppRoutes {
   static const splash       = '/';
@@ -24,6 +25,7 @@ abstract class AppRoutes {
   static const newChat      = '/new-chat';
   static const createGroup  = '/create-group';
   static const chat         = '/chat/:conversationId';
+  static const incomingCall = '/incoming-call';
 }
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -110,6 +112,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             conversationId: conversationId,
             contactName:    extra['name'] ?? 'Discussion',
             contactPhoto:   extra['photo'],
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.incomingCall,
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return IncomingCallScreen(
+            callerId: extra['callerId'] ?? '',
+            callerName: extra['callerName'] ?? 'Appel entrant',
+            isVideo: extra['isVideo'] ?? false,
           );
         },
       ),
