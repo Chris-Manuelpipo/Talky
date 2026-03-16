@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_icons.dart';
 import '../data/call_providers.dart';
 import 'call_screen.dart';
@@ -85,8 +86,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                 // Texte appel entrant
                 Text(
                   callState.isVideo ? 'Appel vidéo entrant' : 'Appel audio entrant',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 16),
+                  style: TextStyle(
+                      color: context.appThemeColors.textSecondary, fontSize: 16),
                 ),
                 const SizedBox(height: 24),
 
@@ -116,7 +117,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                         : Center(
                             child: Text(
                               (callState.remoteName ?? '?')[0].toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white, fontSize: 52,
                                 fontWeight: FontWeight.w700),
                             )),
@@ -127,14 +128,14 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                 // Nom
                 Text(callState.remoteName ?? 'Appel entrant',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white, fontSize: 32,
                     fontWeight: FontWeight.w700)),
 
                 const SizedBox(height: 8),
                 Text(callState.isVideo ? 'Vidéo' : 'Audio',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 16)),
+                  style: TextStyle(
+                      color: context.appThemeColors.textSecondary, fontSize: 16)),
 
                 const Spacer(),
 
@@ -158,12 +159,12 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 shape: BoxShape.circle,
                                 color: Colors.red,
                               ),
-                              child: const Icon(Icons.call_end_rounded,
+                              child: Icon(Icons.call_end_rounded,
                                   color: Colors.white, size: 32),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text('Refuser',
+                          Text('Refuser',
                             style: TextStyle(
                                 color: Colors.white70, fontSize: 14)),
                         ],
@@ -231,7 +232,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text('Répondre',
+                          Text('Répondre',
                             style: TextStyle(
                                 color: Colors.white70, fontSize: 14)),
                         ],

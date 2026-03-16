@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
@@ -36,10 +37,10 @@ class ChatDetailsScreen extends ConsumerWidget {
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('Détails',
+        backgroundColor: context.appThemeColors.background,
+        title: Text('Détails',
             style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: ListView(
@@ -66,8 +67,8 @@ class ChatDetailsScreen extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.share_rounded),
-                label: const Text('Partager le contact'),
+                icon: Icon(Icons.share_rounded),
+                label: Text('Partager le contact'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -114,7 +115,7 @@ class _HeaderCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.appThemeColors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -126,19 +127,19 @@ class _HeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 if (isGroup)
-                  const Text('Groupe',
+                  Text('Groupe',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary))
+                          fontSize: 12, color: context.appThemeColors.textSecondary))
                 else if (presenceUserId != null && presenceUserId!.isNotEmpty)
                   _PresenceLine(userId: presenceUserId!)
                 else
-                  const Text('Hors ligne',
+                  Text('Hors ligne',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
+                          fontSize: 12, color: context.appThemeColors.textSecondary)),
               ],
             ),
           ),
@@ -158,11 +159,11 @@ class _ContactInfoCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.appThemeColors.surface,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Text('Informations indisponibles',
-            style: TextStyle(color: AppColors.textSecondary)),
+        child: Text('Informations indisponibles',
+            style: TextStyle(color: context.appThemeColors.textSecondary)),
       );
     }
 
@@ -176,13 +177,13 @@ class _ContactInfoCard extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.appThemeColors.surface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Infos',
+              Text('Infos',
                   style: TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 13)),
               const SizedBox(height: 10),
@@ -199,8 +200,8 @@ class _ContactInfoCard extends StatelessWidget {
                   value: about,
                 ),
               if (phone.isEmpty && about.isEmpty)
-                const Text('Aucune information',
-                    style: TextStyle(color: AppColors.textSecondary)),
+                Text('Aucune information',
+                    style: TextStyle(color: context.appThemeColors.textSecondary)),
             ],
           ),
         );
@@ -226,19 +227,19 @@ class _GroupMembersCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.appThemeColors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Membres (${members.length})',
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 10),
           if (members.isEmpty)
-            const Text('Aucun membre',
-                style: TextStyle(color: AppColors.textSecondary))
+            Text('Aucun membre',
+                style: TextStyle(color: context.appThemeColors.textSecondary))
           else
             ...members.map((id) {
               final name = conversation.participantNames[id] ?? 'Utilisateur';
@@ -250,7 +251,7 @@ class _GroupMembersCard extends StatelessWidget {
                     _Avatar(name: name, photoUrl: photo, isGroup: false),
                     const SizedBox(width: 10),
                     Text(name,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -271,17 +272,17 @@ class _MediaSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.appThemeColors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Médias partagés',
+          Text('Médias partagés',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 10),
           messages.when(
-            loading: () => const Center(
+            loading: () => Center(
                 child: CircularProgressIndicator(color: AppColors.primary)),
             error: (e, _) => Text('Erreur: $e'),
             data: (list) {
@@ -292,8 +293,8 @@ class _MediaSection extends StatelessWidget {
               }).toList();
 
               if (media.isEmpty) {
-                return const Text('Aucun média pour l’instant',
-                    style: TextStyle(color: AppColors.textSecondary));
+                return Text('Aucun média pour l’instant',
+                    style: TextStyle(color: context.appThemeColors.textSecondary));
               }
 
               final items = media.reversed.take(12).toList();
@@ -346,7 +347,7 @@ class _MediaTile extends StatelessWidget {
             if (isVideo)
               Container(
                 color: Colors.black,
-                child: const Icon(Icons.play_arrow_rounded,
+                child: Icon(Icons.play_arrow_rounded,
                     color: Colors.white70, size: 30),
               )
             else
@@ -354,16 +355,16 @@ class _MediaTile extends StatelessWidget {
                 imageUrl: url,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(
-                  color: AppColors.background,
-                  child: const Center(
+                  color: context.appThemeColors.background,
+                  child: Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primary, strokeWidth: 2),
                   ),
                 ),
                 errorWidget: (_, __, ___) => Container(
-                  color: AppColors.background,
-                  child: const Icon(Icons.broken_image_rounded,
-                      color: AppColors.textHint),
+                  color: context.appThemeColors.background,
+                  child: Icon(Icons.broken_image_rounded,
+                      color: context.appThemeColors.textHint),
                 ),
               ),
             if (isVideo)
@@ -394,18 +395,18 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.textSecondary),
+          Icon(icon, size: 18, color: context.appThemeColors.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 11, color: context.appThemeColors.textSecondary)),
                 const SizedBox(height: 2),
                 Text(value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14)),
               ],
             ),
@@ -445,7 +446,7 @@ class _Avatar extends StatelessWidget {
           ? Center(
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : (isGroup ? 'G' : '?'),
-                style: const TextStyle(
+                style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 22),
@@ -492,16 +493,16 @@ class _PresenceLine extends StatelessWidget {
         }
 
         if (isOnline) {
-          return const Text('En ligne',
+          return Text('En ligne',
               style: TextStyle(fontSize: 12, color: AppColors.accent));
         }
         if (lastSeen != null) {
           return Text(_formatLastSeen(lastSeen),
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary));
+              style: TextStyle(
+                  fontSize: 12, color: context.appThemeColors.textSecondary));
         }
-        return const Text('Hors ligne',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary));
+        return Text('Hors ligne',
+            style: TextStyle(fontSize: 12, color: context.appThemeColors.textSecondary));
       },
     );
   }
@@ -517,7 +518,7 @@ class FullscreenImage extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Center(
         child: InteractiveViewer(
@@ -525,7 +526,7 @@ class FullscreenImage extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.contain,
             placeholder: (_, __) =>
-                const CircularProgressIndicator(color: AppColors.primary),
+                CircularProgressIndicator(color: AppColors.primary),
           ),
         ),
       ),
@@ -575,14 +576,14 @@ class _FullscreenVideoState extends State<FullscreenVideo> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Center(
         child: _hasError
-            ? const Icon(Icons.broken_image_rounded,
-                color: AppColors.textHint, size: 48)
+            ? Icon(Icons.broken_image_rounded,
+                color: context.appThemeColors.textHint, size: 48)
             : _controller == null
-                ? const CircularProgressIndicator(color: AppColors.primary)
+                ? CircularProgressIndicator(color: AppColors.primary)
                 : AspectRatio(
                     aspectRatio: _controller!.value.aspectRatio,
                     child: Stack(

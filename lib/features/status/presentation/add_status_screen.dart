@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../data/status_providers.dart';
@@ -129,27 +130,27 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+        SnackBar(content: Text(msg), backgroundColor: context.appThemeColors.error));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('Nouveau statut',
+        backgroundColor: context.appThemeColors.background,
+        title: Text('Nouveau statut',
           style: TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+              color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w700)),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+          icon: Icon(Icons.close_rounded, color: context.appThemeColors.textSecondary),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           if (!_isLoading)
             TextButton(
               onPressed: _publish,
-              child: const Text('Publier',
+              child: Text('Publier',
                 style: TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w700,
@@ -167,7 +168,7 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
           controller: _tabCtrl,
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: context.appThemeColors.textSecondary,
           tabs: const [
             Tab(icon: Icon(Icons.text_fields_rounded), text: 'Texte'),
             Tab(icon: Icon(Icons.image_rounded),       text: 'Image'),
@@ -233,12 +234,12 @@ class _TextTab extends StatelessWidget {
                 padding: const EdgeInsets.all(32),
                 child: TextField(
                   controller:  controller,
-                  style:       const TextStyle(
+                  style:       TextStyle(
                       color: Colors.white, fontSize: 24,
                       fontWeight: FontWeight.w600),
                   textAlign:   TextAlign.center,
                   maxLines:    null,
-                  decoration:  const InputDecoration(
+                  decoration:  InputDecoration(
                     hintText:  'Écris ton statut...',
                     hintStyle: TextStyle(
                         color: Colors.white54, fontSize: 24),
@@ -253,7 +254,7 @@ class _TextTab extends StatelessWidget {
         // Sélecteur couleur
         Container(
           height: 70,
-          color: AppColors.surface,
+          color: context.appThemeColors.surface,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -327,8 +328,8 @@ class _MediaTab extends StatelessWidget {
                           isVideo
                               ? 'Sélectionner une vidéo'
                               : 'Sélectionner une image',
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 16)),
+                          style: TextStyle(
+                              color: context.appThemeColors.textSecondary, fontSize: 16)),
                       ],
                     ),
                   ),
@@ -352,7 +353,7 @@ class _MediaTab extends StatelessWidget {
                             color: Colors.black.withOpacity(0.6),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.edit_rounded,
+                          child: Icon(Icons.edit_rounded,
                               color: Colors.white, size: 20),
                         ),
                       ),
@@ -363,16 +364,16 @@ class _MediaTab extends StatelessWidget {
 
         // Caption
         Container(
-          color: AppColors.surface,
+          color: context.appThemeColors.surface,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           child: TextField(
             controller: captionCtrl,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
               hintText:  'Ajouter une légende...',
-              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              hintStyle: TextStyle(color: context.appThemeColors.textSecondary),
               filled:     true,
-              fillColor:  AppColors.background,
+              fillColor:  context.appThemeColors.background,
               border:     OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide:   BorderSide.none,

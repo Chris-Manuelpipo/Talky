@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/phone_contacts_service.dart';
@@ -192,15 +193,15 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('Nouvelle discussion',
+        backgroundColor: context.appThemeColors.background,
+        title: Text('Nouvelle discussion',
             style: TextStyle(fontWeight: FontWeight.w700)),
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: context.appThemeColors.textSecondary,
           indicatorColor: AppColors.primary,
           tabs: const [
             Tab(text: 'Contacts'),
@@ -222,14 +223,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
   Widget _buildContactsTab() {
     if (_isLoadingContacts) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
             Text('Chargement des contacts...',
-                style: TextStyle(color: AppColors.textSecondary)),
+                style: TextStyle(color: context.appThemeColors.textSecondary)),
           ],
         ),
       );
@@ -242,22 +243,22 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.contacts, size: 64, color: AppColors.textHint),
-              const SizedBox(height: 16),
-              const Text('Permission requise',
+              Icon(Icons.contacts, size: 64, color: context.appThemeColors.textHint),
+              SizedBox(height: 16),
+              Text('Permission requise',
                   style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.appThemeColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 _permissionDeniedPermanently
                     ? 'L\'accès aux contacts a été refusé. Veuillez l\'activer dans les paramètres.'
                     : 'Accordez l\'accès à vos contacts pour voir\nvos contacts Talky',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: context.appThemeColors.textSecondary),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () async {
                   if (_permissionDeniedPermanently) {
@@ -273,7 +274,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                   _permissionDeniedPermanently
                       ? 'Ouvrir les paramètres'
                       : 'Autoriser',
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
             ],
@@ -294,7 +295,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: context.appThemeColors.surface,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Row(
@@ -324,14 +325,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           child: TextField(
             controller: _searchCtrl,
             onChanged: (v) => setState(() => _query = v.toLowerCase()),
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Rechercher un contact...',
-              hintStyle: const TextStyle(color: AppColors.textHint),
+              hintStyle: TextStyle(color: context.appThemeColors.textHint),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: AppColors.textHint),
+                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none),
@@ -368,7 +369,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.group, size: 48, color: colors.textHint),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text('Aucun contact trouvé',
                 style: TextStyle(color: colors.textSecondary)),
           ],
@@ -380,7 +381,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
       children: [
         // Contacts sur Talky
         if (filteredOnTalky.isNotEmpty) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'CONTACTS SUR TALKY',
@@ -401,12 +402,12 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
         // Inviter sur Talky
         if (filteredNotOnTalky.isNotEmpty) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'INVITER SUR TALKY',
               style: TextStyle(
-                color: AppColors.textHint,
+                color: context.appThemeColors.textHint,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -432,14 +433,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           child: TextField(
             controller: _searchCtrl,
             onChanged: _searchUsers,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Rechercher par numéro ou nom...',
-              hintStyle: const TextStyle(color: AppColors.textHint),
+              hintStyle: TextStyle(color: context.appThemeColors.textHint),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: AppColors.textHint),
+                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none),
@@ -450,20 +451,20 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         // Résultats de recherche
         Expanded(
           child: _isSearching
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CircularProgressIndicator())
               : _searchResults.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('🔍', style: TextStyle(fontSize: 48)),
-                          const SizedBox(height: 12),
+                          Text('🔍', style: TextStyle(fontSize: 48)),
+                          SizedBox(height: 12),
                           Text(
                             _searchCtrl.text.isEmpty
                                 ? 'Entrez un numéro ou un nom'
                                 : 'Aucun utilisateur trouvé',
-                            style: const TextStyle(
-                                color: AppColors.textSecondary),
+                            style: TextStyle(
+                                color: context.appThemeColors.textSecondary),
                           ),
                         ],
                       ),
@@ -592,17 +593,17 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Inviter sur Talky',
-            style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: context.appThemeColors.surface,
+        title: Text('Inviter sur Talky',
+            style: TextStyle(color: context.appThemeColors.textPrimary)),
         content: Text(
           'Voulez-vous inviter "${contact.displayName}" à rejoindre Talky?',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: context.appThemeColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -619,7 +620,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
               backgroundColor: AppColors.primary,
             ),
             child:
-                const Text('Inviter', style: TextStyle(color: Colors.white)),
+                Text('Inviter', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -656,20 +657,20 @@ class _PhoneContactTile extends StatelessWidget {
             contact.displayName.isNotEmpty
                 ? contact.displayName[0].toUpperCase()
                 : '?',
-            style: const TextStyle(
+            style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w700),
           ),
         ),
       ),
       title: Text(contact.displayName,
-          style: const TextStyle(
-              fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          style: TextStyle(
+              fontWeight: FontWeight.w600, color: context.appThemeColors.textPrimary)),
       subtitle: Text(
         contact.phones.isNotEmpty ? contact.phones.first : '',
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12),
       ),
       trailing: isOnTalky
-          ? const Icon(Icons.chat_rounded, color: AppColors.primary)
+          ? Icon(Icons.chat_rounded, color: AppColors.primary)
           : Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -720,16 +721,16 @@ class _UserTile extends StatelessWidget {
             ? Center(
                 child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.w700)))
             : null,
       ),
       title: Text(name,
-          style: const TextStyle(
-              fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          style: TextStyle(
+              fontWeight: FontWeight.w600, color: context.appThemeColors.textPrimary)),
       subtitle: Text(phone,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-      trailing: const Icon(Icons.chat_rounded, color: AppColors.primary),
+          style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12)),
+      trailing: Icon(Icons.chat_rounded, color: AppColors.primary),
     );
   }
 }

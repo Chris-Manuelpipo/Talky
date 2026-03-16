@@ -11,7 +11,7 @@ import '../data/settings_providers.dart';
 import 'profile_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'language_settings_screen.dart';
-import 'about_screen.dart';
+import 'about_screen.dart'; 
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});

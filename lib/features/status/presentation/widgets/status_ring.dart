@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_colors_provider.dart';
 
 class StatusRing extends StatelessWidget {
   final bool hasStatus;
@@ -25,7 +26,7 @@ class StatusRing extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppColors.divider,
+            color: context.appThemeColors.divider,
             width: 2,
           ),
         ),
@@ -41,8 +42,8 @@ class StatusRing extends StatelessWidget {
         gradient: allViewed
             ? LinearGradient(
                 colors: [
-                  AppColors.textSecondary.withOpacity(0.5),
-                  AppColors.textSecondary.withOpacity(0.3),
+                  context.appThemeColors.textSecondary.withOpacity(0.5),
+                  context.appThemeColors.textSecondary.withOpacity(0.3),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -59,9 +60,9 @@ class StatusRing extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(2.5),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.background,
+          color: context.appThemeColors.background,
         ),
         padding: const EdgeInsets.all(2),
         child: child,

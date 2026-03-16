@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../data/settings_providers.dart';
 
@@ -14,10 +15,10 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text(
+        backgroundColor: context.appThemeColors.background,
+        title: Text(
           'Apparence',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
         ),
@@ -26,20 +27,20 @@ class AppearanceSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // Mode sombre / clair
-          const Text(
+          Text(
             'Mode',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.appThemeColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: context.appThemeColors.surfaceVariant,
               borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: context.appThemeColors.border),
             ),
             child: Column(
               children: [
@@ -52,7 +53,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     ref.read(settingsProvider.notifier).setThemeMode(ThemeMode.dark);
                   },
                 ),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: context.appThemeColors.divider),
                 _ThemeModeTile(
                   title: 'Clair',
                   subtitle: 'Lumière maximale',
@@ -62,7 +63,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     ref.read(settingsProvider.notifier).setThemeMode(ThemeMode.light);
                   },
                 ),
-                const Divider(height: 1, color: AppColors.divider),
+                Divider(height: 1, color: context.appThemeColors.divider),
                 _ThemeModeTile(
                   title: 'Système',
                   subtitle: 'Basé sur les paramètres',
@@ -76,24 +77,24 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
 
           // Aperçu
-          const Text(
+          Text(
             'Aperçu',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.appThemeColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: context.appThemeColors.surfaceVariant,
               borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: context.appThemeColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,17 +105,17 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     Container(
                       width: 50,
                       height: 50,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person_rounded,
                         color: Colors.white,
                         size: 28,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,16 +123,16 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                           Text(
                             'John Doe',
                             style: TextStyle(
-                              color: AppColors.textPrimary,
+                              color: context.appThemeColors.textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             'En ligne',
                             style: TextStyle(
-                              color: AppColors.success,
+                              color: context.appThemeColors.success,
                               fontSize: 12,
                             ),
                           ),
@@ -140,7 +141,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 // Message bubble received
                 Align(
                   alignment: Alignment.centerLeft,
@@ -156,13 +157,13 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     child: Text(
                       'Bonjour ! Comment allez-vous ?',
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: context.appThemeColors.textPrimary,
                         fontSize: 14,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 // Sent message
                 Align(
                   alignment: Alignment.centerRight,
@@ -175,7 +176,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Salut ! Je vais très bien, merci !',
                       style: TextStyle(
                         color: Colors.white,
@@ -184,7 +185,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 // Button preview
                 Container(
                   width: double.infinity,
@@ -207,7 +208,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Info
           Container(
@@ -223,12 +224,12 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   color: AppColors.primary,
                   size: 20,
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Le violet est la couleur principale de Talky',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.appThemeColors.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -273,16 +274,16 @@ class _ThemeModeTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.primary.withValues(alpha: 0.2)
-                      : AppColors.surface,
+                      : context.appThemeColors.surface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
-                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                  color: isSelected ? AppColors.primary : context.appThemeColors.textSecondary,
                   size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,22 +293,22 @@ class _ThemeModeTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        color: isSelected ? AppColors.primary : context.appThemeColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: context.appThemeColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               if (isSelected)
-                const Icon(
+                Icon(
                   Icons.check_circle_rounded,
                   color: AppColors.primary,
                   size: 22,

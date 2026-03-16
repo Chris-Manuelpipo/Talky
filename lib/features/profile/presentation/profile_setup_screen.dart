@@ -128,7 +128,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 const SizedBox(height: 8),
 
                 Text(
-                  'Complétez votre profil pour que vos collègues puissent vous reconnaître.',
+                  'Complétez votre profil pour que vos connaissances puissent vous reconnaître.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary, height: 1.5,
                   ),

@@ -37,22 +37,22 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     final currentUid    = ref.watch(authStateProvider).value?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appThemeColors.background,
         title: _searching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 onChanged: (v) => setState(() => _query = v.toLowerCase()),
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                style: TextStyle(color: context.appThemeColors.textPrimary),
+                decoration: InputDecoration(
                   hintText: 'Rechercher un groupe...',
-                  hintStyle: TextStyle(color: AppColors.textHint),
+                  hintStyle: TextStyle(color: context.appThemeColors.textHint),
                   border: InputBorder.none,
                 ),
               )
-            : const Text('Groupes',
+            : Text('Groupes',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
         actions: [
           IconButton(
@@ -85,9 +85,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
           if (filtered.isEmpty) {
             return _searching && _query.isNotEmpty
-                ? const Center(
+                ? Center(
                     child: Text('Aucun groupe trouvé',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                      style: TextStyle(color: context.appThemeColors.textSecondary)),
                   )
                 : _EmptyGroupsState();
           }
@@ -150,13 +150,13 @@ class _GroupTile extends StatelessWidget {
                         child: Text(group.groupName ?? 'Groupe',
                           style: TextStyle(fontSize: 16,
                             fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
-                            color: AppColors.textPrimary),
+                            color: context.appThemeColors.textPrimary),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                       if (group.lastMessageAt != null)
                         Text(_formatTime(group.lastMessageAt!),
                           style: TextStyle(fontSize: 12,
-                            color: unread > 0 ? AppColors.primary : AppColors.textHint)),
+                            color: unread > 0 ? AppColors.primary : context.appThemeColors.textHint)),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -170,7 +170,7 @@ class _GroupTile extends StatelessWidget {
                         child: Text(
                           group.lastMessage ?? '${group.participantIds.length} membres',
                           style: TextStyle(fontSize: 13,
-                            color: unread > 0 ? AppColors.textPrimary : AppColors.textSecondary,
+                            color: unread > 0 ? context.appThemeColors.textPrimary : context.appThemeColors.textSecondary,
                             fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.w400),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
@@ -230,7 +230,7 @@ class _EmptyGroupsState extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () => context.push(AppRoutes.createGroup),
             icon: const Icon(Icons.group_add_rounded),
-            label: const Text('Créer un groupe'),
+            label: Text('Créer un groupe'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,

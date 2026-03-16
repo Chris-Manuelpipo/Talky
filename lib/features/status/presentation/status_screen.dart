@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../data/status_providers.dart';
@@ -35,31 +36,31 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
     final currentUserId = ref.watch(authStateProvider).value?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appThemeColors.background,
         title: _searching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 onChanged: (v) => setState(() => _query = v.toLowerCase()),
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                style: TextStyle(color: context.appThemeColors.textPrimary),
+                decoration: InputDecoration(
                   hintText: 'Rechercher...',
-                  hintStyle: TextStyle(color: AppColors.textHint),
+                  hintStyle: TextStyle(color: context.appThemeColors.textHint),
                   border: InputBorder.none,
                 ),
               )
-            : const Text('Statuts',
+            : Text('Statuts',
                 style: TextStyle(
-                  color:      AppColors.textPrimary,
+                  color:      context.appThemeColors.textPrimary,
                   fontSize:   22,
                   fontWeight: FontWeight.w700,
                 )),
         actions: [
           IconButton(
             icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded,
-                color: AppColors.textSecondary),
+                color: context.appThemeColors.textSecondary),
             onPressed: () {
               setState(() {
                 _searching = !_searching;
@@ -71,18 +72,18 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
+            icon: Icon(Icons.more_vert_rounded, color: context.appThemeColors.textSecondary),
             onPressed: () {},
           ),
         ],
       ),
 
       body: groupsAsync.when(
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.primary)),
         error: (e, _) => Center(
           child: Text('Erreur: $e',
-              style: const TextStyle(color: AppColors.textSecondary))),
+              style: TextStyle(color: context.appThemeColors.textSecondary))),
         data: (groups) {
           final myGroup = groups.where((g) => g.isMyStatus).firstOrNull;
           final others  = groups.where((g) => !g.isMyStatus).toList();
@@ -102,11 +103,11 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text('Mon statut',
                         style: TextStyle(
-                          color:      AppColors.textSecondary,
+                          color:      context.appThemeColors.textSecondary,
                           fontSize:   13,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -117,11 +118,11 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                       currentUserId:  currentUserId,
                     ),
                     if (unread.isNotEmpty) ...[
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                         child: Text('Récents',
                           style: TextStyle(
-                            color:      AppColors.textSecondary,
+                            color:      context.appThemeColors.textSecondary,
                             fontSize:   13,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -144,12 +145,12 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
               ),
 
               if (read.isNotEmpty)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                     child: Text('Déjà vus',
                       style: TextStyle(
-                        color:      AppColors.textSecondary,
+                        color:      context.appThemeColors.textSecondary,
                         fontSize:   13,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
@@ -180,7 +181,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
         onPressed: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => const AddStatusScreen())),
         backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+        child: Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }
@@ -216,20 +217,20 @@ class _MyStatusTile extends ConsumerWidget {
                   shape: BoxShape.circle,
                   color: AppColors.primary,
                 ),
-                child: const Icon(Icons.add_rounded,
+                child: Icon(Icons.add_rounded,
                     color: Colors.white, size: 14),
               ),
             ),
         ],
       ),
-      title: const Text('Mon statut',
+      title: Text('Mon statut',
         style: TextStyle(
-            color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+            color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w600)),
       subtitle: Text(
         myGroup == null
             ? 'Appuyer pour ajouter un statut'
             : '${myGroup!.statuses.length} statut${myGroup!.statuses.length > 1 ? 's' : ''} · ${_timeAgo(myGroup!.latest.createdAt)}',
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 13),
       ),
       onTap: () {
         if (myGroup != null) {
@@ -268,11 +269,11 @@ class _StatusTile extends StatelessWidget {
             name: group.userName, photoUrl: group.userPhoto),
       ),
       title: Text(group.userName,
-        style: const TextStyle(
-            color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+        style: TextStyle(
+            color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w600)),
       subtitle: Text(
         _timeAgo(group.latest.createdAt),
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 13),
       ),
       onTap: () => Navigator.push(context, MaterialPageRoute(
         builder: (_) => StatusViewerScreen(
@@ -305,7 +306,7 @@ class _Avatar extends StatelessWidget {
       ),
       child: photoUrl == null ? Center(
         child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
+          style: TextStyle(
               color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
       ) : null,
     );
@@ -328,17 +329,17 @@ class _EmptyState extends StatelessWidget {
               shape: BoxShape.circle,
               color: AppColors.primary.withOpacity(0.1),
             ),
-            child: const Icon(Icons.circle_outlined,
+            child: Icon(Icons.circle_outlined,
                 color: AppColors.primary, size: 48),
           ),
           const SizedBox(height: 20),
-          const Text('Aucun statut pour le moment',
+          Text('Aucun statut pour le moment',
             style: TextStyle(
-                color: AppColors.textPrimary,
+                color: context.appThemeColors.textPrimary,
                 fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          const Text('Publiez votre premier statut !',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          Text('Publiez votre premier statut !',
+            style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 14)),
         ],
       ),
     );

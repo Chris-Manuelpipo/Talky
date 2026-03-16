@@ -171,7 +171,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: _buildAppBar(context, convos, currentUid),
       body: Column(
         children: [
@@ -334,11 +334,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final canCall = !isGroup && otherUserId != null && otherUserId.isNotEmpty;
 
     return AppBar(
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.appThemeColors.surface,
       automaticallyImplyLeading: false,
       leading: canPop
           ? IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
+              icon: Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).maybePop(),
             )
           : null,
@@ -351,22 +351,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.contactName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               if (isGroup)
-                const Text('Groupe',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary))
+                Text('Groupe',
+                style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary))
               else if (otherUserId != null && otherUserId.isNotEmpty)
                 _PresenceText(userId: otherUserId)
               else
-                const Text('Hors ligne',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                Text('Hors ligne',
+                style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary)),
             ],
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.videocam_rounded),
+          icon: Icon(Icons.videocam_rounded),
           onPressed: canCall
               ? () => _startCallFromChat(
                   context,
@@ -376,7 +376,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               : () => _showCallDisabled(context, isGroup),
         ),
         IconButton(
-          icon: const Icon(Icons.call_rounded),
+          icon: Icon(Icons.call_rounded),
           onPressed: canCall
               ? () => _startCallFromChat(
                   context,
@@ -386,7 +386,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               : () => _showCallDisabled(context, isGroup),
         ),
         IconButton(
-          icon: const Icon(Icons.more_vert_rounded),
+          icon: Icon(Icons.more_vert_rounded),
           onPressed: () {
             Navigator.push(
               context,
@@ -504,14 +504,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Supprimer le message'),
-        content: const Text('Ce message sera supprimé pour tout le monde.'),
+        backgroundColor: context.appThemeColors.surface,
+        title: Text('Supprimer le message'),
+        content: Text('Ce message sera supprimé pour tout le monde.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
+              child: Text('Annuler')),
           TextButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('Supprimer',
+              child: Text('Supprimer',
                   style: TextStyle(color: Colors.red))),
         ],
       ),
@@ -559,7 +559,7 @@ class _MessageBubble extends StatelessWidget {
               colors: [AppColors.primary, Color(0xFF9B7DFF)],
               begin: Alignment.topLeft, end: Alignment.bottomRight,
             ) : null,
-            color: isMine ? null : AppColors.surface,
+            color: isMine ? null : context.appThemeColors.surface,
             borderRadius: BorderRadius.only(
               topLeft:     const Radius.circular(18),
               topRight:    const Radius.circular(18),
@@ -582,7 +582,7 @@ class _MessageBubble extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       message.senderName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,
@@ -596,17 +596,17 @@ class _MessageBubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: const Border(
+                      border: Border(
                           left: BorderSide(color: AppColors.accent, width: 3)),
                     ),
                     child: Text(message.replyToContent!,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: context.appThemeColors.textSecondary),
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                   ),
                 Text(message.content ?? '',
                   style: TextStyle(
-                    color: isMine ? Colors.white : AppColors.textPrimary,
+                    color: isMine ? Colors.white : context.appThemeColors.textPrimary,
                     fontSize: 15,
                   )),
                 const SizedBox(height: 4),
@@ -618,7 +618,7 @@ class _MessageBubble extends StatelessWidget {
                         fontSize: 10,
                         color: isMine
                             ? Colors.white.withOpacity(0.7)
-                            : AppColors.textHint,
+                            : context.appThemeColors.textHint,
                       )),
                     if (isMine) ...[
                       const SizedBox(width: 4),
@@ -638,7 +638,7 @@ class _MessageBubble extends StatelessWidget {
     HapticFeedback.mediumImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.appThemeColors.surface,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
@@ -647,17 +647,17 @@ class _MessageBubble extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider,
+                decoration: BoxDecoration(color: context.appThemeColors.divider,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             ListTile(
-              leading: const Icon(Icons.reply_rounded, color: AppColors.primary),
-              title: const Text('Répondre'),
+              leading: Icon(Icons.reply_rounded, color: AppColors.primary),
+              title: Text('Répondre'),
               onTap: () { Navigator.pop(context); onReply(); },
             ),
             ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: const Text('Copier'),
+              leading: Icon(Icons.copy_rounded),
+              title: Text('Copier'),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: message.content ?? ''));
                 Navigator.pop(context);
@@ -667,8 +667,8 @@ class _MessageBubble extends StatelessWidget {
             ),
             if (onDelete != null)
               ListTile(
-                leading: const Icon(Icons.delete_rounded, color: Colors.red),
-                title: const Text('Supprimer',
+                leading: Icon(Icons.delete_rounded, color: Colors.red),
+                title: Text('Supprimer',
                     style: TextStyle(color: Colors.red)),
                 onTap: () { Navigator.pop(context); onDelete!(); },
               ),
@@ -722,13 +722,13 @@ class _StatusIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(Icons.access_time_rounded, size: 12, color: Colors.white70);
+        return Icon(Icons.access_time_rounded, size: 12, color: Colors.white70);
       case MessageStatus.sent:
-        return const Icon(Icons.check_rounded, size: 12, color: Colors.white70);
+        return Icon(Icons.check_rounded, size: 12, color: Colors.white70);
       case MessageStatus.delivered:
-        return const Icon(Icons.done_all_rounded, size: 12, color: Colors.white70);
+        return Icon(Icons.done_all_rounded, size: 12, color: Colors.white70);
       case MessageStatus.read:
-        return const Icon(Icons.done_all_rounded, size: 12, color: AppColors.accent);
+        return Icon(Icons.done_all_rounded, size: 12, color: AppColors.accent);
     }
   }
 }
@@ -743,7 +743,7 @@ class _ReplyBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surface,
+      color: context.appThemeColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
@@ -756,17 +756,17 @@ class _ReplyBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(message.senderName,
-                  style: const TextStyle(color: AppColors.primary,
+                  style: TextStyle(color: AppColors.primary,
                       fontWeight: FontWeight.w600, fontSize: 12)),
                 Text(message.content ?? '',
-                  style: const TextStyle(color: AppColors.textSecondary,
+                  style: TextStyle(color: context.appThemeColors.textSecondary,
                       fontSize: 12),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18),
+              icon: Icon(Icons.close_rounded, size: 18),
               onPressed: onCancel),
         ],
       ),
@@ -797,7 +797,7 @@ class _InputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surface,
+      color: context.appThemeColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SafeArea(
         child: Row(
@@ -806,15 +806,15 @@ class _InputBar extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.inputFill,
+                  color: context.appThemeColors.inputFill,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [
                     const SizedBox(width: 4),
                     IconButton(
-                      icon: const Icon(Icons.emoji_emotions_outlined,
-                          color: AppColors.textHint),
+                      icon: Icon(Icons.emoji_emotions_outlined,
+                          color: context.appThemeColors.textHint),
                       onPressed: onEmoji,
                     ),
                     Expanded(
@@ -822,10 +822,10 @@ class _InputBar extends StatelessWidget {
                         controller: controller,
                         onChanged:  onChanged,
                         maxLines:   5, minLines: 1,
-                        style: const TextStyle(color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: context.appThemeColors.textPrimary),
+                        decoration: InputDecoration(
                           hintText:  'Message...',
-                          hintStyle: TextStyle(color: AppColors.textHint),
+                          hintStyle: TextStyle(color: context.appThemeColors.textHint),
                           border:    InputBorder.none,
                           isDense:   true,
                         ),
@@ -833,8 +833,8 @@ class _InputBar extends StatelessWidget {
                     ),
                     // Bouton pièce jointe
                     IconButton(
-                      icon: const Icon(Icons.attach_file_rounded,
-                          color: AppColors.textHint),
+                      icon: Icon(Icons.attach_file_rounded,
+                          color: context.appThemeColors.textHint),
                       onPressed: onAttach,
                     ),
                   ],
@@ -896,7 +896,7 @@ class _AvatarWidget extends StatelessWidget {
       ),
       child: photoUrl == null ? Center(
         child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(color: Colors.white,
+          style: TextStyle(color: Colors.white,
               fontWeight: FontWeight.w700))) : null,
     );
   }
@@ -923,8 +923,8 @@ class _EmojiPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
+      decoration: BoxDecoration(
+        color: context.appThemeColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -941,14 +941,14 @@ class _EmojiPicker extends StatelessWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.divider,
+                      color: context.appThemeColors.divider,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Stickers (emojis)',
+                  Text('Stickers (emojis)',
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: context.appThemeColors.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                     )),
@@ -968,7 +968,7 @@ class _EmojiPicker extends StatelessWidget {
                           child: Center(
                             child: Text(
                               emoji,
-                              style: const TextStyle(fontSize: 24),
+                              style: TextStyle(fontSize: 24),
                             ),
                           ),
                         );
@@ -1019,17 +1019,17 @@ class _PresenceText extends StatelessWidget {
         }
 
         if (isOnline) {
-          return const Text('En ligne',
+          return Text('En ligne',
             style: TextStyle(fontSize: 11, color: AppColors.accent));
         }
 
         if (lastSeen != null) {
           return Text(_formatLastSeen(lastSeen),
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary));
+            style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
         }
 
-        return const Text('Hors ligne',
-          style: TextStyle(fontSize: 11, color: AppColors.textSecondary));
+        return Text('Hors ligne',
+          style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
       },
     );
   }
@@ -1053,14 +1053,14 @@ class _DateDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Expanded(child: Divider(color: AppColors.divider)),
+          Expanded(child: Divider(color: context.appThemeColors.divider)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(text, style: const TextStyle(
-                color: AppColors.textHint, fontSize: 11,
+            child: Text(text, style: TextStyle(
+                color: context.appThemeColors.textHint, fontSize: 11,
                 fontWeight: FontWeight.w500)),
           ),
-          Expanded(child: Divider(color: AppColors.divider)),
+          Expanded(child: Divider(color: context.appThemeColors.divider)),
         ],
       ),
     );

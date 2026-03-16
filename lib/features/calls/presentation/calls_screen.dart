@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_service.dart';
@@ -37,19 +38,19 @@ class CallsScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('Appels',
+        backgroundColor: context.appThemeColors.background,
+        title: Text('Appels',
           style: TextStyle(
-            color:      AppColors.textPrimary,
+            color:      context.appThemeColors.textPrimary,
             fontSize:   22,
             fontWeight: FontWeight.w700,
           )),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded,
-                color: AppColors.textSecondary),
+            icon: Icon(Icons.search_rounded,
+                color: context.appThemeColors.textSecondary),
             onPressed: () {},
           ),
         ],
@@ -191,13 +192,13 @@ class _IncomingCallOverlay extends ConsumerWidget {
                         callState.remotePhoto!, fit: BoxFit.cover))
                     : Center(child: Text(
                         (callState.remoteName ?? '?')[0].toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: Colors.white, fontSize: 36,
                             fontWeight: FontWeight.w700))),
               ),
               const SizedBox(height: 20),
               Text(callState.remoteName ?? '',
-                style: const TextStyle(
+                style: TextStyle(
                     color: Colors.white, fontSize: 24,
                     fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
@@ -205,8 +206,8 @@ class _IncomingCallOverlay extends ConsumerWidget {
                 callState.isVideo
                     ? 'Appel vidéo'
                     : 'Appel audio',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 14)),
+                style: TextStyle(
+                    color: context.appThemeColors.textSecondary, fontSize: 14)),
               const SizedBox(height: 32),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -306,7 +307,7 @@ class _OverlayButton extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(
+        Text(label, style: TextStyle(
             color: Colors.white70, fontSize: 13)),
       ],
     );
@@ -332,14 +333,14 @@ class _ContactsForCall extends ConsumerWidget {
       stream: ChatService().usersStream(currentUser.uid),
       builder: (context, snap) {
         if (!snap.hasData) {
-          return const Center(child: CircularProgressIndicator(
+          return Center(child: CircularProgressIndicator(
               color: AppColors.primary));
         }
         final users = snap.data!;
         if (users.isEmpty) {
-          return const Center(
+          return Center(
             child: Text('Aucun contact disponible',
-              style: TextStyle(color: AppColors.textSecondary)),
+              style: TextStyle(color: context.appThemeColors.textSecondary)),
           );
         }
         return ListView.builder(
@@ -357,24 +358,24 @@ class _ContactsForCall extends ConsumerWidget {
                 backgroundImage: photo != null ? NetworkImage(photo) : null,
                 child: photo == null
                     ? Text(name[0].toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.w700))
                     : null,
               ),
               title: Text(name,
-                style: const TextStyle(
-                    color: AppColors.textPrimary,
+                style: TextStyle(
+                    color: context.appThemeColors.textPrimary,
                     fontWeight: FontWeight.w600)),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.call_rounded,
+                    icon: Icon(Icons.call_rounded,
                         color: AppColors.primary),
                     onPressed: () => onCallAudio(uid, name, photo),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.videocam_rounded,
+                    icon: Icon(Icons.videocam_rounded,
                         color: AppColors.accent),
                     onPressed: () => onCallVideo(uid, name, photo),
                   ),

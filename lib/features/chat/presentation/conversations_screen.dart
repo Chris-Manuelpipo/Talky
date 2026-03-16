@@ -375,7 +375,7 @@ class _ConversationTile extends ConsumerWidget {
                             fontSize: 16,
                             fontWeight: unread > 0
                                 ? FontWeight.w700 : FontWeight.w500,
-                            color: AppColors.textPrimary,
+                            color: context.appThemeColors.textPrimary,
                           ),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                         ),

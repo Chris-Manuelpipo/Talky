@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/status_providers.dart';
 import '../domain/status_model.dart';
@@ -77,7 +78,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.appThemeColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -91,14 +92,14 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
+                  color: context.appThemeColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 12),
               Text('Vu par ${viewers.length}',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: context.appThemeColors.textPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                 )),
@@ -196,7 +197,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                           ? NetworkImage(widget.group.userPhoto!) : null,
                       child: widget.group.userPhoto == null
                           ? Text(widget.group.userName[0].toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white, fontWeight: FontWeight.w700))
                           : null,
                     ),
@@ -207,7 +208,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         children: [
                           Text(widget.group.isMyStatus
                               ? 'Mon statut' : widget.group.userName,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15)),
@@ -219,12 +220,12 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      icon: Icon(Icons.close_rounded, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                     ),
                     if (isMyStatus)
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded,
+                        icon: Icon(Icons.delete_outline_rounded,
                             color: Colors.white),
                         onPressed: () async {
                           await ref.read(statusServiceProvider)
@@ -255,11 +256,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.visibility_outlined,
+                        Icon(Icons.visibility_outlined,
                             color: Colors.white, size: 16),
                         const SizedBox(width: 6),
                         Text('${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white, fontSize: 13)),
                       ],
                     ),
@@ -293,7 +294,7 @@ class _StatusContent extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Text(status.text ?? '',
-                style: const TextStyle(
+                style: TextStyle(
                   color:      Colors.white,
                   fontSize:   28,
                   fontWeight: FontWeight.w700,
@@ -327,7 +328,7 @@ class _StatusContent extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(status.text!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white, fontSize: 16),
                     textAlign: TextAlign.center),
                 ),
@@ -377,15 +378,15 @@ class _ViewerTile extends ConsumerWidget {
             backgroundImage: photo != null ? NetworkImage(photo) : null,
             child: photo == null
                 ? Text(name[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white))
+                    style: TextStyle(color: Colors.white))
                 : null,
           ),
           title: Text(name,
-            style: const TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: context.appThemeColors.textPrimary)),
           subtitle: viewedAt != null
               ? Text(
                   _formatViewedAt(viewedAt!),
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12),
                 )
               : null,
         );

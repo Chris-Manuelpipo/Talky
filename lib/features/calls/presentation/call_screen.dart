@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../data/call_providers.dart';
 import '../data/call_service.dart';
 
@@ -210,14 +211,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           ? (callState.isCameraOff
                               ? Container(
                                   color: Colors.black,
-                                  child: const Icon(Icons.videocam_off_rounded,
+                                  child: Icon(Icons.videocam_off_rounded,
                                       color: Colors.white, size: 32),
                                 )
                               : RTCVideoView(pipRenderer, mirror: true))
                           : (pipRenderer.srcObject == null
                               ? Container(
                                   color: Colors.black,
-                                  child: const Icon(Icons.person_rounded,
+                                  child: Icon(Icons.person_rounded,
                                       color: Colors.white54, size: 28),
                                 )
                               : RTCVideoView(pipRenderer, mirror: false)),
@@ -369,7 +370,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.flip_camera_ios_rounded,
+                          icon: Icon(Icons.flip_camera_ios_rounded,
                               color: Colors.white, size: 22),
                           onPressed: () =>
                               ref.read(callProvider.notifier).switchCamera(),
@@ -437,7 +438,7 @@ class _AudioCallBackground extends StatelessWidget {
                 color: Colors.white, fontSize: 32,
                 fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            const Text('Appel audio',
+            Text('Appel audio',
               style: TextStyle(
                   color: Colors.white54, fontSize: 16)),
           ],
@@ -466,7 +467,7 @@ class _VideoWaiting extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.videocam_rounded,
+            Icon(Icons.videocam_rounded,
                 color: Colors.white54, size: 64),
             const SizedBox(height: 12),
             Text(
