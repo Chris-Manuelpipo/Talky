@@ -157,50 +157,10 @@ class NotificationService {
     
     // Gérer les appels entrants - afficher l'écran d'appel
     if (type == 'call') {
-      final callerId = data['callerId'] as String?;
-      final callerName = message.notification?.title ?? data['title'] as String? ?? 'Appel entrant';
-      final isVideo = (data['body'] as String?)?.contains('vidéo') ?? false;
-      
-      // Extraire l'offre SDP de la notification (si présent)
-      Map<String, dynamic> offer = {};
-      if (data['offer'] != null) {
-        final offerData = data['offer'];
-        if (offerData is Map) {
-          offer = Map<String, dynamic>.from(offerData);
-        } else if (offerData is String && offerData.isNotEmpty) {
-          // Parser le JSON stringifié si nécessaire
-          try {
-            offer = Map<String, dynamic>.from(
-              jsonDecode(offerData) as Map
-            );
-          } catch (_) {
-            // Garder offer vide si le parsing échoue
-          }
-        }
-      }
-      
-      if (callerId != null && rootNavigatorKey.currentContext != null) {
-        // Stocker les données d'appel pour les utiliser après la navigation
-        _pendingIncomingCall = {
-          'callerId': callerId,
-          'callerName': callerName,
-          'isVideo': isVideo,
-          'offer': offer,
-        };
-        
-        Navigator.of(rootNavigatorKey.currentContext!, rootNavigator: true).push(
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (_) => IncomingCallScreen(
-              callerId: callerId,
-              callerName: callerName,
-              isVideo: isVideo,
-              offer: offer,
-            ),
-          ),
-        );
-        return;
-      }
+      // Ne pas ouvrir l'écran ici — Socket.io va envoyer incoming_call
+      // avec la vraie offre SDP. On se contente de ramener l'app au premier plan.
+      rootNavigatorKey.currentContext?.go(AppRoutes.home);
+      return;
     }
     
     if (type == 'message') {

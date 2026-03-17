@@ -346,7 +346,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       title: Row(
         children: [
           _AvatarWidget(name: widget.contactName, photoUrl: widget.contactPhoto),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

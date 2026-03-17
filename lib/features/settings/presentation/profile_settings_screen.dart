@@ -1,16 +1,17 @@
 // lib/features/settings/presentation/profile_settings_screen.dart
 
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/domain/user_model.dart';
 import '../../auth/data/auth_service.dart';
+import '../../chat/data/media_service.dart';
 
 class ProfileSettingsScreen extends ConsumerStatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -64,14 +65,17 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
       setState(() => _isLoading = true);
 
       try {
-        // Upload to Cloudinary
-        final cloudinary = CloudinaryPublic('talky-app', 'talky-profile', cache: true);
-        final uploadResult = await cloudinary.uploadFile(
-          CloudinaryFile.fromFile(result.path, folder: 'profiles'),
+        // Upload to Cloudinary using MediaService with correct credentials
+        final mediaService = MediaService();
+        final authState = ref.read(authStateProvider).value;
+        
+        final photoUrl = await mediaService.uploadProfilePhoto(
+          filePath: result.path,
+          userId: authState?.uid ?? 'unknown',
         );
 
         setState(() {
-          _photoUrl = uploadResult.secureUrl;
+          _photoUrl = photoUrl;
           _isLoading = false;
         });
       } catch (e) {
@@ -117,6 +121,11 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
 
       await ref.read(authServiceProvider).saveUserProfile(user);
 
+      // Mettre à jour la photo dans toutes les conversations existantes
+      if (_photoUrl != null) {
+        await _updatePhotoInConversations(authState.uid, _photoUrl!);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -140,6 +149,23 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  // Met à jour participantPhotos dans toutes les conversations
+  Future<void> _updatePhotoInConversations(String uid, String photoUrl) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final convs = await db
+          .collection('conversations')
+          .where('participantIds', arrayContains: uid)
+          .get();
+
+      final batch = db.batch();
+      for (final doc in convs.docs) {
+        batch.update(doc.reference, {'participantPhotos.$uid': photoUrl});
+      }
+      if (convs.docs.isNotEmpty) await batch.commit();
+    } catch (_) {}
   }
 
   @override
