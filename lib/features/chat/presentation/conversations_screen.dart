@@ -1,5 +1,6 @@
 // lib/features/chat/presentation/conversations_screen.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -320,10 +321,8 @@ class _ConversationTile extends ConsumerWidget {
     final isMe        = conversation.lastMessageSenderId == currentUserId;
     final otherId     = conversation.participantIds
         .firstWhere((id) => id != currentUserId, orElse: () => '');
-    final needsResolve = !conversation.isGroup &&
-        (displayName.trim().isEmpty || displayName.toLowerCase() == 'moi');
-
-    if (needsResolve && otherId.isNotEmpty) {
+    // Always resolve for non-group chats to get fresh profile photos from Firestore
+    if (!conversation.isGroup && otherId.isNotEmpty) {
       return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
         builder: (context, snap) {
@@ -486,19 +485,70 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 52,
+          height: 52,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.accent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.accent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Center(
+              child: isGroup 
+                  ? const Icon(AppIcons.group, color: Colors.white, size: 24)
+                  : Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Container(
       width: 52, height: 52,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photoUrl == null ? const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.primary, AppColors.accent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-        ) : null,
-        image: photoUrl != null ? DecorationImage(
-          image: NetworkImage(photoUrl!), fit: BoxFit.cover) : null,
+        ),
       ),
-      child: photoUrl == null ? Center(
+      child: Center(
         child: isGroup 
             ? const Icon(AppIcons.group, color: Colors.white, size: 24)
             : Text(
@@ -509,7 +559,7 @@ class _Avatar extends StatelessWidget {
                   fontSize: 20,
                 ),
               ),
-      ) : null,
+      ),
     );
   }
 }

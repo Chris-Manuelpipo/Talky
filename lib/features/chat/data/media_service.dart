@@ -101,11 +101,14 @@ class MediaService {
     required String userId,
   }) async {
     try {
+      // Utiliser un timestamp pour forcer un nouvel upload à chaque fois
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final response = await _cloudinary.uploadFile(
         CloudinaryFile.fromFile(
           filePath,
           folder:       'talky/profiles/$userId',
           resourceType: CloudinaryResourceType.Image,
+          publicId:     'profile_$timestamp',
         ),
       );
       return response.secureUrl;

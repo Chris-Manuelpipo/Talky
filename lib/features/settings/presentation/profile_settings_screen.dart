@@ -1,6 +1,7 @@
 // lib/features/settings/presentation/profile_settings_screen.dart
 
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,6 +122,9 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
 
       await ref.read(authServiceProvider).saveUserProfile(user);
 
+      // Invalider le cache du profil pour forcer un refresh
+      ref.invalidate(currentUserProfileProvider);
+
       // Mettre à jour la photo dans toutes les conversations existantes
       if (_photoUrl != null) {
         await _updatePhotoInConversations(authState.uid, _photoUrl!);
@@ -219,20 +223,30 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
                           color: colors.primary,
                           width: 3,
                         ),
-                        image: _photoUrl != null && _photoUrl!.isNotEmpty
-                            ? DecorationImage(
-                                image: NetworkImage(_photoUrl!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
                       ),
-                      child: _photoUrl == null || _photoUrl!.isEmpty
-                          ? Icon(
-                              Icons.person_rounded,
-                              size: 60,
-                              color: colors.textSecondary,
-                            )
-                          : null,
+                      child: ClipOval(
+                        child: _photoUrl != null && _photoUrl!.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: _photoUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: colors.surfaceVariant,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Icon(
+                                  Icons.person_rounded,
+                                  size: 60,
+                                  color: colors.textSecondary,
+                                ),
+                              )
+                            : Icon(
+                                Icons.person_rounded,
+                                size: 60,
+                                color: colors.textSecondary,
+                              ),
+                      ),
                     ),
                   ),
                   Positioned(

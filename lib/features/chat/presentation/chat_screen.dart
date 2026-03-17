@@ -2,6 +2,7 @@
 // Version Phase 3b — avec images, vocal, réponse, suppression
 
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -885,19 +886,63 @@ class _AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl!,
+          width: 38,
+          height: 38,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.accent],
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.accent],
+              ),
+            ),
+            child: Center(
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Container(
       width: 38, height: 38,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photoUrl == null ? const LinearGradient(
-          colors: [AppColors.primary, AppColors.accent]) : null,
-        image: photoUrl != null ? DecorationImage(
-            image: NetworkImage(photoUrl!), fit: BoxFit.cover) : null,
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.accent],
+        ),
       ),
-      child: photoUrl == null ? Center(
-        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: TextStyle(color: Colors.white,
-              fontWeight: FontWeight.w700))) : null,
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }

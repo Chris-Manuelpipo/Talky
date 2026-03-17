@@ -113,4 +113,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  static const LinearGradient splashGradientLight = LinearGradient(
+    colors: [Color(0xFFF8F9FC), Color(0xFFE8E4F8), Color(0xFFF8F9FC)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
