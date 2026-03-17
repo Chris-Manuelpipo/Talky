@@ -185,6 +185,21 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
+          // ── Partager ───────────────────────────────────────────────────────
+          _SectionHeader(title: 'Partager'),
+          _SettingsTile(
+            icon: Icons.share_outlined,
+            title: 'Partager Talky avec un ami',
+            subtitle: 'Invitez vos amis à rejoindre Talky',
+            onTap: () => _showComingSoon(context),
+            trailing: Icon(
+              Icons.chevron_right_rounded,
+              color: colors.textSecondary,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // ── À propos ─────────────────────────────────────────────────────
           _SectionHeader(title: 'À propos'),
           _SettingsTile(
