@@ -121,6 +121,7 @@ class CallService {
 
     // ── Écouter les événements ─────────────────────────────────────
     _socket!.on('incoming_call', (data) async {
+      debugPrint('[Socket] incoming_call received: $data');
       final incoming = IncomingCallData(
         callerId:    data['callerId'],
         callerName:  data['callerName'],
@@ -135,6 +136,7 @@ class CallService {
     });
 
     _socket!.on('call_answered', (data) async {
+      debugPrint('[Socket] Call answered received: $data');
       final answer = RTCSessionDescription(
         data['answer']['sdp'], data['answer']['type']);
       await _peerConnection?.setRemoteDescription(answer);
@@ -147,13 +149,15 @@ class CallService {
     });
 
     _socket!.on('ice_candidate', (data) async {
-      if (data['candidate'] != null) {
+      debugPrint('[Socket] ICE candidate received: $data');
+      if (data != null && data['candidate'] != null) {
         final candidate = RTCIceCandidate(
-          data['candidate']['candidate'],
-          data['candidate']['sdpMid'],
-          data['candidate']['sdpMLineIndex'],
+          data['candidate']['candidate'] as String,
+          data['candidate']['sdpMid'] as String?,
+          data['candidate']['sdpMLineIndex'] as int,
         );
         await _peerConnection?.addCandidate(candidate);
+        debugPrint('[Socket] ICE candidate added to peer connection');
       }
     });
 
@@ -188,6 +192,9 @@ class CallService {
 
     await _setupPeerConnection();
     await _getLocalStream(isVideo: isVideo);
+    
+    // Activer le haut-parleur pour les appels
+    await setSpeaker(true);
 
     final offer = await _peerConnection!.createOffer();
     await _peerConnection!.setLocalDescription(offer);
@@ -203,6 +210,7 @@ class CallService {
         'type': offer.type,
       },
     });
+    debugPrint('[Socket] call_user emitted to $targetUserId');
 
     if (_myUserId != null) {
       await FcmSender.sendCallNotification(
@@ -230,6 +238,9 @@ class CallService {
     await _setupPeerConnection();
     await _getLocalStream(isVideo: incoming.isVideo);
 
+    // Activer le haut-parleur pour les appels
+    await setSpeaker(true);
+
     final offer = RTCSessionDescription(
         incoming.offer['sdp'], incoming.offer['type']);
     await _peerConnection!.setRemoteDescription(offer);
@@ -244,6 +255,7 @@ class CallService {
         'type': answer.type,
       },
     });
+    debugPrint('[Socket] answer_call emitted to ${incoming.callerId}');
   }
 
   // ── Refuser un appel ──────────────────────────────────────────────
@@ -278,6 +290,17 @@ class CallService {
     });
   }
 
+  // ── Activer/désactiver le haut-parleur ─────────────────────────────
+  Future<void> setSpeaker(bool enabled) async {
+    // Utiliser la méthode正确的 de flutter_webrtc
+    try {
+      final result = await WebRTC.invokeMethod('setSpeakerphoneOn', {'enabled': enabled});
+      debugPrint('[Audio] Speakerphone enabled: $result');
+    } catch (e) {
+      debugPrint('[Audio] Error setting speaker: $e');
+    }
+  }
+
   // ── Retourner la caméra ───────────────────────────────────────────
   Future<void> switchCamera() async {
     final tracks = _localStream?.getVideoTracks();
@@ -288,17 +311,39 @@ class CallService {
 
   // ── Setup PeerConnection ──────────────────────────────────────────
   Future<void> _setupPeerConnection() async {
+    // final config = {
+    //   'iceServers': [
+    //     // Serveurs STUN publics de Google
+    //     {'urls': 'stun:stun.l.google.com:19302'},
+    //     {'urls': 'stun:stun1.l.google.com:19302'},
+    //     {'urls': 'stun:stun2.l.google.com:19302'},
+    //     {'urls': 'stun:stun3.l.google.com:19302'},
+    //     {'urls': 'stun:stun4.l.google.com:19302'},
+    //     // Serveurs STUN supplémentaires
+    //     {'urls': 'stun:stun.freecall.com:3478'},
+    //     {'urls': 'stun:stun.qq.com:3478'},
+    //   ],
+    //   'iceCandidatePoolSize': 10,
+    // };
+
     final config = {
       'iceServers': [
-        // Serveurs STUN publics de Google
+        // STUN servers
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun1.l.google.com:19302'},
         {'urls': 'stun:stun2.l.google.com:19302'},
         {'urls': 'stun:stun3.l.google.com:19302'},
         {'urls': 'stun:stun4.l.google.com:19302'},
-        // Serveurs STUN supplémentaires
-        {'urls': 'stun:stun.freecall.com:3478'},
-        {'urls': 'stun:stun.qq.com:3478'},
+        // TURN server Metered (credentials utilisateur)
+        {
+          'urls': [
+            'turn:global.turn.metered.ca:80',
+            'turn:global.turn.metered.ca:443',
+            'turn:global.turn.metered.ca:443?transport=tcp',
+          ],
+          'username': '4ccd30e6211751522c93c044',
+          'credential': 'iB+/hPI3lLayZAKn',
+        },
       ],
       'iceCandidatePoolSize': 10,
     };
@@ -306,6 +351,7 @@ class CallService {
     _peerConnection = await createPeerConnection(config);
 
     _peerConnection!.onIceCandidate = (candidate) {
+      debugPrint('[WebRTC] Sending ICE candidate: ${candidate.candidate}');
       _socket!.emit('ice_candidate', {
         'targetUserId': _remoteUserId,
         'candidate': {
@@ -314,28 +360,72 @@ class CallService {
           'sdpMLineIndex': candidate.sdpMLineIndex,
         },
       });
+      debugPrint('[WebRTC] ICE candidate sent to $_remoteUserId');
     };
 
-    _peerConnection!.onTrack = (event) {
+    _peerConnection!.onTrack = (event) async {
+      debugPrint('[WebRTC] onTrack received, tracks: ${event.track.kind}');
+      // Notifier que l'appel est connecté quand on reçoit un track distant
+      _eventCtrl.add(CallEvent.callConnected);
+      
+      // Utiliser le stream de l'événement si disponible
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
-        _remoteStreamCtrl.add(_remoteStream);
+        debugPrint('[WebRTC] Using stream from event: ${event.streams[0].id}');
+      } else {
+        // Créer un nouveau stream local si nécessaire
+        debugPrint('[WebRTC] Creating new remote stream');
+        _remoteStream = await createLocalMediaStream('remote-${_remoteUserId ?? 'unknown'}');
+        _remoteStream!.addTrack(event.track!);
       }
+      _remoteStreamCtrl.add(_remoteStream);
     };
 
     _peerConnection!.onConnectionState = (state) {
       debugPrint('[WebRTC] Connection state: $state');
-      if (state ==
-          RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         _eventCtrl.add(CallEvent.callConnected);
       }
+      // Gérer les autres états de connexion
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+          state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        debugPrint('[WebRTC] Connection lost or failed');
+      }
+    };
+
+    // Gestion de l'état ICE pour détecter la connexion
+    _peerConnection!.onIceConnectionState = (state) {
+      debugPrint('[ICE] Connection state: $state');
+      // Considérer la connexion établie quand ICE est connecté ou completed
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        debugPrint('[ICE] Connection established!');
+        _eventCtrl.add(CallEvent.callConnected);
+      }
+      // Gérer les états d'erreur
+      if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+          state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+        debugPrint('[ICE] Connection failed or disconnected');
+      }
+    };
+
+    _peerConnection!.onSignalingState = (state) {
+      debugPrint('[Signaling] State: $state');
+    };
+
+    _peerConnection!.onIceGatheringState = (state) {
+      debugPrint('[ICE] Gathering state: $state');
     };
   }
 
   // ── Obtenir le flux local (micro + caméra) ────────────────────────
   Future<void> _getLocalStream({required bool isVideo}) async {
     _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
+      'audio': {
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+      },
       'video': isVideo ? {
         'facingMode': 'user',
         'width':  {'ideal': 1280},
@@ -351,6 +441,9 @@ class CallService {
 
   // ── Nettoyage ─────────────────────────────────────────────────────
   void _cleanup() {
+    // Désactiver le haut-parleur
+    setSpeaker(false);
+    
     _localStream?.dispose();
     _localStream = null;
     _remoteStream?.dispose();
