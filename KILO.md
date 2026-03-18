@@ -95,6 +95,7 @@
 ### 3.4 Appels
 - Appels audio (WebRTC)
 - Appels vidéo (WebRTC)
+- **Appels de groupe** (WebRTC - topologie mesh)
 - Notifications d'appels entrants (FCM)
 - Gestion du speaker/micro
 
@@ -119,6 +120,8 @@
 
 ## 5. Flux d'un Appel
 
+### 5.1 Appel individuel
+
 1. **Appelant** initie → Socket émet `call_user`
 2. **Serveur** reçoit → Notifications push FCM + routing Socket
 3. **Appelé** reçoit notification → Écran appel entrant
@@ -127,6 +130,17 @@
 6. **Échange ICE** via Socket (candidats)
 7. **Connexion P2P** via STUN/TURN
 8. **Audio/Vidéo** flows directement entre peers
+
+### 5.2 Appel de groupe
+
+1. **Créateur** initie → Socket émet `create_group_call` avec roomId
+2. **Serveur** crée la salle et notifie les participants via `group_call_invite`
+3. **Participants** reçoivent invitation → Écran appel entrant de groupe
+4. **Participants** acceptent → Socket émet `join_group_call`
+5. **Serveur** envoie la liste des participants actuels
+6. **Mesh P2P** : chaque participant crée une connexion avec tous les autres
+7. **Échange SDP/ICE** via Socket entre tous les participants
+8. **Audio/Vidéo** flows en mesh entre tous les participants
 
 ---
 
