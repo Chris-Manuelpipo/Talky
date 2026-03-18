@@ -409,21 +409,71 @@ class ChatService {
   }
 
   /// Rechercher des utilisateurs par phones (pour matching avec contacts)
+  /// Optimisé: utilise des requêtes par lot avec les deux formats (avec et sans +)
   Future<List<Map<String, dynamic>>> findUsersByPhones(List<String> phones) async {
-    final results = <Map<String, dynamic>>[];
-    
+    // Dédoublonner les numéros et créer les deux formats
+    final uniquePhones = <String>{};
+    final normalizedToOriginal = <String, String>{}; // normalized -> original
     for (final phone in phones) {
-      final normalizedPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-      if (normalizedPhone.length < 8) continue; // Skip invalid numbers
+      final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+      if (normalized.length >= 8) {
+        uniquePhones.add(normalized);
+        normalizedToOriginal[normalized] = phone;
+        
+        // Ajouter aussi le format avec +237 si ça ressemble à un numéro camerounais
+        if (normalized.startsWith('237')) {
+          normalizedToOriginal[normalized] = '+$normalized';
+        }
+      }
+    }
+    
+    if (uniquePhones.isEmpty) return [];
+    
+    final results = <Map<String, dynamic>>[];
+    final seenIds = <String>{};
+    
+    // Firestore whereIn limité à 10 valeurs, donc on fait des lots
+    final phoneList = uniquePhones.toList();
+    const batchSize = 10;
+    
+    for (var i = 0; i < phoneList.length; i += batchSize) {
+      final end = (i + batchSize > phoneList.length) ? phoneList.length : i + batchSize;
+      final batch = phoneList.sublist(i, end);
       
-      final snap = await _db
-          .collection('users')
-          .where('phone', isEqualTo: phone)
-          .limit(1)
-          .get();
-
-      if (snap.docs.isNotEmpty) {
-        results.add({'id': snap.docs.first.id, ...snap.docs.first.data()});
+      // Créer les deux versions: avec + et sans +
+      final batchWithPlus = batch.map((p) => '+$p').toList();
+      final allBatch = [...batch, ...batchWithPlus];
+      
+      try {
+        final snap = await _db
+            .collection('users')
+            .where('phone', whereIn: allBatch)
+            .get();
+        
+        for (final doc in snap.docs) {
+          if (!seenIds.contains(doc.id)) {
+            seenIds.add(doc.id);
+            results.add({'id': doc.id, ...doc.data()});
+          }
+        }
+      } catch (e) {
+        // Fallback sur des queries individuelles
+        for (final phone in allBatch) {
+          try {
+            final singleSnap = await _db
+                .collection('users')
+                .where('phone', isEqualTo: phone)
+                .limit(1)
+                .get();
+            
+            if (singleSnap.docs.isNotEmpty && !seenIds.contains(singleSnap.docs.first.id)) {
+              seenIds.add(singleSnap.docs.first.id);
+              results.add({'id': singleSnap.docs.first.id, ...singleSnap.docs.first.data()});
+            }
+          } catch (_) {
+            // Ignore
+          }
+        }
       }
     }
 

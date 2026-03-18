@@ -62,14 +62,32 @@ class PhoneContactsService {
       print('[PhoneContacts] Found ${result.length} contacts');
 
       return result.map((contact) {
-        final Map<String, dynamic> c = contact as Map<String, dynamic>;
+        // Handle both Map<String, dynamic> and Map<Object?, Object?> types
+        final Map<String, dynamic> c;
+        if (contact is Map<String, dynamic>) {
+          c = contact;
+        } else if (contact is Map) {
+          c = {};
+          contact.forEach((key, value) {
+            c[key.toString()] = value;
+          });
+        } else {
+          return PhoneContact(id: '', displayName: 'Inconnu', phones: []);
+        }
+        
+        // Handle phones list - may also need conversion
+        List<String> phoneList = [];
+        final phonesData = c['phones'];
+        if (phonesData is List) {
+          phoneList = phonesData.map((e) => e.toString()).toList();
+        } else if (phonesData is List<String>) {
+          phoneList = phonesData;
+        }
+        
         return PhoneContact(
-          id: c['id'] as String? ?? '',
-          displayName: c['displayName'] as String? ?? 'Inconnu',
-          phones: (c['phones'] as List<dynamic>?)
-                  ?.map((e) => e as String)
-                  .toList() ??
-              [],
+          id: c['id']?.toString() ?? '',
+          displayName: c['displayName']?.toString() ?? 'Inconnu',
+          phones: phoneList,
         );
       }).toList();
     } catch (e) {

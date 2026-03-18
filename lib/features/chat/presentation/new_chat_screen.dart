@@ -33,7 +33,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   bool _permissionDeniedPermanently = false;
 
   // Phone contacts matched with Talky users
-  List<PhoneContact> _onTalkyContacts = [];
+  List<_ContactWithPhoto> _onTalkyContacts = [];
   List<PhoneContact> _notOnTalkyContacts = [];
 
   late TabController _tabController;
@@ -105,22 +105,25 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         }
       }
 
-      // Match contacts with Talky users
-      final onTalky = <PhoneContact>[];
+      // Match contacts with Talky users - store with photo
+      final onTalky = <_ContactWithPhoto>[];
       final notOnTalky = <PhoneContact>[];
 
       for (final contact in phoneContacts) {
+        String? photoUrl;
         bool isOnTalky = false;
+        
         for (final phone in contact.phones) {
           final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
           if (phoneToUser.containsKey(normalized)) {
             isOnTalky = true;
+            photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
             break;
           }
         }
 
         if (isOnTalky) {
-          onTalky.add(contact);
+          onTalky.add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
         } else {
           notOnTalky.add(contact);
         }
@@ -353,7 +356,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
     final filteredOnTalky = _query.isEmpty
         ? _onTalkyContacts
         : _onTalkyContacts
-            .where((c) => c.displayName.toLowerCase().contains(_query))
+            .where((c) => c.contact.displayName.toLowerCase().contains(_query))
             .toList();
 
     final filteredNotOnTalky = _query.isEmpty
@@ -393,10 +396,11 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
               ),
             ),
           ),
-          ...filteredOnTalky.map((contact) => _PhoneContactTile(
-                contact: contact,
+          ...filteredOnTalky.map((c) => _PhoneContactTile(
+                contact: c.contact,
+                photoUrl: c.photoUrl,
                 isOnTalky: true,
-                onTap: () => _startChatWithContact(contact),
+                onTap: () => _startChatWithContact(c.contact),
               )),
         ],
 
@@ -628,14 +632,23 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   }
 }
 
+class _ContactWithPhoto {
+  final PhoneContact contact;
+  final String? photoUrl;
+
+  const _ContactWithPhoto({required this.contact, this.photoUrl});
+}
+
 class _PhoneContactTile extends StatelessWidget {
   final PhoneContact contact;
   final bool isOnTalky;
+  final String? photoUrl;
   final VoidCallback onTap;
 
   const _PhoneContactTile({
     required this.contact,
     required this.isOnTalky,
+    this.photoUrl,
     required this.onTap,
   });
 
@@ -648,19 +661,25 @@ class _PhoneContactTile extends StatelessWidget {
         height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.accent],
-          ),
+          gradient: photoUrl == null
+              ? const LinearGradient(
+                  colors: [AppColors.primary, AppColors.accent])
+              : null,
+          image: photoUrl != null
+              ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
+              : null,
         ),
-        child: Center(
-          child: Text(
-            contact.displayName.isNotEmpty
-                ? contact.displayName[0].toUpperCase()
-                : '?',
-            style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-        ),
+        child: photoUrl == null
+            ? Center(
+                child: Text(
+                  contact.displayName.isNotEmpty
+                      ? contact.displayName[0].toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              )
+            : null,
       ),
       title: Text(contact.displayName,
           style: TextStyle(

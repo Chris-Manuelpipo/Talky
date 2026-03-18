@@ -18,7 +18,7 @@ class SettingsState {
   final String profileVisibility;
 
   const SettingsState({
-    this.themeMode = ThemeMode.dark,
+    this.themeMode = ThemeMode.system,
     this.language = 'fr',
     this.notificationsEnabled = true,
     this.notificationSound = true,
@@ -65,7 +65,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void _loadSettings() {
     if (_prefs == null) return;
 
-    final themeModeIndex = _prefs!.getInt(AppConstants.prefThemeMode) ?? 1;
+    final themeModeIndex = _prefs!.getInt(AppConstants.prefThemeMode) ?? 0; // 0 = ThemeMode.system
     final language = _prefs!.getString(AppConstants.prefUserLanguage) ?? 'fr';
     final notifications = _prefs!.getBool('notifications_enabled') ?? true;
     final sound = _prefs!.getBool('notification_sound') ?? true;

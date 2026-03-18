@@ -6,10 +6,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
-import '../../../core/theme/app_colors_provider.dart';
 import '../../../shared/widgets/talky_button.dart';
 import '../../../shared/widgets/talky_text_field.dart';
 import '../../auth/data/auth_providers.dart';
@@ -99,7 +97,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } finally {
@@ -109,8 +107,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -122,15 +123,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 const SizedBox(height: 40),
 
                 Text('Votre profil',
-                  style: Theme.of(context).textTheme.displaySmall,
+                  style: theme.textTheme.displaySmall,
                 ).animate().fadeIn().slideY(begin: 0.2, end: 0),
 
                 const SizedBox(height: 8),
 
                 Text(
                   'Complétez votre profil pour que vos connaissances puissent vous reconnaître.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary, height: 1.5,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant, height: 1.5,
                   ),
                 ).animate(delay: 50.ms).fadeIn(),
 
@@ -146,8 +147,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           width: 100, height: 100,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.surfaceVariant,
-                            border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 2),
+                            color: colorScheme.surfaceContainerHighest,
+                            border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4), width: 2),
                             image: _localImagePath != null
                                 ? DecorationImage(
                                     image: NetworkImage(_localImagePath!),
@@ -156,7 +157,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                 : null,
                           ),
                           child: _localImagePath == null
-                              ? Icon(AppIcons.person, size: 42, color: AppColors.primary)
+                              ? Icon(AppIcons.person, size: 42, color: colorScheme.primary)
                               : null,
                         ),
                         Positioned(
@@ -164,9 +165,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           child: Container(
                             width: 32, height: 32,
                             decoration: BoxDecoration(
-                              color: AppColors.primary,
+                              color: colorScheme.primary,
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.background, width: 2),
+                              border: Border.all(color: colorScheme.surface, width: 2),
                             ),
                             child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
                           ),
@@ -221,7 +222,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
                 Text(
                   'Les messages reçus seront traduits dans cette langue.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textHint),
+                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
                 ).animate(delay: 260.ms).fadeIn(),
 
                 const SizedBox(height: 12),
@@ -237,18 +238,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppColors.primary.withOpacity(0.15)
-                              : AppColors.surfaceVariant,
+                              ? colorScheme.primary.withValues(alpha: 0.15)
+                              : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.border,
+                            color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
                             width: isSelected ? 1.5 : 0.5,
                           ),
                         ),
                         child: Text(
                           '${lang['flag']} ${lang['name']}',
                           style: TextStyle(
-                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
                             fontSize: 13,
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                           ),

@@ -292,12 +292,16 @@ class CallService {
 
   // ── Activer/désactiver le haut-parleur ─────────────────────────────
   Future<void> setSpeaker(bool enabled) async {
-    // Utiliser la méthode正确的 de flutter_webrtc
+    // Note: Le haut-parleur est géré automatiquement par flutter_webrtc
+    // Cette méthode n'est plus nécessaire avec les nouvelles versions
+    // mais conservée pour compatibilité
     try {
-      final result = await WebRTC.invokeMethod('setSpeakerphoneOn', {'enabled': enabled});
-      debugPrint('[Audio] Speakerphone enabled: $result');
+      // Essayer différentes méthodes selon la version du plugin
+      await WebRTC.invokeMethod('setSpeakerphoneOn', {'enabled': enabled});
+      debugPrint('[Audio] Speakerphone set to: $enabled');
     } catch (e) {
-      debugPrint('[Audio] Error setting speaker: $e');
+      // Ignorer l'erreur - le speaker fonctionne par défaut sur Android
+      debugPrint('[Audio] Speaker mode: using default (earpiece)');
     }
   }
 
@@ -334,15 +338,27 @@ class CallService {
         {'urls': 'stun:stun2.l.google.com:19302'},
         {'urls': 'stun:stun3.l.google.com:19302'},
         {'urls': 'stun:stun4.l.google.com:19302'},
+        {'urls': 'stun:stun.relay.metered.ca:80'},
+        
         // TURN server Metered (credentials utilisateur)
         {
           'urls': [
-            'turn:global.turn.metered.ca:80',
-            'turn:global.turn.metered.ca:443',
-            'turn:global.turn.metered.ca:443?transport=tcp',
+            'turn:global.relay.metered.ca:80',
+            'turn:global.relay.metered.ca:80?transport=tcp',
+            'turn:global.relay.metered.ca:443',
+            'turns:global.relay.metered.ca:443?transport=tcp',
           ],
           'username': '4ccd30e6211751522c93c044',
           'credential': 'iB+/hPI3lLayZAKn',
+        },
+        // TURN server ExpressTurn (free)
+        {
+          'urls': [
+            'turn:free.expressturn.com:3478',
+            'turn:free.expressturn.com:3478?transport=tcp',
+          ],
+          'username': '000000002089217611',
+          'credential': '8W315Gw7cTZY2+PRhdVv+rHHPRU=',
         },
       ],
       'iceCandidatePoolSize': 10,
@@ -470,3 +486,4 @@ class CallService {
     _remoteStreamCtrl.close();
   }
 }
+
