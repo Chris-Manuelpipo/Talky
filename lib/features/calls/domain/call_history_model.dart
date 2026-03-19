@@ -1,0 +1,94 @@
+// lib/features/calls/domain/call_history_model.dart
+
+enum CallType { incoming, outgoing, missed }
+
+class CallHistoryModel {
+  final String id;
+  final String callerId;
+  final String callerName;
+  final String? callerPhoto;
+  final String receiverId;
+  final String receiverName;
+  final String? receiverPhoto;
+  final CallType type;
+  final DateTime timestamp;
+  final int durationSeconds; // Durée en secondes (0 pour appels manqués)
+  final bool isVideo;
+
+  CallHistoryModel({
+    required this.id,
+    required this.callerId,
+    required this.callerName,
+    this.callerPhoto,
+    required this.receiverId,
+    required this.receiverName,
+    this.receiverPhoto,
+    required this.type,
+    required this.timestamp,
+    this.durationSeconds = 0,
+    this.isVideo = false,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'callerId': callerId,
+        'callerName': callerName,
+        'callerPhoto': callerPhoto,
+        'receiverId': receiverId,
+        'receiverName': receiverName,
+        'receiverPhoto': receiverPhoto,
+        'type': type.name,
+        'timestamp': timestamp.toIso8601String(),
+        'durationSeconds': durationSeconds,
+        'isVideo': isVideo,
+      };
+
+  factory CallHistoryModel.fromMap(String id, Map<String, dynamic> map) =>
+      CallHistoryModel(
+        id: id,
+        callerId: map['callerId'] as String,
+        callerName: map['callerName'] as String,
+        callerPhoto: map['callerPhoto'] as String?,
+        receiverId: map['receiverId'] as String,
+        receiverName: map['receiverName'] as String,
+        receiverPhoto: map['receiverPhoto'] as String?,
+        type: CallType.values.firstWhere(
+          (e) => e.name == map['type'],
+          orElse: () => CallType.missed,
+        ),
+        timestamp: DateTime.parse(map['timestamp'] as String),
+        durationSeconds: map['durationSeconds'] as int? ?? 0,
+        isVideo: map['isVideo'] as bool? ?? false,
+      );
+
+  /// Returns formatted duration string (e.g., "5:30" or "1:05:30")
+  String get formattedDuration {
+    if (durationSeconds == 0) return '';
+    final hours = durationSeconds ~/ 3600;
+    final minutes = (durationSeconds % 3600) ~/ 60;
+    final seconds = durationSeconds % 60;
+
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// Returns the name of the other person in the call
+  String getDisplayName(String currentUserId) {
+    if (callerId == currentUserId) {
+      return receiverName;
+    }
+    return callerName;
+  }
+
+  /// Returns the photo of the other person in the call
+  String? getDisplayPhoto(String currentUserId) {
+    if (callerId == currentUserId) {
+      return receiverPhoto;
+    }
+    return callerPhoto;
+  }
+
+  /// Check if this call was made by the current user
+  bool isOutgoing(String currentUserId) => callerId == currentUserId;
+}
