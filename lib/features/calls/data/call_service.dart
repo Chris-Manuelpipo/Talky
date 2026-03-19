@@ -17,12 +17,6 @@ enum CallEvent {
   callRejected,
   callEnded,
   callFailed,
-  // Événements d'appel de groupe
-  groupCallInvite,
-  userJoinedGroupCall,
-  userLeftGroupCall,
-  groupCallConnected,
-  groupCallEnded,
 }
 
 class IncomingCallData {
@@ -33,43 +27,6 @@ class IncomingCallData {
   final Map<String, dynamic> offer;
 
   const IncomingCallData({
-    required this.callerId,
-    required this.callerName,
-    this.callerPhoto,
-    required this.isVideo,
-    required this.offer,
-  });
-}
-
-// Données pour les appels de groupe
-class GroupCallParticipant {
-  final String oderId;
-  final String name;
-  final String? photo;
-  final bool isVideo;
-  final RTCPeerConnection? peerConnection;
-  final MediaStream? stream;
-
-  GroupCallParticipant({
-    required this.oderId,
-    required this.name,
-    this.photo,
-    this.isVideo = false,
-    this.peerConnection,
-    this.stream,
-  });
-}
-
-class GroupCallInviteData {
-  final String roomId;
-  final String callerId;
-  final String callerName;
-  final String? callerPhoto;
-  final bool isVideo;
-  final Map<String, dynamic> offer;
-
-  const GroupCallInviteData({
-    required this.roomId,
     required this.callerId,
     required this.callerName,
     this.callerPhoto,
@@ -93,46 +50,21 @@ class CallService {
   bool _isVideo = false;
   String? _lastError;
 
-  // ── Group call state ───────────────────────────────────────────────────
-  String? _currentGroupRoomId;
-  final Map<String, RTCPeerConnection> _groupPeerConnections = {};
-  final Map<String, MediaStream> _groupRemoteStreams = {};
-  final Map<String, GroupCallParticipant> _groupParticipants = {};
-  bool _isGroupCall = false;
-
   // Streams pour notifier l'UI
   final _eventCtrl   = StreamController<CallEvent>.broadcast();
   final _incomingCtrl = StreamController<IncomingCallData>.broadcast();
   final _localStreamCtrl = StreamController<MediaStream?>.broadcast();
   final _remoteStreamCtrl = StreamController<MediaStream?>.broadcast();
-  // Group call streams
-  final _groupInviteCtrl = StreamController<GroupCallInviteData>.broadcast();
-  final _groupParticipantJoinedCtrl = StreamController<Map<String, dynamic>>.broadcast();
-  final _groupParticipantLeftCtrl = StreamController<String>.broadcast();
-  final _groupParticipantsCtrl = StreamController<List<String>>.broadcast();
-  final _groupRemoteStreamCtrl = StreamController<MapEntry<String, MediaStream>>.broadcast();
 
   Stream<CallEvent>       get events       => _eventCtrl.stream;
   Stream<IncomingCallData> get incomingCalls => _incomingCtrl.stream;
   Stream<MediaStream?> get localStreamUpdates => _localStreamCtrl.stream;
   Stream<MediaStream?> get remoteStreamUpdates => _remoteStreamCtrl.stream;
-  // Group call streams
-  Stream<GroupCallInviteData> get groupCallInvites => _groupInviteCtrl.stream;
-  Stream<Map<String, dynamic>> get participantJoined => _groupParticipantJoinedCtrl.stream;
-  Stream<String> get participantLeft => _groupParticipantLeftCtrl.stream;
-  Stream<List<String>> get groupParticipantsList => _groupParticipantsCtrl.stream;
-  Stream<MapEntry<String, MediaStream>> get groupRemoteStreamUpdates => _groupRemoteStreamCtrl.stream;
 
   MediaStream? get localStream  => _localStream;
   MediaStream? get remoteStream => _remoteStream;
   bool get isConnected => _socket?.connected ?? false;
   String? get lastError => _lastError;
-  
-  // Group call getters
-  String? get currentGroupRoomId => _currentGroupRoomId;
-  bool get isInGroupCall => _currentGroupRoomId != null;
-  Map<String, GroupCallParticipant> get groupParticipants => _groupParticipants;
-  Map<String, MediaStream> get groupRemoteStreams => _groupRemoteStreams;
 
   // ── Connexion au serveur de signaling ─────────────────────────────
   void connect(String userId) {
@@ -239,123 +171,6 @@ class CallService {
       _lastError = data is Map ? data['reason']?.toString() : null;
       _eventCtrl.add(CallEvent.callFailed);
     });
-
-    // ── Événements d'appel de groupe ───────────────────────────────────
-    _socket!.on('group_call_invite', (data) async {
-      debugPrint('[Socket] group_call_invite received: $data');
-      final invite = GroupCallInviteData(
-        roomId: data['roomId'],
-        callerId: data['callerId'],
-        callerName: data['callerName'],
-        callerPhoto: data['callerPhoto'],
-        isVideo: data['isVideo'] ?? false,
-        offer: Map<String, dynamic>.from(data['offer'] ?? {}),
-      );
-      _groupInviteCtrl.add(invite);
-      _eventCtrl.add(CallEvent.groupCallInvite);
-    });
-
-    _socket!.on('user_joined_group_call', (data) async {
-      debugPrint('[Socket] user_joined_group_call received: $data');
-      final userId = data['userId'] as String;
-      final userName = data['userName'] as String?;
-      final userPhoto = data['userPhoto'] as String?;
-      final offer = Map<String, dynamic>.from(data['offer'] ?? {});
-      final roomId = data['roomId'] as String;
-      
-      // Créer une connexion peer pour ce participant
-      if (offer.isNotEmpty) {
-        await _createGroupPeerConnection(userId, roomId, isInitiator: true, remoteOffer: offer);
-      }
-      
-      _groupParticipantJoinedCtrl.add({
-        'roomId': roomId,
-        'userId': userId,
-        'userName': userName,
-        'userPhoto': userPhoto,
-      });
-    });
-
-    _socket!.on('group_call_participants', (data) {
-      debugPrint('[Socket] group_call_participants received: $data');
-      final roomId = data['roomId'] as String;
-      final participants = List<String>.from(data['participants'] ?? []);
-      _currentGroupRoomId = roomId;
-      _groupParticipantsCtrl.add(participants);
-      
-      // Créer des connexions avec chaque participant existant
-      for (final participantId in participants) {
-        _createGroupPeerConnection(participantId, roomId, isInitiator: true);
-      }
-    });
-
-    _socket!.on('user_left_group_call', (data) {
-      debugPrint('[Socket] user_left_group_call received: $data');
-      final userId = data['userId'] as String;
-      final roomId = data['roomId'] as String;
-      
-      // Nettoyer la connexion peer
-      _groupPeerConnections[userId]?.close();
-      _groupPeerConnections.remove(userId);
-      _groupRemoteStreams[userId]?.dispose();
-      _groupRemoteStreams.remove(userId);
-      _groupParticipants.remove(userId);
-      
-      _groupParticipantLeftCtrl.add(userId);
-    });
-
-    _socket!.on('group_call_answer', (data) async {
-      debugPrint('[Socket] group_call_answer received: $data');
-      final answer = RTCSessionDescription(
-        data['answer']['sdp'], data['answer']['type']);
-      final roomId = data['roomId'] as String;
-      
-      // Trouver la connexion correspondante et définir la description distante
-      for (final entry in _groupPeerConnections.entries) {
-        final pc = entry.value;
-        try {
-          final remoteDesc = await pc.getRemoteDescription();
-          if (remoteDesc == null) {
-            await pc.setRemoteDescription(answer);
-            break;
-          }
-        } catch (_) {
-          // Continuer
-        }
-      }
-    });
-
-    _socket!.on('group_ice_candidate', (data) async {
-      debugPrint('[Socket] group_ice_candidate received: $data');
-      if (data != null && data['candidate'] != null) {
-        final candidate = RTCIceCandidate(
-          data['candidate']['candidate'] as String,
-          data['candidate']['sdpMid'] as String?,
-          data['candidate']['sdpMLineIndex'] as int,
-        );
-        
-        // Trouver la connexion correspondante
-        for (final pc in _groupPeerConnections.values) {
-          try {
-            await pc.addCandidate(candidate);
-          } catch (_) {
-            // Ignorer les erreurs
-          }
-        }
-      }
-    });
-
-    _socket!.on('group_call_ended', (data) {
-      debugPrint('[Socket] group_call_ended received: $data');
-      _cleanupGroupCall();
-      _eventCtrl.add(CallEvent.groupCallEnded);
-    });
-
-    _socket!.on('group_call_error', (data) {
-      debugPrint('[Socket] group_call_error received: $data');
-      _lastError = data is Map ? data['reason']?.toString() : 'group_call_error';
-      _eventCtrl.add(CallEvent.callFailed);
-    });
   }
 
   // ── Passer un appel ────────────────────────────────────────────────
@@ -456,294 +271,6 @@ class CallService {
     }
     _cleanup();
     _eventCtrl.add(CallEvent.callEnded);
-  }
-
-  // ── Créer un appel de groupe ──────────────────────────────────────────
-  Future<void> createGroupCall({
-    required String roomId,
-    required String callerName,
-    String? callerPhoto,
-    required bool isVideo,
-  }) async {
-    if (_socket == null || !_socket!.connected) {
-      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
-      _eventCtrl.add(CallEvent.callFailed);
-      return;
-    }
-
-    _currentGroupRoomId = roomId;
-    _isGroupCall = true;
-    _isVideo = isVideo;
-
-    // Obtenir le flux local
-    await _getLocalStream(isVideo: isVideo);
-    await setSpeaker(true);
-
-    // Créer l'offre pour chaque participant
-    final config = _getPeerConnectionConfig();
-    _groupPeerConnections.clear();
-
-    final offer = await createPeerConnection(config).then((pc) async {
-      // Ajouter les tracks locales
-      _localStream?.getTracks().forEach((track) {
-        pc.addTrack(track, _localStream!);
-      });
-      
-      final o = await pc.createOffer();
-      await pc.setLocalDescription(o);
-      return o;
-    });
-
-    // Émettre l'événement de création de groupe
-    _socket!.emit('create_group_call', {
-      'roomId': roomId,
-      'callerId': _myUserId,
-      'callerName': callerName,
-      'callerPhoto': callerPhoto,
-      'isVideo': isVideo,
-      'offer': {
-        'sdp': offer.sdp,
-        'type': offer.type,
-      },
-    });
-
-    debugPrint('[GroupCall] Created room $roomId');
-  }
-
-  // ── Rejoindre un appel de groupe ───────────────────────────────────────
-  Future<void> joinGroupCall({
-    required String roomId,
-    required String userName,
-    String? userPhoto,
-  }) async {
-    if (_socket == null || !_socket!.connected) {
-      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
-      _eventCtrl.add(CallEvent.callFailed);
-      return;
-    }
-
-    _currentGroupRoomId = roomId;
-    _isGroupCall = true;
-
-    // Obtenir le flux local
-    await _getLocalStream(isVideo: false);
-    await setSpeaker(true);
-
-    _socket!.emit('join_group_call', {
-      'roomId': roomId,
-      'userId': _myUserId,
-      'userName': userName,
-      'userPhoto': userPhoto,
-      'offer': null,
-    });
-
-    debugPrint('[GroupCall] Joined room $roomId');
-  }
-
-  // ── Quitter un appel de groupe ─────────────────────────────────────────
-  void leaveGroupCall() {
-    if (_currentGroupRoomId != null) {
-      _socket!.emit('leave_group_call', {'roomId': _currentGroupRoomId});
-    }
-    _cleanupGroupCall();
-    _eventCtrl.add(CallEvent.groupCallEnded);
-  }
-
-  // ── Terminer un appel de groupe (pour le créateur) ─────────────────────
-  void endGroupCall() {
-    if (_currentGroupRoomId != null) {
-      _socket!.emit('end_group_call', {'roomId': _currentGroupRoomId});
-    }
-    _cleanupGroupCall();
-    _eventCtrl.add(CallEvent.groupCallEnded);
-  }
-
-  // ── Répondre à une invitation d'appel de groupe ───────────────────────
-  Future<void> answerGroupCall(GroupCallInviteData invite) async {
-    if (_socket == null || !_socket!.connected) {
-      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
-      _eventCtrl.add(CallEvent.callFailed);
-      return;
-    }
-
-    _currentGroupRoomId = invite.roomId;
-    _isGroupCall = true;
-    _isVideo = invite.isVideo;
-
-    // Obtenir le flux local
-    await _getLocalStream(isVideo: invite.isVideo);
-    await setSpeaker(true);
-
-    // Configurer la connexion peer avec l'offre
-    final pc = await _setupGroupPeerConnection(invite.callerId, invite.roomId);
-
-    if (invite.offer.isNotEmpty) {
-      final offer = RTCSessionDescription(
-        invite.offer['sdp'], invite.offer['type']);
-      await pc.setRemoteDescription(offer);
-
-      final answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      _socket!.emit('answer_group_call', {
-        'roomId': invite.roomId,
-        'targetUserId': invite.callerId,
-        'answer': {
-          'sdp': answer.sdp,
-          'type': answer.type,
-        },
-      });
-    }
-
-    // Rejoindre officiellement le groupe
-    _socket!.emit('join_group_call', {
-      'roomId': invite.roomId,
-      'userId': _myUserId,
-      'userName': '',
-      'userPhoto': null,
-      'offer': null,
-    });
-
-    debugPrint('[GroupCall] Answered invite from ${invite.callerId}');
-  }
-
-  // ── Créer une connexion peer pour un participant ───────────────────────
-  Future<RTCPeerConnection> _createGroupPeerConnection(
-    String participantId,
-    String roomId, {
-    bool isInitiator = false,
-    Map<String, dynamic>? remoteOffer,
-  }) async {
-    final pc = await _setupGroupPeerConnection(participantId, roomId);
-
-    if (isInitiator && remoteOffer == null) {
-      // Créer une offre pour ce participant
-      final offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      _socket!.emit('join_group_call', {
-        'roomId': roomId,
-        'userId': _myUserId,
-        'userName': '',
-        'userPhoto': null,
-        'offer': {
-          'sdp': offer.sdp,
-          'type': offer.type,
-        },
-      });
-    }
-
-    return pc;
-  }
-
-  // ── Configurer une connexion peer pour un participant ─────────────────
-  Future<RTCPeerConnection> _setupGroupPeerConnection(
-    String participantId,
-    String roomId,
-  ) async {
-    final config = _getPeerConnectionConfig();
-    final pc = await createPeerConnection(config);
-
-    _groupPeerConnections[participantId] = pc;
-
-    // Ajouter le flux local
-    _localStream?.getTracks().forEach((track) {
-      pc.addTrack(track, _localStream!);
-    });
-
-    // Gestion des ICE candidates
-    pc.onIceCandidate = (candidate) {
-      debugPrint('[GroupCall] ICE candidate for $participantId');
-      _socket!.emit('group_ice_candidate', {
-        'roomId': roomId,
-        'targetUserId': participantId,
-        'candidate': {
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
-          'sdpMLineIndex': candidate.sdpMLineIndex,
-        },
-      });
-    };
-
-    // Réception des tracks distants
-    pc.onTrack = (event) async {
-      debugPrint('[GroupCall] onTrack from $participantId: ${event.track.kind}');
-      
-      if (event.streams.isNotEmpty) {
-        _groupRemoteStreams[participantId] = event.streams[0];
-      } else {
-        final stream = await createLocalMediaStream('remote-$participantId');
-        stream.addTrack(event.track!);
-        _groupRemoteStreams[participantId] = stream;
-      }
-      
-      _groupRemoteStreamCtrl.add(MapEntry(participantId, _groupRemoteStreams[participantId]!));
-      _eventCtrl.add(CallEvent.groupCallConnected);
-    };
-
-    pc.onConnectionState = (state) {
-      debugPrint('[GroupCall] Connection state with $participantId: $state');
-    };
-
-    pc.onIceConnectionState = (state) {
-      debugPrint('[GroupCall] ICE state with $participantId: $state');
-    };
-
-    return pc;
-  }
-
-  // ── Configuration des serveurs ICE ─────────────────────────────────────
-  Map<String, dynamic> _getPeerConnectionConfig() {
-    return {
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-        {'urls': 'stun:stun1.l.google.com:19302'},
-        {'urls': 'stun:stun2.l.google.com:19302'},
-        {'urls': 'stun:stun3.l.google.com:19302'},
-        {'urls': 'stun:stun4.l.google.com:19302'},
-        {'urls': 'stun:stun.relay.metered.ca:80'},
-        {
-          'urls': [
-            'turn:global.relay.metered.ca:80',
-            'turn:global.relay.metered.ca:80?transport=tcp',
-            'turn:global.relay.metered.ca:443',
-            'turns:global.relay.metered.ca:443?transport=tcp',
-          ],
-          'username': '4ccd30e6211751522c93c044',
-          'credential': 'iB+/hPI3lLayZAKn',
-        },
-        {
-          'urls': [
-            'turn:free.expressturn.com:3478',
-            'turn:free.expressturn.com:3478?transport=tcp',
-          ],
-          'username': '000000002089217611',
-          'credential': '8W315Gw7cTZY2+PRhdVv+rHHPRU=',
-        },
-      ],
-      'iceCandidatePoolSize': 10,
-    };
-  }
-
-  // ── Nettoyage appel de groupe ──────────────────────────────────────────
-  void _cleanupGroupCall() {
-    setSpeaker(false);
-    
-    // Fermer toutes les connexions peer
-    for (final pc in _groupPeerConnections.values) {
-      pc.close();
-    }
-    _groupPeerConnections.clear();
-    
-    // Disposer les streams distants
-    for (final stream in _groupRemoteStreams.values) {
-      stream.dispose();
-    }
-    _groupRemoteStreams.clear();
-    _groupParticipants.clear();
-    
-    _currentGroupRoomId = null;
-    _isGroupCall = false;
   }
 
   // ── Toggle micro ──────────────────────────────────────────────────
@@ -952,17 +479,11 @@ class CallService {
 
   void dispose() {
     _cleanup();
-    _cleanupGroupCall();
     _socket?.disconnect();
     _eventCtrl.close();
     _incomingCtrl.close();
     _localStreamCtrl.close();
     _remoteStreamCtrl.close();
-    _groupInviteCtrl.close();
-    _groupParticipantJoinedCtrl.close();
-    _groupParticipantLeftCtrl.close();
-    _groupParticipantsCtrl.close();
-    _groupRemoteStreamCtrl.close();
   }
 }
 
