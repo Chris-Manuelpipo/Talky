@@ -18,6 +18,7 @@ class MessageModel {
   final int? mediaDuration; // secondes pour audio/video
   final String? replyToId;   // message auquel on répond
   final String? replyToContent;
+  final bool isStatusReply;  // true si c'est une réponse à un statut
   final bool isDeleted;
 
   const MessageModel({
@@ -35,6 +36,7 @@ class MessageModel {
     this.mediaDuration,
     this.replyToId,
     this.replyToContent,
+    this.isStatusReply = false,
     this.isDeleted = false,
   });
 
@@ -58,6 +60,7 @@ class MessageModel {
       mediaDuration:    map['mediaDuration'],
       replyToId:        map['replyToId'],
       replyToContent:   map['replyToContent'],
+      isStatusReply:    map['isStatusReply'] ?? false,
       isDeleted:        map['isDeleted'] ?? false,
     );
   }
@@ -76,6 +79,7 @@ class MessageModel {
     'mediaDuration':   mediaDuration,
     'replyToId':       replyToId,
     'replyToContent':  replyToContent,
+    'isStatusReply':   isStatusReply,
     'isDeleted':       isDeleted,
   };
 

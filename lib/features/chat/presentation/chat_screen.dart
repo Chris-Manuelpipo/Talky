@@ -598,12 +598,48 @@ class _MessageBubble extends StatelessWidget {
                       color: Colors.black.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border(
-                          left: BorderSide(color: AppColors.accent, width: 3)),
+                          left: BorderSide(
+                              color: message.isStatusReply 
+                                  ? AppColors.primary 
+                                  : AppColors.accent, 
+                              width: 3)),
                     ),
-                    child: Text(message.replyToContent!,
-                      style: TextStyle(
-                          fontSize: 12, color: context.appThemeColors.textSecondary),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Label with icon for status vs message reply
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              message.isStatusReply 
+                                  ? Icons.auto_awesome 
+                                  : Icons.reply,
+                              size: 12,
+                              color: message.isStatusReply 
+                                  ? AppColors.primary 
+                                  : AppColors.accent,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              message.isStatusReply ? 'Réponse au Statut' : 'Réponse à:',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: message.isStatusReply 
+                                    ? AppColors.primary
+                                    : AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(message.replyToContent!,
+                          style: TextStyle(
+                              fontSize: 12, color: context.appThemeColors.textSecondary),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
                   ),
                 Text(message.content ?? '',
                   style: TextStyle(

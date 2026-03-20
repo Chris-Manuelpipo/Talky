@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../chat/data/chat_service.dart';
 import '../data/status_providers.dart';
 import '../domain/status_model.dart';
 
@@ -31,6 +32,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   int _currentIndex = 0;
   late AnimationController _progressCtrl;
   Timer? _autoTimer;
+  final _replyCtrl = TextEditingController();
+  final _chatService = ChatService();
 
   static const _duration = Duration(seconds: 5);
 
@@ -54,7 +57,6 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
   }
 
-
   void _next() {
     if (_currentIndex < widget.group.statuses.length - 1) {
       setState(() => _currentIndex++);
@@ -69,6 +71,71 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     if (_currentIndex > 0) {
       setState(() => _currentIndex--);
       _progressCtrl.forward(from: 0);
+    }
+  }
+
+  Future<void> _toggleLike(StatusModel status) async {
+    final service = ref.read(statusServiceProvider);
+    if (status.isLikedBy(widget.currentUserId)) {
+      await service.unlikeStatus(status.id, widget.currentUserId);
+    } else {
+      await service.likeStatus(status.id, widget.currentUserId);
+    }
+  }
+
+  Future<void> _sendReply(StatusModel status) async {
+    final text = _replyCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    // Get current user info
+    final currentUser = ref.read(authStateProvider).value;
+    if (currentUser == null) return;
+
+    // Get or create conversation with the status author
+    final conversationId = await _chatService.getOrCreateConversation(
+      currentUserId: widget.currentUserId,
+      currentUserName: currentUser.displayName ?? 'Utilisateur',
+      currentUserPhoto: currentUser.photoURL,
+      otherUserId: status.userId,
+      otherUserName: status.userName,
+      otherUserPhoto: status.userPhoto,
+    );
+
+    // Create the reply content based on status type
+    String replyContent;
+    switch (status.type) {
+      case StatusType.text:
+        replyContent = status.text ?? 'Statut texte';
+        break;
+      case StatusType.image:
+        replyContent = 'Photo';
+        break;
+      case StatusType.video:
+        replyContent = 'Vidéo';
+        break;
+    }
+
+    // Send the reply as a message with replyToContent
+    await _chatService.sendMessage(
+      conversationId: conversationId,
+      senderId: widget.currentUserId,
+      senderName: currentUser.displayName ?? 'Utilisateur',
+      content: text,
+      replyToContent: replyContent,
+      isStatusReply: true,
+    );
+
+    // Clear the input
+    _replyCtrl.clear();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Réponse envoyée à ${status.userName}'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -97,12 +164,14 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              Text('Vu par ${viewers.length}',
+              Text(
+                'Vu par ${viewers.length}',
                 style: TextStyle(
                   color: context.appThemeColors.textPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
-                )),
+                ),
+              ),
               const SizedBox(height: 12),
               Flexible(
                 child: ListView.separated(
@@ -111,9 +180,11 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final uid = viewers[i];
+                    final isLiked = status.likedBy.contains(uid);
                     return _ViewerTile(
                       userId: uid,
                       viewedAt: status.viewedAt[uid],
+                      hasLiked: isLiked,
                     );
                   },
                 ),
@@ -129,22 +200,40 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   void dispose() {
     _progressCtrl.dispose();
     _autoTimer?.cancel();
+    _replyCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final status    = widget.group.statuses[_currentIndex];
+    final status = widget.group.statuses[_currentIndex];
     final isMyStatus = widget.group.isMyStatus;
+    final isLiked = status.isLikedBy(widget.currentUserId);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           // ── Contenu du statut ────────────────────────────────────
+          // Ignore touches on the reply bar area to prevent status navigation
           GestureDetector(
-            onTapDown: (d) => _progressCtrl.stop(),
+            onTapDown: (d) {
+              // Only stop progress if not tapping on reply bar area
+              final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
+              final screenHeight = MediaQuery.of(context).size.height;
+              if (d.globalPosition.dy > screenHeight - bottomPadding) {
+                return; // Don't handle tap in reply bar area
+              }
+              _progressCtrl.stop();
+            },
             onTapUp: (d) {
+              // Only navigate if not tapping on reply bar area
+              final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
+              final screenHeight = MediaQuery.of(context).size.height;
+              if (d.globalPosition.dy > screenHeight - bottomPadding) {
+                return; // Don't navigate when tapping reply bar
+              }
+              
               final x = d.globalPosition.dx;
               final w = MediaQuery.of(context).size.width;
               if (x < w / 3) _prev();
@@ -219,6 +308,19 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         ],
                       ),
                     ),
+                    // Like button (only for others' statuses)
+                    if (!isMyStatus)
+                      GestureDetector(
+                        onTap: () => _toggleLike(status),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: isLiked ? AppColors.primary : Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ),
                     IconButton(
                       icon: Icon(Icons.close_rounded, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
@@ -242,7 +344,7 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           // ── Compteur de vues (mon statut) ─────────────────────────
           if (isMyStatus)
             Positioned(
-              bottom: 32, left: 0, right: 0,
+              bottom: 100, left: 0, right: 0,
               child: Center(
                 child: GestureDetector(
                   onTap: () => _showViewers(context, status),
@@ -262,12 +364,130 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         Text('${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
                           style: TextStyle(
                               color: Colors.white, fontSize: 13)),
+                        if (status.likeCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.favorite,
+                              color: AppColors.primary, size: 14),
+                          const SizedBox(width: 2),
+                          Text('${status.likeCount}',
+                            style: TextStyle(
+                                color: AppColors.primary, fontSize: 13)),
+                        ],
                       ],
                     ),
                   ),
                 ),
               ),
             ),
+
+          // ── Floating reply bar (for others' statuses) ─────────────
+          if (!isMyStatus)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _ReplyBar(
+                controller: _replyCtrl,
+                onSend: () => _sendReply(status),
+                onMicPressed: () {
+                  // TODO: Implement voice message reply
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Fonctionnalité vocale à venir'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Reply Bar Widget ───────────────────────────────────────────────────
+class _ReplyBar extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final VoidCallback onMicPressed;
+
+  const _ReplyBar({
+    required this.controller,
+    required this.onSend,
+    required this.onMicPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 8,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withOpacity(0.7),
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Répondre...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.mic,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                    onPressed: onMicPressed,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: onSend,
+            ),
+          ),
         ],
       ),
     );
@@ -347,7 +567,8 @@ class _StatusContent extends StatelessWidget {
 class _ViewerTile extends ConsumerWidget {
   final String userId;
   final DateTime? viewedAt;
-  const _ViewerTile({required this.userId, this.viewedAt});
+  final bool hasLiked;
+  const _ViewerTile({required this.userId, this.viewedAt, this.hasLiked = false});
 
   String _formatViewedAt(DateTime dt) {
     final now = DateTime.now();
@@ -373,13 +594,35 @@ class _ViewerTile extends ConsumerWidget {
         final name = (data?['name'] as String?) ?? 'Utilisateur';
         final photo = data?['photoUrl'] as String?;
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary,
-            backgroundImage: photo != null ? NetworkImage(photo) : null,
-            child: photo == null
-                ? Text(name[0].toUpperCase(),
-                    style: TextStyle(color: Colors.white))
-                : null,
+          leading: Stack(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppColors.primary,
+                backgroundImage: photo != null ? NetworkImage(photo) : null,
+                child: photo == null
+                    ? Text(name[0].toUpperCase(),
+                        style: TextStyle(color: Colors.white))
+                    : null,
+              ),
+              // Subtle heart indicator for those who liked
+              if (hasLiked)
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: context.appThemeColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.favorite,
+                      color: AppColors.primary,
+                      size: 12,
+                    ),
+                  ),
+                ),
+            ],
           ),
           title: Text(name,
             style: TextStyle(color: context.appThemeColors.textPrimary)),
@@ -388,6 +631,9 @@ class _ViewerTile extends ConsumerWidget {
                   _formatViewedAt(viewedAt!),
                   style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12),
                 )
+              : null,
+          trailing: hasLiked
+              ? Icon(Icons.favorite, color: AppColors.primary, size: 18)
               : null,
         );
       },

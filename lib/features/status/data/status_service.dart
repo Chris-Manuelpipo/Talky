@@ -32,6 +32,7 @@ class StatusService {
       expiresAt:       now.add(const Duration(hours: 24)),
       viewedBy:        [],
       viewedAt:        const {},
+      likedBy:         const [],
     );
     await _statuses.add(model.toMap());
   }
@@ -63,6 +64,7 @@ class StatusService {
       expiresAt: now.add(const Duration(hours: 24)),
       viewedBy:  [],
       viewedAt:  const {},
+      likedBy:   const [],
     );
     await _statuses.add(model.toMap());
   }
@@ -94,6 +96,7 @@ class StatusService {
       expiresAt: now.add(const Duration(hours: 24)),
       viewedBy:  [],
       viewedAt:  const {},
+      likedBy:   const [],
     );
     await _statuses.add(model.toMap());
   }
@@ -154,6 +157,30 @@ class StatusService {
       'viewedBy': FieldValue.arrayUnion([viewerId]),
       'viewedAt.$viewerId': FieldValue.serverTimestamp(),
     });
+  }
+
+  // ── Liker un statut ─────────────────────────────────────────────────
+  Future<void> likeStatus(String statusId, String userId) async {
+    await _statuses.doc(statusId).update({
+      'likedBy': FieldValue.arrayUnion([userId]),
+    });
+  }
+
+  // ── Retirer le like d'un statut ─────────────────────────────────────
+  Future<void> unlikeStatus(String statusId, String userId) async {
+    await _statuses.doc(statusId).update({
+      'likedBy': FieldValue.arrayRemove([userId]),
+    });
+  }
+
+  // ── Obtenir le statut par ID ───────────────────────────────────────
+  Future<StatusModel?> getStatusById(String statusId) async {
+    final doc = await _statuses.doc(statusId).get();
+    if (!doc.exists) return null;
+    return StatusModel.fromMap(
+      doc.data() as Map<String, dynamic>,
+      doc.id,
+    );
   }
 
 

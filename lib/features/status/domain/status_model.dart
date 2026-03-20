@@ -17,6 +17,7 @@ class StatusModel {
   final DateTime expiresAt;      // createdAt + 24h
   final List<String> viewedBy;   // uids qui ont vu
   final Map<String, DateTime> viewedAt; // uid -> date de vue
+  final List<String> likedBy;    // uids qui ont liké
 
   const StatusModel({
     required this.id,
@@ -31,11 +32,14 @@ class StatusModel {
     required this.expiresAt,
     required this.viewedBy,
     required this.viewedAt,
+    required this.likedBy,
   });
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
   bool isViewedBy(String uid) => viewedBy.contains(uid);
+  bool isLikedBy(String uid) => likedBy.contains(uid);
   int get viewCount => viewedBy.length;
+  int get likeCount => likedBy.length;
 
   factory StatusModel.fromMap(Map<String, dynamic> map, String id) {
     return StatusModel(
@@ -60,6 +64,7 @@ class StatusModel {
                            }
                            return MapEntry(k, DateTime.now());
                          }),
+      likedBy:         List<String>.from(map['likedBy'] ?? []),
     );
   }
 
@@ -75,6 +80,7 @@ class StatusModel {
     'expiresAt':       Timestamp.fromDate(expiresAt),
     'viewedBy':        viewedBy,
     'viewedAt':        viewedAt.map((k, v) => MapEntry(k, Timestamp.fromDate(v))),
+    'likedBy':         likedBy,
   };
 }
 

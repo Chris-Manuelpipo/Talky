@@ -103,6 +103,7 @@ class ChatService {
     required String content,
     String? replyToId,
     String? replyToContent,
+    bool isStatusReply = false,
   }) async {
     await _sendMessageInternal(
       conversationId:  conversationId,
@@ -112,6 +113,7 @@ class ChatService {
       type:            MessageType.text,
       replyToId:       replyToId,
       replyToContent:  replyToContent,
+      isStatusReply:   isStatusReply,
       lastMessagePreview: content,
     );
   }
@@ -155,6 +157,7 @@ class ChatService {
     required String lastMessagePreview,
     String? replyToId,
     String? replyToContent,
+    bool isStatusReply = false,
     String? mediaUrl,
     String? mediaName,
     int? mediaDuration,
@@ -173,6 +176,7 @@ class ChatService {
       sentAt:         DateTime.now(),
       replyToId:      replyToId,
       replyToContent: replyToContent,
+      isStatusReply:  isStatusReply,
       mediaUrl:       mediaUrl,
       mediaName:      mediaName,
       mediaDuration:  mediaDuration,
