@@ -627,8 +627,8 @@ class _MessageBubble extends StatelessWidget {
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: message.isStatusReply 
-                                    ? AppColors.primary
-                                    : AppColors.accent,
+                                    ? AppColors.primary // Violet pour statut
+                                    : AppColors.accent, // Bleu pour message
                               ),
                             ),
                           ],

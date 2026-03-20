@@ -49,6 +49,19 @@ final conversationsProvider = StreamProvider<List<ConversationModel>>((ref) {
   );
 });
 
+// ── Stream conversations archivées ─────────────────────────────────────
+final archivedConversationsProvider = StreamProvider<List<ConversationModel>>((ref) {
+  final authState = ref.watch(authStateProvider);
+  return authState.when(
+    data: (user) {
+      if (user == null) return const Stream.empty();
+      return ref.read(chatServiceProvider).archivedConversationsStream(user.uid);
+    },
+    loading: () => const Stream.empty(),
+    error:   (_, __) => const Stream.empty(),
+  );
+});
+
 // ── Stream messages ────────────────────────────────────────────────────
 final messagesProvider = StreamProvider.family<List<MessageModel>, String>(
   (ref, conversationId) {

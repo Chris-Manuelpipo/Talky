@@ -17,6 +17,8 @@ class ConversationModel {
   final bool isGroup;
   final String? groupName;
   final String? groupPhoto;
+  final bool isPinned;
+  final bool isArchived;
 
   const ConversationModel({
     required this.id,
@@ -32,6 +34,8 @@ class ConversationModel {
     this.isGroup = false,
     this.groupName,
     this.groupPhoto,
+    this.isPinned = false,
+    this.isArchived = false,
   });
 
   factory ConversationModel.fromMap(Map<String, dynamic> map, String id) {
@@ -53,6 +57,8 @@ class ConversationModel {
       isGroup:              map['isGroup'] ?? false,
       groupName:            map['groupName'],
       groupPhoto:           map['groupPhoto'],
+      isPinned:             map['isPinned'] ?? false,
+      isArchived:           map['isArchived'] ?? false,
     );
   }
 
@@ -69,6 +75,8 @@ class ConversationModel {
     'isGroup':             isGroup,
     'groupName':           groupName,
     'groupPhoto':          groupPhoto,
+    'isPinned':            isPinned,
+    'isArchived':          isArchived,
   };
 
   // Obtenir le nom affiché pour un utilisateur donné (l'autre participant)

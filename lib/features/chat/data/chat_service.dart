@@ -19,6 +19,21 @@ class ChatService {
   Stream<List<ConversationModel>> conversationsStream(String userId) {
     return _conversations
         .where('participantIds', arrayContains: userId)
+        .where('isArchived', isEqualTo: false)
+        .orderBy('isPinned', descending: true)
+        .orderBy('lastMessageAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ConversationModel.fromMap(
+                doc.data() as Map<String, dynamic>, doc.id))
+            .toList());
+  }
+
+  /// Stream des conversations archivées
+  Stream<List<ConversationModel>> archivedConversationsStream(String userId) {
+    return _conversations
+        .where('participantIds', arrayContains: userId)
+        .where('isArchived', isEqualTo: true)
         .orderBy('lastMessageAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs
@@ -584,5 +599,53 @@ class ChatService {
           doc.data() as Map<String, dynamic>, doc.id);
     }
     return null;
+  }
+
+  // ── OPÉRATIONS SUR LES CONVERSATIONS ─────────────────────────────────
+
+  /// Supprimer une conversation
+  Future<void> deleteConversation({
+    required String conversationId,
+  }) async {
+    // Supprimer tous les messages
+    final messages = await _messages(conversationId).get();
+    final batch = _db.batch();
+    for (final doc in messages.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    // Supprimer la conversation
+    await _conversations.doc(conversationId).delete();
+  }
+
+  /// Épingler/Désépingler une conversation
+  Future<void> togglePinConversation({
+    required String conversationId,
+    required bool isPinned,
+  }) async {
+    await _conversations.doc(conversationId).update({
+      'isPinned': isPinned,
+    });
+  }
+
+  /// Archiver/Désarchiver une conversation
+  Future<void> toggleArchiveConversation({
+    required String conversationId,
+    required bool isArchived,
+  }) async {
+    await _conversations.doc(conversationId).update({
+      'isArchived': isArchived,
+    });
+  }
+
+  /// Marquer une conversation comme non lue
+  Future<void> markAsUnread({
+    required String conversationId,
+    required String userId,
+  }) async {
+    await _conversations.doc(conversationId).update({
+      'unreadCount.$userId': FieldValue.increment(1),
+    });
   }
 }

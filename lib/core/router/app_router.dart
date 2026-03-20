@@ -9,6 +9,7 @@ import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/chat/presentation/create_group_screen.dart';
 import '../../features/chat/presentation/new_chat_screen.dart';
+import '../../features/chat/presentation/archived_conversations_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_setup_screen.dart';
@@ -25,6 +26,7 @@ abstract class AppRoutes {
   static const newChat      = '/new-chat';
   static const createGroup  = '/create-group';
   static const chat         = '/chat/:conversationId';
+  static const archivedChats = '/archived-chats';
   static const incomingCall = '/incoming-call';
 }
 
@@ -103,6 +105,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const NewChatScreen()),
       GoRoute(path: AppRoutes.createGroup,
           builder: (_, __) => const CreateGroupScreen()),
+      GoRoute(path: AppRoutes.archivedChats,
+          builder: (_, __) => const ArchivedConversationsScreen()),
       GoRoute(
         path: AppRoutes.chat,
         builder: (_, state) {

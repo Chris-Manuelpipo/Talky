@@ -114,8 +114,12 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
           }
           if (list.isEmpty) return _EmptyState();
           return ListView.builder(
-            itemCount: list.length,
+            itemCount: list.length + 1,
             itemBuilder: (context, index) {
+              if (index == list.length) {
+                // Footer with archived conversations link
+                return _ArchivedLink();
+              }
               return _ConversationTile(
                 conversation: list[index],
                 currentUserId: currentUid,
@@ -333,16 +337,17 @@ class _ConversationTile extends ConsumerWidget {
               ? resolvedName
               : displayName;
           final photoUrl = resolvedPhoto ?? photo;
-          return _buildTile(context, name, photoUrl, unread, isMe);
+          return _buildTile(context, ref, name, photoUrl, unread, isMe);
         },
       );
     }
 
-    return _buildTile(context, displayName, photo, unread, isMe);
+    return _buildTile(context, ref, displayName, photo, unread, isMe);
   }
 
   Widget _buildTile(
     BuildContext context,
+    WidgetRef ref,
     String displayName,
     String? photo,
     int unread,
@@ -353,12 +358,34 @@ class _ConversationTile extends ConsumerWidget {
         AppRoutes.chat.replaceAll(':conversationId', conversation.id),
         extra: {'name': displayName, 'photo': photo},
       ),
+      onLongPress: () => _showConversationOptions(context, ref),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             // Avatar
-            _Avatar(name: displayName, photoUrl: photo, isGroup: conversation.isGroup),
+            Stack(
+              children: [
+                _Avatar(name: displayName, photoUrl: photo, isGroup: conversation.isGroup),
+                if (conversation.isPinned)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: context.appThemeColors.background,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.push_pin_rounded,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(width: 12),
 
             // Contenu
@@ -455,6 +482,140 @@ class _ConversationTile extends ConsumerWidget {
     );
   }
 
+  void _showConversationOptions(BuildContext context, WidgetRef ref) {
+    final chatService = ref.read(chatServiceProvider);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appThemeColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: AppColors.textHint,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                displayName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(),
+            // Marquer comme non lu
+            _OptionTile(
+              icon: Icons.mark_email_unread_rounded,
+              label: conversation.getUnreadCount(currentUserId) > 0 
+                  ? 'Marquer comme lu' 
+                  : 'Marquer comme non lu',
+              onTap: () async {
+                Navigator.pop(context);
+                final unread = conversation.getUnreadCount(currentUserId);
+                if (unread > 0) {
+                  await chatService.markAsRead(
+                    conversationId: conversation.id,
+                    userId: currentUserId,
+                  );
+                } else {
+                  await chatService.markAsUnread(
+                    conversationId: conversation.id,
+                    userId: currentUserId,
+                  );
+                }
+              },
+            ),
+            // Épingler/Désépingler
+            _OptionTile(
+              icon: conversation.isPinned 
+                  ? Icons.push_pin_outlined 
+                  : Icons.push_pin_rounded,
+              label: conversation.isPinned 
+                  ? 'Désépingler' 
+                  : 'Épingler',
+              onTap: () async {
+                Navigator.pop(context);
+                await chatService.togglePinConversation(
+                  conversationId: conversation.id,
+                  isPinned: !conversation.isPinned,
+                );
+              },
+            ),
+            // Archiver/Désarchiver
+            _OptionTile(
+              icon: conversation.isArchived 
+                  ? Icons.unarchive_outlined 
+                  : Icons.archive_outlined,
+              label: conversation.isArchived 
+                  ? 'Désarchiver' 
+                  : 'Archiver',
+              onTap: () async {
+                Navigator.pop(context);
+                await chatService.toggleArchiveConversation(
+                  conversationId: conversation.id,
+                  isArchived: !conversation.isArchived,
+                );
+              },
+            ),
+            // Supprimer
+            _OptionTile(
+              icon: Icons.delete_outline_rounded,
+              label: 'Supprimer',
+              isDestructive: true,
+              onTap: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Supprimer la conversation'),
+                    content: const Text(
+                      'Cette action supprimera définitivement cette conversation et tous ses messages.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Annuler'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('Supprimer'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await chatService.deleteConversation(
+                    conversationId: conversation.id,
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get displayName => conversation.getDisplayName(currentUserId);
+
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
     if (dt.day == now.day) return DateFormat('HH:mm').format(dt);
@@ -472,6 +633,39 @@ class _ConversationTile extends ConsumerWidget {
       case MessageType.deleted: return 'Message supprimé';
       default:                  return conv.lastMessage!;
     }
+  }
+}
+
+// ── Option Tile ─────────────────────────────────────────────────────────
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _OptionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDestructive ? Colors.red : colors.textPrimary,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isDestructive ? Colors.red : colors.textPrimary,
+        ),
+      ),
+      onTap: onTap,
+    );
   }
 }
 
@@ -605,6 +799,64 @@ class _EmptyState extends StatelessWidget {
               color: colors.textSecondary)),
         ],
       ),
+    );
+  }
+}
+
+// ── Lien vers conversations archivées ─────────────────────────────────
+class _ArchivedLink extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final archivedConvos = ref.watch(archivedConversationsProvider);
+    final colors = context.appThemeColors;
+    
+    return archivedConvos.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        
+        return InkWell(
+          onTap: () => context.push(AppRoutes.archivedChats),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.archive_outlined,
+                  color: colors.textSecondary,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Conversations archivées',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${list.length}',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
