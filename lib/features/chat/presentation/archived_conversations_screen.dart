@@ -13,7 +13,6 @@ import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
-import '../domain/message_model.dart' show MessageType;
 
 class ArchivedConversationsScreen extends ConsumerWidget {
   const ArchivedConversationsScreen({super.key});
