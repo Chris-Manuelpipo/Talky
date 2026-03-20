@@ -810,34 +810,33 @@ class _ArchivedLink extends ConsumerWidget {
     final archivedConvos = ref.watch(archivedConversationsProvider);
     final colors = context.appThemeColors;
     
-    return archivedConvos.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (list) {
-        if (list.isEmpty) return const SizedBox.shrink();
-        
-        return InkWell(
-          onTap: () => context.push(AppRoutes.archivedChats),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.archive_outlined,
+    return InkWell(
+      onTap: () => context.push(AppRoutes.archivedChats),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              Icons.archive_outlined,
+              color: colors.textSecondary,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Conversations archivées',
+                style: TextStyle(
                   color: colors.textSecondary,
-                  size: 22,
+                  fontSize: 15,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Conversations archivées',
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-                Container(
+              ),
+            ),
+            archivedConvos.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (list) {
+                if (list.isEmpty) return const SizedBox.shrink();
+                return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: colors.surface,
@@ -851,12 +850,18 @@ class _ArchivedLink extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: colors.textHint,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
