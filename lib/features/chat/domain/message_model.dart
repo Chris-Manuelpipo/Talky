@@ -20,6 +20,9 @@ class MessageModel {
   final String? replyToContent;
   final bool isStatusReply;  // true si c'est une réponse à un statut
   final bool isDeleted;
+  final bool isEdited;       // indique si le message a été modifié
+  final DateTime? editedAt;  // date/heure de la dernière modification
+  final List<String> deletedFor; // liste des IDs d'utilisateurs pour qui le message est supprimé
 
   const MessageModel({
     required this.id,
@@ -38,6 +41,9 @@ class MessageModel {
     this.replyToContent,
     this.isStatusReply = false,
     this.isDeleted = false,
+    this.isEdited = false,
+    this.editedAt,
+    this.deletedFor = const [],
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map, String id) {
@@ -62,6 +68,9 @@ class MessageModel {
       replyToContent:   map['replyToContent'],
       isStatusReply:    map['isStatusReply'] ?? false,
       isDeleted:        map['isDeleted'] ?? false,
+      isEdited:         map['isEdited'] ?? false,
+      editedAt:         (map['editedAt'] as Timestamp?)?.toDate(),
+      deletedFor:       (map['deletedFor'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 
@@ -81,11 +90,20 @@ class MessageModel {
     'replyToContent':  replyToContent,
     'isStatusReply':   isStatusReply,
     'isDeleted':       isDeleted,
+    'isEdited':        isEdited,
+    'editedAt':        editedAt != null ? Timestamp.fromDate(editedAt!) : null,
+    'deletedFor':      deletedFor,
   };
 
   bool get isMine => false; // sera calculé avec currentUserId
 
-  MessageModel copyWith({MessageStatus? status, bool? isDeleted}) {
+  MessageModel copyWith({
+    MessageStatus? status,
+    bool? isDeleted,
+    bool? isEdited,
+    DateTime? editedAt,
+    List<String>? deletedFor,
+  }) {
     return MessageModel(
       id:              id,
       conversationId:  conversationId,
@@ -101,7 +119,11 @@ class MessageModel {
       mediaDuration:   mediaDuration,
       replyToId:       replyToId,
       replyToContent:  replyToContent,
+      isStatusReply:   isStatusReply,
       isDeleted:       isDeleted ?? this.isDeleted,
+      isEdited:        isEdited ?? this.isEdited,
+      editedAt:        editedAt ?? this.editedAt,
+      deletedFor:      deletedFor ?? this.deletedFor,
     );
   }
 }

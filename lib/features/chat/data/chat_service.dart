@@ -336,14 +336,92 @@ class ChatService {
     }
   }
 
-  Future<void> deleteMessage({
+  /// Supprimer un message pour tous les utilisateurs
+  /// Le contenu est effacé et le type devient 'deleted'
+  Future<void> deleteMessageForAll({
     required String conversationId,
     required String messageId,
   }) async {
-    await _messages(conversationId).doc(messageId).update({
-      'isDeleted': true,
-      'content':   null,
-    });
+    try {
+      await _messages(conversationId).doc(messageId).update({
+        'isDeleted': true,
+        'content':   null,
+        'type':      MessageType.deleted.name,
+        'mediaUrl':  null,
+        'mediaName': null,
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ChatService] deleteMessageForAll error: $e');
+      rethrow;
+    }
+  }
+
+  /// Supprimer un message uniquement pour l'utilisateur courant
+  /// Le message reste visible pour les autres participants
+  Future<void> deleteMessageForMe({
+    required String conversationId,
+    required String messageId,
+    required String userId,
+  }) async {
+    try {
+      await _messages(conversationId).doc(messageId).update({
+        'deletedFor': FieldValue.arrayUnion([userId]),
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ChatService] deleteMessageForMe error: $e');
+      rethrow;
+    }
+  }
+
+  /// Modifier le contenu d'un message
+  /// Met à jour le contenu, définit isEdited=true et editedAt=now
+  /// Le type est changé en 'text' si c'était un média
+  Future<void> editMessage({
+    required String conversationId,
+    required String messageId,
+    required String newContent,
+  }) async {
+    try {
+      await _messages(conversationId).doc(messageId).update({
+        'content':   newContent,
+        'isEdited':  true,
+        'editedAt':  FieldValue.serverTimestamp(),
+        'type':      MessageType.text.name,
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ChatService] editMessage error: $e');
+      rethrow;
+    }
+  }
+
+  /// Vérifie si un message peut être modifié par l'utilisateur
+  /// Un message ne peut être modifié que s'il:
+  /// - N'est pas déjà supprimé
+  /// - A été envoyé par l'utilisateur courant
+  /// - Est de type texte
+  Future<bool> canEditMessage({
+    required String conversationId,
+    required String messageId,
+    required String userId,
+  }) async {
+    try {
+      final doc = await _messages(conversationId).doc(messageId).get();
+      if (!doc.exists) return false;
+
+      final data = doc.data() as Map<String, dynamic>;
+      final isDeleted = data['isDeleted'] as bool? ?? false;
+      final senderId = data['senderId'] as String? ?? '';
+      final type = data['type'] as String? ?? 'text';
+
+      return !isDeleted && senderId == userId && type != MessageType.deleted.name;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ChatService] canEditMessage error: $e');
+      return false;
+    }
   }
 
   // ── GROUPES ────────────────────────────────────────────────────────

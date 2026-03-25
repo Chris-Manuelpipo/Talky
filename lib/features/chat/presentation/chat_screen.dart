@@ -182,7 +182,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error:   (e, _) => Center(child: Text('Erreur: $e')),
               data:    (list) {
-                if (list.isEmpty) return _EmptyChatState(name: widget.contactName);
+                // Filtrer les messages supprimés pour l'utilisateur courant
+                final filteredList = list.where((m) {
+                  // Ne pas afficher si le message est supprimé pour cet utilisateur
+                  return !m.deletedFor.contains(currentUid);
+                }).toList();
+                
+                if (filteredList.isEmpty) return _EmptyChatState(name: widget.contactName);
                 
                 // Déterminer si c'est un groupe
                 final isGroup = convos.maybeWhen(
@@ -207,16 +213,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 return ListView.builder(
                   controller:  _scrollCtrl,
                   padding:     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  itemCount:   list.length,
+                  itemCount:   filteredList.length,
                   itemBuilder: (_, i) {
-                    final msg    = list[i];
+                    final msg    = filteredList[i];
                     final isMine = msg.senderId == currentUid;
                     final showDate = i == 0 ||
-                        !_isSameDay(list[i - 1].sentAt, msg.sentAt);
+                        !_isSameDay(filteredList[i - 1].sentAt, msg.sentAt);
                     return Column(
                       children: [
                         if (showDate) _DateDivider(date: msg.sentAt),
-                        _buildMessageWidget(msg, isMine, isGroup),
+                        _buildMessageWidget(msg, isMine, isGroup, currentUid),
                       ],
                     );
                   },
@@ -274,7 +280,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildMessageWidget(MessageModel msg, bool isMine, bool isGroup) {
+  Widget _buildMessageWidget(MessageModel msg, bool isMine, bool isGroup, String currentUid) {
     if (msg.isDeleted) {
       return _DeletedBubble(isMine: isMine);
     }
@@ -298,8 +304,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           message:  msg,
           isMine:   isMine,
           isGroup:  isGroup,
+          currentUid: currentUid,
           onReply:  () => setState(() => _replyTo = msg),
-          onDelete: isMine ? () => _deleteMessage(msg) : null,
+          onEdit:   isMine ? () => _showEditDialog(msg) : null,
+          onDeleteForAll: isMine ? () => _deleteMessage(msg) : null,
+          onDeleteForMe: () => _deleteMessageForMe(msg),
         );
     }
   }
@@ -518,11 +527,89 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      await ref.read(chatServiceProvider).deleteMessage(
+      await ref.read(chatServiceProvider).deleteMessageForAll(
         conversationId: widget.conversationId,
         messageId:      msg.id,
       );
     }
+  }
+
+  Future<void> _deleteMessageForMe(MessageModel msg) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: context.appThemeColors.surface,
+        title: Text('Supprimer le message'),
+        content: Text('Ce message sera supprimé uniquement pour vous.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+              child: Text('Supprimer',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ref.read(chatServiceProvider).deleteMessageForMe(
+        conversationId: widget.conversationId,
+        messageId:      msg.id,
+        userId:         ref.read(authStateProvider).value?.uid ?? '',
+      );
+    }
+  }
+
+  Future<void> _showEditDialog(MessageModel msg) async {
+    final editController = TextEditingController(text: msg.content ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: context.appThemeColors.surface,
+        title: Text('Modifier le message'),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          maxLines: 5,
+          minLines: 1,
+          style: TextStyle(color: context.appThemeColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Votre message...',
+            hintStyle: TextStyle(color: context.appThemeColors.textHint),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.primary),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: Text('Annuler')),
+          TextButton(
+            onPressed: () {
+              if (editController.text.trim().isNotEmpty) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: Text('Enregistrer',
+                style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      final newContent = editController.text.trim();
+      if (newContent.isNotEmpty && newContent != msg.content) {
+        await ref.read(chatServiceProvider).editMessage(
+          conversationId: widget.conversationId,
+          messageId:      msg.id,
+          newContent:     newContent,
+        );
+      }
+    }
+    editController.dispose();
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
@@ -534,15 +621,21 @@ class _MessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isMine;
   final bool isGroup;
+  final String currentUid;
   final VoidCallback onReply;
-  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDeleteForAll;
+  final VoidCallback? onDeleteForMe;
 
   const _MessageBubble({
     required this.message,
     required this.isMine,
     required this.isGroup,
+    required this.currentUid,
     required this.onReply,
-    this.onDelete,
+    this.onEdit,
+    this.onDeleteForAll,
+    this.onDeleteForMe,
   });
 
   @override
@@ -657,6 +750,20 @@ class _MessageBubble extends StatelessWidget {
                             ? Colors.white.withOpacity(0.7)
                             : context.appThemeColors.textHint,
                       )),
+                    // Badge "modifié" si le message a été modifié
+                    if (message.isEdited) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        'modifié',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontStyle: FontStyle.italic,
+                          color: isMine
+                              ? Colors.white.withOpacity(0.6)
+                              : context.appThemeColors.textHint,
+                        ),
+                      ),
+                    ],
                     if (isMine) ...[
                       const SizedBox(width: 4),
                       _StatusIcon(status: message.status),
@@ -702,12 +809,28 @@ class _MessageBubble extends StatelessWidget {
                     const SnackBar(content: Text('Copié !')));
               },
             ),
-            if (onDelete != null)
+            // Option Modifier (visible uniquement si: auteur ET message texte ET non supprimé)
+            if (onEdit != null && message.type == MessageType.text && !message.isDeleted)
+              ListTile(
+                leading: Icon(Icons.edit_rounded, color: AppColors.primary),
+                title: Text('Modifier'),
+                onTap: () { Navigator.pop(context); onEdit!(); },
+              ),
+            // Option Supprimer pour tous (visible uniquement si auteur ET non supprimé)
+            if (onDeleteForAll != null && !message.isDeleted)
+              ListTile(
+                leading: Icon(Icons.delete_sweep_rounded, color: Colors.orange),
+                title: Text('Supprimer pour tous',
+                    style: TextStyle(color: Colors.orange)),
+                onTap: () { Navigator.pop(context); onDeleteForAll!(); },
+              ),
+            // Option Supprimer pour moi (toujours visible)
+            if (onDeleteForMe != null)
               ListTile(
                 leading: Icon(Icons.delete_rounded, color: Colors.red),
-                title: Text('Supprimer',
+                title: Text('Supprimer pour moi',
                     style: TextStyle(color: Colors.red)),
-                onTap: () { Navigator.pop(context); onDelete!(); },
+                onTap: () { Navigator.pop(context); onDeleteForMe!(); },
               ),
             const SizedBox(height: 8),
           ],
