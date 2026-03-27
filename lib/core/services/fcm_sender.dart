@@ -51,4 +51,30 @@ class FcmSender {
       // Best-effort: notification failures shouldn't block calling.
     }
   }
+
+  static Future<void> sendGroupCallNotification({
+    required String toUserId,
+    required String callerName,
+    required bool isVideo,
+    required String callerId,
+    required String roomId,
+  }) async {
+    try {
+      await http.post(
+        Uri.parse('$_serverUrl/notify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'toUserId': toUserId,
+          'title': callerName,
+          'body': isVideo ? 'Appel vidéo de groupe' : 'Appel audio de groupe',
+          'type': 'group_call',
+          'callerId': callerId,
+          'roomId': roomId,
+          'isVideo': isVideo,
+        }),
+      );
+    } catch (_) {
+      // Best-effort: notification failures shouldn't block calling.
+    }
+  }
 }

@@ -33,11 +33,26 @@ final callServiceProvider = Provider<CallService>((ref) {
 // Notifier pour l'état d'un appel en cours
 enum CallStatus { idle, calling, ringing, connected, ended }
 
+class GroupParticipant {
+  final String id;
+  final String name;
+  final String? photo;
+
+  const GroupParticipant({
+    required this.id,
+    required this.name,
+    this.photo,
+  });
+}
+
 class CallState {
   final CallStatus status;
   final String? remoteUserId;
   final String? remoteName;
   final String? remotePhoto;
+  final bool isGroup;
+  final String? groupRoomId;
+  final List<GroupParticipant> groupParticipants;
   final bool isVideo;
   final bool isMuted;
   final bool isCameraOff;
@@ -49,6 +64,9 @@ class CallState {
     this.remoteUserId,
     this.remoteName,
     this.remotePhoto,
+    this.isGroup     = false,
+    this.groupRoomId,
+    this.groupParticipants = const [],
     this.isVideo     = false,
     this.isMuted     = false,
     this.isCameraOff = false,
@@ -61,6 +79,9 @@ class CallState {
     String? remoteUserId,
     String? remoteName,
     String? remotePhoto,
+    bool? isGroup,
+    String? groupRoomId,
+    List<GroupParticipant>? groupParticipants,
     bool? isVideo,
     bool? isMuted,
     bool? isCameraOff,
@@ -71,6 +92,9 @@ class CallState {
     remoteUserId: remoteUserId ?? this.remoteUserId,
     remoteName:   remoteName   ?? this.remoteName,
     remotePhoto:  remotePhoto  ?? this.remotePhoto,
+    isGroup:      isGroup      ?? this.isGroup,
+    groupRoomId:  groupRoomId  ?? this.groupRoomId,
+    groupParticipants: groupParticipants ?? this.groupParticipants,
     isVideo:      isVideo      ?? this.isVideo,
     isMuted:      isMuted      ?? this.isMuted,
     isCameraOff:  isCameraOff  ?? this.isCameraOff,
@@ -87,6 +111,7 @@ class CallNotifier extends StateNotifier<CallState> {
   String? _pendingTargetName;
   String? _pendingTargetPhoto;
   bool _isOutgoing = true;
+  final Map<String, GroupParticipant> _groupParticipants = {};
 
   CallNotifier(this._service, this._ref) : super(const CallState()) {
     _listenEvents();
@@ -132,6 +157,29 @@ class CallNotifier extends StateNotifier<CallState> {
         remoteName:  incoming.callerName,
         remotePhoto: incoming.callerPhoto,
         isVideo:     incoming.isVideo,
+        isGroup:     incoming.isGroup,
+        groupRoomId: incoming.roomId,
+      );
+    });
+
+    _service.groupEvents.listen((event) {
+      if (event.type == 'participants' && event.participants != null) {
+        // Reset list with ids only (names will be updated on join events)
+        _groupParticipants.clear();
+        for (final id in event.participants!) {
+          _groupParticipants[id] = GroupParticipant(id: id, name: 'Utilisateur');
+        }
+      } else if (event.type == 'user_joined' && event.userId != null) {
+        _groupParticipants[event.userId!] = GroupParticipant(
+          id: event.userId!,
+          name: event.userName ?? 'Utilisateur',
+          photo: event.userPhoto,
+        );
+      } else if (event.type == 'user_left' && event.userId != null) {
+        _groupParticipants.remove(event.userId!);
+      }
+      state = state.copyWith(
+        groupParticipants: _groupParticipants.values.toList(),
       );
     });
   }
@@ -169,6 +217,48 @@ class CallNotifier extends StateNotifier<CallState> {
     );
   }
 
+  Future<void> startGroupCall({
+    required List<String> targetUserIds,
+    required bool isVideo,
+    List<GroupParticipant> initialParticipants = const [],
+  }) async {
+    final user = _ref.read(authStateProvider).value;
+    if (user == null) return;
+    final myName = await _ref.read(currentUserNameProvider.future);
+    final myPhoto = user.photoURL;
+
+    final roomId = '${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    _isOutgoing = true;
+    _callStartTime = null;
+    _pendingTargetUserId = null;
+    _pendingTargetName = 'Appel de groupe';
+    _pendingTargetPhoto = null;
+
+    _groupParticipants.clear();
+    for (final p in initialParticipants) {
+      _groupParticipants[p.id] = p;
+    }
+
+    state = state.copyWith(
+      status: CallStatus.calling,
+      isGroup: true,
+      groupRoomId: roomId,
+      groupParticipants: _groupParticipants.values.toList(),
+      isVideo: isVideo,
+      remoteName: 'Appel de groupe',
+      remotePhoto: null,
+      errorMessage: null,
+    );
+
+    await _service.startGroupCall(
+      roomId: roomId,
+      callerName: myName,
+      callerPhoto: myPhoto,
+      isVideo: isVideo,
+      targetUserIds: targetUserIds,
+    );
+  }
+
   Future<void> answerCall() async {
     if (state.incomingCall == null) return;
     
@@ -186,6 +276,36 @@ class CallNotifier extends StateNotifier<CallState> {
     );
   }
 
+  Future<void> answerGroupCall() async {
+    if (state.incomingCall == null) return;
+    final incoming = state.incomingCall!;
+    if (incoming.roomId == null || incoming.roomId!.isEmpty) return;
+    final user = _ref.read(authStateProvider).value;
+    if (user == null) return;
+    final myName = await _ref.read(currentUserNameProvider.future);
+
+    _isOutgoing = false;
+    _callStartTime = null;
+
+    await _service.joinGroupCall(
+      roomId: incoming.roomId!,
+      userId: user.uid,
+      userName: myName,
+      userPhoto: user.photoURL,
+      isVideo: incoming.isVideo,
+    );
+
+    state = state.copyWith(
+      status: CallStatus.calling,
+      isGroup: true,
+      groupRoomId: incoming.roomId,
+      isVideo: incoming.isVideo,
+      remoteName: incoming.callerName,
+      remotePhoto: incoming.callerPhoto,
+      incomingCall: incoming,
+    );
+  }
+
   void rejectCall() {
     if (state.incomingCall != null) {
       _pendingTargetUserId = state.incomingCall!.callerId;
@@ -199,6 +319,16 @@ class CallNotifier extends StateNotifier<CallState> {
     state = const CallState();
   }
 
+  void rejectGroupCall() {
+    _service.leaveGroupCall();
+    state = const CallState();
+  }
+
+  void leaveGroupCall() {
+    _service.leaveGroupCall();
+    state = const CallState();
+  }
+
   void setIncomingCallData(IncomingCallData incoming) {
     state = state.copyWith(
       status:      CallStatus.ringing,
@@ -206,10 +336,13 @@ class CallNotifier extends StateNotifier<CallState> {
       remoteName:  incoming.callerName,
       remotePhoto: incoming.callerPhoto,
       isVideo:     incoming.isVideo,
+      isGroup:     incoming.isGroup,
+      groupRoomId: incoming.roomId,
     );
   }
 
   Future<void> _saveCompletedCall() async {
+    if (state.isGroup) return;
     if (_pendingTargetUserId == null) return;
     
     final user = _ref.read(authStateProvider).value;
@@ -240,6 +373,7 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   Future<void> _saveMissedCall() async {
+    if (state.isGroup) return;
     if (_pendingTargetUserId == null) return;
     
     final user = _ref.read(authStateProvider).value;

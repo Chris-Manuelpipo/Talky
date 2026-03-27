@@ -16,6 +16,8 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
   final String? callerId;
   final String? callerName;
   final bool? isVideo;
+  final bool? isGroup;
+  final String? roomId;
   final Map<String, dynamic>? offer;
 
   const IncomingCallScreen({
@@ -23,6 +25,8 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
     this.callerId,
     this.callerName,
     this.isVideo,
+    this.isGroup,
+    this.roomId,
     this.offer,
   });
 
@@ -46,7 +50,14 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
     // Auto-rejeter après 60s
     _autoRejectTimer = Timer(const Duration(seconds: 60), () {
-      if (mounted) ref.read(callProvider.notifier).rejectCall();
+      if (!mounted) return;
+      final isGroupCall =
+          ref.read(callProvider).incomingCall?.isGroup ?? widget.isGroup ?? false;
+      if (isGroupCall) {
+        ref.read(callProvider.notifier).rejectGroupCall();
+      } else {
+        ref.read(callProvider.notifier).rejectCall();
+      }
     });
     
     // Si des paramètres d'appel sont passés (via notification), mettre à jour le callProvider
@@ -59,6 +70,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
           callerPhoto: null,
           isVideo: widget.isVideo ?? false,
           offer: widget.offer ?? const <String, dynamic>{},
+          isGroup: widget.isGroup ?? false,
+          roomId: widget.roomId,
         );
         // Mettre à jour le callProvider avec les données d'appel
         ref.read(callProvider.notifier).setIncomingCallData(incomingData);
@@ -80,6 +93,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     final fallbackName =
         callState.remoteName ?? widget.callerName ?? 'Appel entrant';
     final nameFuture = _resolveCallerName(callerId, fallbackName);
+    final isGroupCall =
+        callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
 
     // Si l'appel disparaît → fermer
     ref.listen(callProvider, (_, next) {
@@ -122,7 +137,13 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                 // Texte appel entrant
                 Text(
-                  callState.isVideo ? 'Appel vidéo entrant' : 'Appel audio entrant',
+                  isGroupCall
+                      ? (callState.isVideo
+                          ? 'Appel vidéo de groupe'
+                          : 'Appel audio de groupe')
+                      : (callState.isVideo
+                          ? 'Appel vidéo entrant'
+                          : 'Appel audio entrant'),
                   style: TextStyle(
                       color: context.appThemeColors.textSecondary, fontSize: 16),
                 ),
@@ -171,7 +192,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     fontWeight: FontWeight.w700)),
 
                 const SizedBox(height: 8),
-                Text(callState.isVideo ? 'Vidéo' : 'Audio',
+                Text(isGroupCall ? 'Groupe' : (callState.isVideo ? 'Vidéo' : 'Audio'),
                   style: TextStyle(
                       color: context.appThemeColors.textSecondary, fontSize: 16)),
 
@@ -188,7 +209,11 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                         children: [
                           GestureDetector(
                             onTap: () {
-                              ref.read(callProvider.notifier).rejectCall();
+                              if (isGroupCall) {
+                                ref.read(callProvider.notifier).rejectGroupCall();
+                              } else {
+                                ref.read(callProvider.notifier).rejectCall();
+                              }
                               Navigator.pop(context);
                             },
                             child: Container(
@@ -247,7 +272,11 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 }
                               }
 
-                              await ref.read(callProvider.notifier).answerCall();
+                              if (isGroupCall) {
+                                await ref.read(callProvider.notifier).answerGroupCall();
+                              } else {
+                                await ref.read(callProvider.notifier).answerCall();
+                              }
                               if (mounted) {
                                 Navigator.pushReplacement(
                                   context,

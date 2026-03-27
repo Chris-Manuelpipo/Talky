@@ -12,12 +12,15 @@ import '../../chat/data/chat_service.dart';
 import '../../chat/domain/contact_model.dart';
 import '../data/call_providers.dart';
 import 'calls_screen.dart';
+import 'call_screen.dart';
+import '../../../core/router/app_router.dart';
 
 class _ContactWithPhoto {
   final PhoneContact contact;
   final String? photoUrl;
+  final String userId;
 
-  _ContactWithPhoto({required this.contact, this.photoUrl});
+  _ContactWithPhoto({required this.contact, this.photoUrl, required this.userId});
   String get displayName => contact.displayName;
 }
 
@@ -44,6 +47,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
   // Phone contacts matched with Talky users
   List<_ContactWithPhoto> _onTalkyContacts = [];
   List<PhoneContact> _notOnTalkyContacts = [];
+  final Map<String, Map<String, dynamic>> _phoneToTalkyUser = {};
 
   // For multi-select (group call)
   final Set<String> _selectedContacts = {};
@@ -132,36 +136,43 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
           in chatService.findUsersByPhonesProgressive(allPhones)) {
         if (!mounted) break;
 
-        final phoneToUser = <String, Map<String, dynamic>>{};
-        for (final user in talkyUsers) {
-          final phone = user['phone'] as String?;
-          if (phone != null) {
-            phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
-          }
+      final phoneToUser = <String, Map<String, dynamic>>{};
+      for (final user in talkyUsers) {
+        final phone = user['phone'] as String?;
+        if (phone != null) {
+          phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
+          _phoneToTalkyUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
         }
+      }
 
         final onTalky = <_ContactWithPhoto>[];
         final notOnTalky = <PhoneContact>[];
 
-        for (final contact in phoneContacts) {
-          String? photoUrl;
-          bool isOnTalky = false;
-
-          for (final phone in contact.phones) {
-            final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-            if (phoneToUser.containsKey(normalized)) {
-              isOnTalky = true;
-              photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
-              break;
-            }
-          }
-
-          if (isOnTalky) {
-            onTalky.add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
-          } else {
-            notOnTalky.add(contact);
+      for (final contact in phoneContacts) {
+        String? photoUrl;
+        bool isOnTalky = false;
+        String? userId;
+        
+        for (final phone in contact.phones) {
+          final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+          if (phoneToUser.containsKey(normalized)) {
+            isOnTalky = true;
+            photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
+            userId = phoneToUser[normalized]?['id'] as String?;
+            break;
           }
         }
+
+        if (isOnTalky && userId != null) {
+          onTalky.add(_ContactWithPhoto(
+            contact: contact,
+            photoUrl: photoUrl,
+            userId: userId,
+          ));
+        } else {
+          notOnTalky.add(contact);
+        }
+      }
 
         setState(() {
           _onTalkyContacts = onTalky;
@@ -251,13 +262,67 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
   }
 
   void _startGroupCall() {
-    // Group calls not available yet
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Les appels de groupe ne sont pas encore disponibles'),
-        backgroundColor: Colors.orange,
+    if (_selectedContacts.length < 2) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appThemeColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: context.appThemeColors.textHint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.call_rounded, color: AppColors.primary),
+                title: const Text('Appel audio de groupe'),
+                onTap: () => _startGroupCallWithMode(false),
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+                title: const Text('Appel vidéo de groupe'),
+                onTap: () => _startGroupCallWithMode(true),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  Future<void> _startGroupCallWithMode(bool isVideo) async {
+    Navigator.pop(context); // fermer le bottom sheet
+    Navigator.of(context).pop(); // fermer l'écran de sélection
+
+    final participants = _onTalkyContacts
+        .where((c) => _selectedContacts.contains(c.userId))
+        .map((c) => GroupParticipant(
+              id: c.userId,
+              name: c.displayName,
+              photo: c.photoUrl,
+            ))
+        .toList();
+
+    await ref.read(callProvider.notifier).startGroupCall(
+      targetUserIds: _selectedContacts.toList(),
+      isVideo: isVideo,
+      initialParticipants: participants,
+    );
+
+    // Utiliser le root navigator global car l'écran courant est déjà pop
+    final nav = rootNavigatorKey.currentState;
+    nav?.push(MaterialPageRoute(builder: (_) => const CallScreen()));
   }
 
   String _normalizePhone(String phone) {
@@ -461,15 +526,14 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
                 photoUrl: c.photoUrl,
                 isOnTalky: true,
                 isSelectionMode: _isSelectionMode,
-                isSelected: _selectedContacts.contains(
-                    c.photoUrl != null ? c.contact.phones.first : null),
-                onTap: () => _toggleSelection(c.contact.phones.first),
+                isSelected: _selectedContacts.contains(c.userId),
+                onTap: () => _toggleSelection(c.userId),
                 onCallAudio: () {
                   // Find the user ID from the talky contacts
-                  _startCall(c.contact.phones.first, c.displayName, c.photoUrl, false);
+                  _startCall(c.userId, c.displayName, c.photoUrl, false);
                 },
                 onCallVideo: () {
-                  _startCall(c.contact.phones.first, c.displayName, c.photoUrl, true);
+                  _startCall(c.userId, c.displayName, c.photoUrl, true);
                 },
               )),
         ],

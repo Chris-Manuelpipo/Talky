@@ -25,6 +25,8 @@ class IncomingCallData {
   final String? callerPhoto;
   final bool isVideo;
   final Map<String, dynamic> offer;
+  final bool isGroup;
+  final String? roomId;
 
   const IncomingCallData({
     required this.callerId,
@@ -32,6 +34,26 @@ class IncomingCallData {
     this.callerPhoto,
     required this.isVideo,
     required this.offer,
+    this.isGroup = false,
+    this.roomId,
+  });
+}
+
+class GroupCallEvent {
+  final String type; // user_joined, user_left, participants
+  final String roomId;
+  final String? userId;
+  final String? userName;
+  final String? userPhoto;
+  final List<String>? participants;
+
+  const GroupCallEvent({
+    required this.type,
+    required this.roomId,
+    this.userId,
+    this.userName,
+    this.userPhoto,
+    this.participants,
   });
 }
 
@@ -44,10 +66,14 @@ class CallService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
+  final Map<String, RTCPeerConnection> _groupPeerConnections = {};
+  final Map<String, MediaStream> _groupRemoteStreams = {};
 
   String? _myUserId;
   String? _remoteUserId;
   bool _isVideo = false;
+  bool _isGroupCall = false;
+  String? _groupRoomId;
   String? _lastError;
 
   // Streams pour notifier l'UI
@@ -55,14 +81,23 @@ class CallService {
   final _incomingCtrl = StreamController<IncomingCallData>.broadcast();
   final _localStreamCtrl = StreamController<MediaStream?>.broadcast();
   final _remoteStreamCtrl = StreamController<MediaStream?>.broadcast();
+  final _groupRemoteStreamsCtrl =
+      StreamController<Map<String, MediaStream>>.broadcast();
+  final _groupEventCtrl = StreamController<GroupCallEvent>.broadcast();
 
   Stream<CallEvent>       get events       => _eventCtrl.stream;
   Stream<IncomingCallData> get incomingCalls => _incomingCtrl.stream;
   Stream<MediaStream?> get localStreamUpdates => _localStreamCtrl.stream;
   Stream<MediaStream?> get remoteStreamUpdates => _remoteStreamCtrl.stream;
+  Stream<Map<String, MediaStream>> get groupRemoteStreamsUpdates =>
+      _groupRemoteStreamsCtrl.stream;
+  Stream<GroupCallEvent> get groupEvents => _groupEventCtrl.stream;
 
   MediaStream? get localStream  => _localStream;
   MediaStream? get remoteStream => _remoteStream;
+  Map<String, MediaStream> get groupRemoteStreams => _groupRemoteStreams;
+  bool get isGroupCall => _isGroupCall;
+  String? get groupRoomId => _groupRoomId;
   bool get isConnected => _socket?.connected ?? false;
   String? get lastError => _lastError;
 
@@ -171,6 +206,137 @@ class CallService {
       _lastError = data is Map ? data['reason']?.toString() : null;
       _eventCtrl.add(CallEvent.callFailed);
     });
+
+    // ── Group calls events ───────────────────────────────────────────
+    _socket!.on('group_call_invite', (data) {
+      debugPrint('[Socket] group_call_invite received: $data');
+      final incoming = IncomingCallData(
+        callerId:    data['callerId'],
+        callerName:  data['callerName'],
+        callerPhoto: data['callerPhoto'],
+        isVideo:     data['isVideo'] ?? false,
+        offer:       const {},
+        isGroup:     true,
+        roomId:      data['roomId'],
+      );
+      _groupRoomId = incoming.roomId;
+      _isGroupCall = true;
+      _incomingCtrl.add(incoming);
+      _eventCtrl.add(CallEvent.incomingCall);
+    });
+
+    _socket!.on('group_user_joined', (data) {
+      debugPrint('[Socket] group_user_joined: $data');
+      final roomId = data['roomId'];
+      final userId = data['userId'];
+      if (roomId == _groupRoomId && userId != null) {
+        // Créer une offre vers le nouvel utilisateur
+        _getOrCreateGroupPeer(userId).then((pc) async {
+          final offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          _socket?.emit('group_offer', {
+            'roomId': roomId,
+            'fromUserId': _myUserId,
+            'toUserId': userId,
+            'offer': {
+              'sdp': offer.sdp,
+              'type': offer.type,
+            },
+          });
+        });
+      }
+      _groupEventCtrl.add(GroupCallEvent(
+        type: 'user_joined',
+        roomId: roomId,
+        userId: userId,
+        userName: data['userName'],
+        userPhoto: data['userPhoto'],
+      ));
+    });
+
+    _socket!.on('group_participants', (data) {
+      debugPrint('[Socket] group_participants: $data');
+      _groupEventCtrl.add(GroupCallEvent(
+        type: 'participants',
+        roomId: data['roomId'],
+        participants:
+            (data['participants'] as List?)?.map((e) => e.toString()).toList(),
+      ));
+    });
+
+    _socket!.on('group_offer', (data) async {
+      debugPrint('[Socket] group_offer received: $data');
+      final roomId = data['roomId'];
+      final fromUserId = data['fromUserId'];
+      final offer = data['offer'];
+      if (offer == null || fromUserId == null) return;
+
+      final pc = await _getOrCreateGroupPeer(fromUserId);
+      final remoteDesc = RTCSessionDescription(
+        offer['sdp'],
+        offer['type'],
+      );
+      await pc.setRemoteDescription(remoteDesc);
+
+      final answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      _socket!.emit('group_answer', {
+        'roomId': roomId,
+        'fromUserId': _myUserId,
+        'toUserId': fromUserId,
+        'answer': {
+          'sdp': answer.sdp,
+          'type': answer.type,
+        },
+      });
+    });
+
+    _socket!.on('group_answer', (data) async {
+      debugPrint('[Socket] group_answer received: $data');
+      final fromUserId = data['fromUserId'];
+      final answer = data['answer'];
+      if (fromUserId == null || answer == null) return;
+      final pc = _groupPeerConnections[fromUserId];
+      if (pc == null) return;
+      final remoteDesc = RTCSessionDescription(
+        answer['sdp'],
+        answer['type'],
+      );
+      await pc.setRemoteDescription(remoteDesc);
+    });
+
+    _socket!.on('group_ice_candidate', (data) async {
+      final fromUserId = data['fromUserId'];
+      final cand = data['candidate'];
+      if (fromUserId == null || cand == null) return;
+      final pc = _groupPeerConnections[fromUserId];
+      if (pc == null) return;
+      final candidate = RTCIceCandidate(
+        cand['candidate'] as String,
+        cand['sdpMid'] as String?,
+        cand['sdpMLineIndex'] as int,
+      );
+      await pc.addCandidate(candidate);
+    });
+
+    _socket!.on('group_call_ended', (data) {
+      debugPrint('[Socket] group_call_ended: $data');
+      _cleanupGroup();
+      _eventCtrl.add(CallEvent.callEnded);
+    });
+
+    _socket!.on('group_user_left', (data) {
+      debugPrint('[Socket] group_user_left: $data');
+      final userId = data['userId'];
+      if (userId == null) return;
+      _removeGroupPeer(userId);
+      _groupEventCtrl.add(GroupCallEvent(
+        type: 'user_left',
+        roomId: data['roomId'],
+        userId: userId,
+      ));
+    });
   }
 
   // ── Passer un appel ────────────────────────────────────────────────
@@ -226,6 +392,90 @@ class CallService {
     }
   }
 
+  // ── Créer un appel de groupe ──────────────────────────────────────
+  Future<void> startGroupCall({
+    required String roomId,
+    required String callerName,
+    String? callerPhoto,
+    required bool isVideo,
+    required List<String> targetUserIds,
+  }) async {
+    _isGroupCall = true;
+    _groupRoomId = roomId;
+    _isVideo = isVideo;
+    _remoteUserId = null;
+
+    if (_socket == null || !_socket!.connected) {
+      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
+      _eventCtrl.add(CallEvent.callFailed);
+      return;
+    }
+
+    await _getLocalStream(isVideo: isVideo);
+    await setSpeaker(true);
+
+    _socket!.emit('create_group_call', {
+      'roomId': roomId,
+      'callerId': _myUserId,
+      'callerName': callerName,
+      'callerPhoto': callerPhoto,
+      'isVideo': isVideo,
+      'targetUserIds': targetUserIds,
+    });
+
+    // Best-effort push notifications
+    if (_myUserId != null) {
+      for (final uid in targetUserIds) {
+        await FcmSender.sendGroupCallNotification(
+          toUserId: uid,
+          callerName: callerName,
+          isVideo: isVideo,
+          callerId: _myUserId!,
+          roomId: roomId,
+        );
+      }
+    }
+  }
+
+  // ── Rejoindre un appel de groupe ───────────────────────────────────
+  Future<void> joinGroupCall({
+    required String roomId,
+    required String userId,
+    required String userName,
+    String? userPhoto,
+    required bool isVideo,
+  }) async {
+    _isGroupCall = true;
+    _groupRoomId = roomId;
+    _isVideo = isVideo;
+    _remoteUserId = null;
+
+    if (_socket == null || !_socket!.connected) {
+      _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
+      _eventCtrl.add(CallEvent.callFailed);
+      return;
+    }
+
+    await _getLocalStream(isVideo: isVideo);
+    await setSpeaker(true);
+
+    _socket!.emit('join_group_call', {
+      'roomId': roomId,
+      'userId': userId,
+      'userName': userName,
+      'userPhoto': userPhoto,
+    });
+  }
+
+  // ── Quitter un appel de groupe ────────────────────────────────────
+  void leaveGroupCall() {
+    if (_groupRoomId != null) {
+      _socket?.emit('leave_group_call', {'roomId': _groupRoomId});
+    }
+    _cleanupGroup();
+    _eventCtrl.add(CallEvent.callEnded);
+  }
+
   // ── Accepter un appel ──────────────────────────────────────────────
   Future<void> answerCall(IncomingCallData incoming) async {
     // Vérifier si le socket est connecté
@@ -266,10 +516,17 @@ class CallService {
 
   // ── Terminer l'appel ──────────────────────────────────────────────
   void endCall() {
-    if (_remoteUserId != null) {
-      _socket!.emit('end_call', {'targetUserId': _remoteUserId});
+    if (_isGroupCall) {
+      if (_groupRoomId != null) {
+        _socket?.emit('end_group_call', {'roomId': _groupRoomId});
+      }
+      _cleanupGroup();
+    } else {
+      if (_remoteUserId != null) {
+        _socket!.emit('end_call', {'targetUserId': _remoteUserId});
+      }
+      _cleanup();
     }
-    _cleanup();
     _eventCtrl.add(CallEvent.callEnded);
   }
 
@@ -434,6 +691,110 @@ class CallService {
     };
   }
 
+  Future<RTCPeerConnection> _getOrCreateGroupPeer(String userId) async {
+    final existing = _groupPeerConnections[userId];
+    if (existing != null) return existing;
+
+    final Map<String, dynamic> config = {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun1.l.google.com:19302'},
+        {'urls': 'stun:stun2.l.google.com:19302'},
+        {'urls': 'stun:stun3.l.google.com:19302'},
+        {'urls': 'stun:stun4.l.google.com:19302'},
+        {'urls': 'stun:stun.relay.metered.ca:80'},
+        {
+          'urls': [
+            'turn:global.relay.metered.ca:80',
+            'turn:global.relay.metered.ca:80?transport=tcp',
+            'turn:global.relay.metered.ca:443',
+            'turns:global.relay.metered.ca:443?transport=tcp',
+          ],
+          'username': '4ccd30e6211751522c93c044',
+          'credential': 'iB+/hPI3lLayZAKn',
+        },
+        {
+          'urls': [
+            'turn:free.expressturn.com:3478',
+            'turn:free.expressturn.com:3478?transport=tcp',
+          ],
+          'username': '000000002089277421',
+          'credential': 'MZNCzpa/GM4ZvRcYONi4+9qgZRU=',
+        },
+      ],
+      'iceCandidatePoolSize': 10,
+    };
+
+    final pc = await createPeerConnection(config);
+    _groupPeerConnections[userId] = pc;
+
+    // Ajouter les tracks locaux au peer
+    if (_localStream != null) {
+      _localStream!.getTracks().forEach((track) {
+        pc.addTrack(track, _localStream!);
+      });
+    }
+
+    pc.onIceCandidate = (candidate) {
+      if (_groupRoomId == null) return;
+      _socket?.emit('group_ice_candidate', {
+        'roomId': _groupRoomId,
+        'fromUserId': _myUserId,
+        'toUserId': userId,
+        'candidate': {
+          'candidate': candidate.candidate,
+          'sdpMid': candidate.sdpMid,
+          'sdpMLineIndex': candidate.sdpMLineIndex,
+        },
+      });
+    };
+
+    pc.onTrack = (event) async {
+      if (event.streams.isNotEmpty) {
+        _groupRemoteStreams[userId] = event.streams[0];
+      } else {
+        final stream = await createLocalMediaStream('remote-$userId');
+        stream.addTrack(event.track);
+        _groupRemoteStreams[userId] = stream;
+      }
+      _groupRemoteStreamsCtrl.add(Map<String, MediaStream>.from(_groupRemoteStreams));
+      _eventCtrl.add(CallEvent.callConnected);
+    };
+
+    pc.onConnectionState = (state) {
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+          state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        _removeGroupPeer(userId);
+      }
+    };
+
+    return pc;
+  }
+
+  void _removeGroupPeer(String userId) {
+    _groupPeerConnections[userId]?.close();
+    _groupPeerConnections.remove(userId);
+    _groupRemoteStreams[userId]?.dispose();
+    _groupRemoteStreams.remove(userId);
+    _groupRemoteStreamsCtrl.add(Map<String, MediaStream>.from(_groupRemoteStreams));
+  }
+
+  void _cleanupGroup() {
+    // Désactiver le haut-parleur
+    setSpeaker(false);
+
+    _localStream?.dispose();
+    _localStream = null;
+    _localStreamCtrl.add(null);
+
+    _groupPeerConnections.keys.toList().forEach(_removeGroupPeer);
+    _groupPeerConnections.clear();
+    _groupRemoteStreams.clear();
+    _groupRemoteStreamsCtrl.add(<String, MediaStream>{});
+    _groupRoomId = null;
+    _isGroupCall = false;
+  }
+
   // ── Obtenir le flux local (micro + caméra) ────────────────────────
   Future<void> _getLocalStream({required bool isVideo}) async {
     _localStream = await navigator.mediaDevices.getUserMedia({
@@ -449,9 +810,11 @@ class CallService {
       } : false,
     });
 
-    _localStream!.getTracks().forEach((track) {
-      _peerConnection!.addTrack(track, _localStream!);
-    });
+    if (_peerConnection != null) {
+      _localStream!.getTracks().forEach((track) {
+        _peerConnection!.addTrack(track, _localStream!);
+      });
+    }
     _localStreamCtrl.add(_localStream);
   }
 
@@ -472,18 +835,21 @@ class CallService {
   }
 
   void disconnect() {
+    _cleanupGroup();
     _cleanup();
     _socket?.disconnect();
     _socket = null;
   }
 
   void dispose() {
+    _cleanupGroup();
     _cleanup();
     _socket?.disconnect();
     _eventCtrl.close();
     _incomingCtrl.close();
     _localStreamCtrl.close();
     _remoteStreamCtrl.close();
+    _groupRemoteStreamsCtrl.close();
+    _groupEventCtrl.close();
   }
 }
-

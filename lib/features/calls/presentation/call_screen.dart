@@ -153,6 +153,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       }
     });
 
+    if (callState.isGroup) {
+      return _buildGroupCallScreen(context, callState);
+    }
+
     return FutureBuilder<String>(
       future: nameFuture,
       builder: (context, nameSnap) {
@@ -434,6 +438,327 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       _resolvedRemoteNameFuture = _resolveRemoteName(userId, fallbackName);
     }
     return _resolvedRemoteNameFuture!;
+  }
+
+  Widget _buildGroupCallScreen(BuildContext context, CallState callState) {
+    final service = ref.read(callServiceProvider);
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: StreamBuilder<Map<String, MediaStream>>(
+        stream: service.groupRemoteStreamsUpdates,
+        initialData: service.groupRemoteStreams,
+        builder: (context, snap) {
+          final streams = snap.data ?? {};
+          return Stack(
+            children: [
+              if (callState.isVideo)
+                _GroupVideoGrid(
+                  streams: streams,
+                  localRenderer: _localRenderer,
+                )
+              else
+                _GroupAudioList(
+                  participants: callState.groupParticipants,
+                  title: callState.remoteName ?? 'Appel de groupe',
+                ),
+
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.12),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                callState.remoteName ?? 'Appel de groupe',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                callState.status == CallStatus.calling
+                                    ? 'Connexion...'
+                                    : _formattedDuration,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.45),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _CallButton(
+                              icon: callState.isMuted
+                                  ? Icons.mic_off_rounded
+                                  : Icons.mic_rounded,
+                              label: callState.isMuted ? 'Micro off' : 'Micro',
+                              color: callState.isMuted
+                                  ? Colors.red.withOpacity(0.85)
+                                  : Colors.white.withOpacity(0.18),
+                              onPressed: () =>
+                                  ref.read(callProvider.notifier).toggleMute(),
+                            ),
+                            _CallButton(
+                              icon: Icons.call_end_rounded,
+                              label: 'Terminer',
+                              color: Colors.red,
+                              size: 64,
+                              onPressed: () =>
+                                  ref.read(callProvider.notifier).endCall(),
+                            ),
+                            if (callState.isVideo)
+                              _CallButton(
+                                icon: callState.isCameraOff
+                                    ? Icons.videocam_off_rounded
+                                    : Icons.videocam_rounded,
+                                label: 'Caméra',
+                                color: callState.isCameraOff
+                                    ? Colors.red.withOpacity(0.85)
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () =>
+                                    ref.read(callProvider.notifier).toggleCamera(),
+                              )
+                            else
+                              _CallButton(
+                                icon: Icons.volume_up_rounded,
+                                label: 'HP',
+                                color: Colors.white.withOpacity(0.18),
+                                onPressed: () {},
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GroupVideoGrid extends StatefulWidget {
+  final Map<String, MediaStream> streams;
+  final RTCVideoRenderer localRenderer;
+
+  const _GroupVideoGrid({
+    required this.streams,
+    required this.localRenderer,
+  });
+
+  @override
+  State<_GroupVideoGrid> createState() => _GroupVideoGridState();
+}
+
+class _GroupVideoGridState extends State<_GroupVideoGrid> {
+  final Map<String, RTCVideoRenderer> _renderers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _syncRenderers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GroupVideoGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncRenderers();
+  }
+
+  void _syncRenderers() {
+    final newIds = widget.streams.keys.toSet();
+    final oldIds = _renderers.keys.toSet();
+
+    for (final id in oldIds.difference(newIds)) {
+      _renderers[id]?.dispose();
+      _renderers.remove(id);
+    }
+
+    for (final id in newIds) {
+      if (!_renderers.containsKey(id)) {
+        final r = RTCVideoRenderer();
+        r.initialize().then((_) {
+          r.srcObject = widget.streams[id];
+          if (mounted) setState(() {});
+        });
+        _renderers[id] = r;
+      } else {
+        _renderers[id]!.srcObject = widget.streams[id];
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final r in _renderers.values) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = <Widget>[];
+
+    // Local preview
+    tiles.add(_VideoTile(renderer: widget.localRenderer, isLocal: true));
+
+    // Remote videos
+    for (final entry in _renderers.entries) {
+      tiles.add(_VideoTile(renderer: entry.value));
+    }
+
+    final count = tiles.length;
+    final crossAxisCount = count <= 2 ? 1 : (count <= 4 ? 2 : 3);
+
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      children: tiles,
+    );
+  }
+}
+
+class _VideoTile extends StatelessWidget {
+  final RTCVideoRenderer renderer;
+  final bool isLocal;
+
+  const _VideoTile({
+    required this.renderer,
+    this.isLocal = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: RTCVideoView(
+          renderer,
+          mirror: isLocal,
+          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupAudioList extends StatelessWidget {
+  final List<GroupParticipant> participants;
+  final String title;
+
+  const _GroupAudioList({
+    required this.participants,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...participants.map((p) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.primary,
+                      backgroundImage:
+                          p.photo != null ? NetworkImage(p.photo!) : null,
+                      child: p.photo == null
+                          ? Text(
+                              p.name.isNotEmpty
+                                  ? p.name[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        p.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
   }
 }
 

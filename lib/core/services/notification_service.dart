@@ -111,7 +111,7 @@ class NotificationService {
     final body = message.notification?.body ?? data['body'] ?? '';
     final payload = data.isNotEmpty ? data.toString() : null;
 
-    if (type == 'call') {
+    if (type == 'call' || type == 'group_call') {
       await _local.show(
         message.hashCode,
         title,
@@ -159,6 +159,29 @@ class NotificationService {
     if (type == 'call') {
       // Ne pas ouvrir l'écran ici — Socket.io va envoyer incoming_call
       // avec la vraie offre SDP. On se contente de ramener l'app au premier plan.
+      rootNavigatorKey.currentContext?.go(AppRoutes.home);
+      return;
+    }
+
+    if (type == 'group_call') {
+      final callerId = data['callerId'] as String? ?? '';
+      final callerName = data['callerName'] as String? ?? 'Appel de groupe';
+      final roomId = data['roomId'] as String? ?? '';
+      final isVideo = (data['isVideo'] as String?) == 'true' ||
+          data['isVideo'] == true;
+      if (roomId.isNotEmpty) {
+        rootNavigatorKey.currentContext?.push(
+          AppRoutes.incomingCall,
+          extra: {
+            'callerId': callerId,
+            'callerName': callerName,
+            'isVideo': isVideo,
+            'isGroup': true,
+            'roomId': roomId,
+          },
+        );
+        return;
+      }
       rootNavigatorKey.currentContext?.go(AppRoutes.home);
       return;
     }

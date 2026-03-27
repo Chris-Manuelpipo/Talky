@@ -127,6 +127,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             callerId: extra['callerId'] ?? '',
             callerName: extra['callerName'] ?? 'Appel entrant',
             isVideo: extra['isVideo'] ?? false,
+            isGroup: extra['isGroup'] ?? false,
+            roomId: extra['roomId'],
           );
         },
       ),
