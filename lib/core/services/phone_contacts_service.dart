@@ -16,6 +16,10 @@ class PhoneContact {
 }
 
 class PhoneContactsService {
+  List<PhoneContact>? _cachedContacts;
+  Future<List<PhoneContact>>? _inFlightFetch;
+  Map<String, String> _cachedNameByPhone = {};
+
   /// Demander la permission d'accéder aux contacts
   Future<bool> requestPermission() async {
     // Vérifier d'abord le statut actuel
@@ -42,8 +46,37 @@ class PhoneContactsService {
     return status.isGranted;
   }
 
-  /// Récupérer tous les contacts du téléphone
-  Future<List<PhoneContact>> getContacts() async {
+  /// Précharger les contacts si la permission est déjà accordée
+  Future<void> warmUpIfPermitted() async {
+    final permitted = await hasPermission();
+    if (!permitted) return;
+    // Déclenche un préchargement en arrière-plan
+    // ignore: unawaited_futures
+    getContactsCached();
+  }
+
+  /// Récupérer tous les contacts du téléphone (avec cache mémoire)
+  Future<List<PhoneContact>> getContactsCached({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedContacts != null) {
+      return _cachedContacts!;
+    }
+    if (!forceRefresh && _inFlightFetch != null) {
+      return _inFlightFetch!;
+    }
+
+    _inFlightFetch = _getContactsFromPlatform();
+    try {
+      final contacts = await _inFlightFetch!;
+      _cachedContacts = contacts;
+      _buildNameCache(contacts);
+      return contacts;
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
+  /// Récupérer tous les contacts du téléphone (accès direct plateforme)
+  Future<List<PhoneContact>> _getContactsFromPlatform() async {
     try {
       // Using platform channel to get contacts
       final result = await const MethodChannel('com.example.talky/contacts')
@@ -96,6 +129,46 @@ class PhoneContactsService {
       // Fallback: try using flutter_contacts if available
       return _getContactsUsingPackage();
     }
+  }
+
+  /// Récupérer tous les contacts du téléphone (alias compat)
+  Future<List<PhoneContact>> getContacts() async {
+    return getContactsCached();
+  }
+
+  String normalizePhone(String phone) {
+    return phone.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  String resolveNameFromCache({
+    required String fallbackName,
+    String? phone,
+  }) {
+    if (phone == null || phone.isEmpty) return fallbackName;
+    final normalized = normalizePhone(phone);
+    if (normalized.isEmpty) return fallbackName;
+    return _cachedNameByPhone[normalized] ?? fallbackName;
+  }
+
+  Future<String> resolveName({
+    required String fallbackName,
+    String? phone,
+  }) async {
+    await getContactsCached();
+    return resolveNameFromCache(fallbackName: fallbackName, phone: phone);
+  }
+
+  void _buildNameCache(List<PhoneContact> contacts) {
+    final map = <String, String>{};
+    for (final contact in contacts) {
+      for (final phone in contact.phones) {
+        final normalized = normalizePhone(phone);
+        if (normalized.isNotEmpty) {
+          map[normalized] = contact.displayName;
+        }
+      }
+    }
+    _cachedNameByPhone = map;
   }
 
   Future<List<PhoneContact>> _getContactsUsingPackage() async {

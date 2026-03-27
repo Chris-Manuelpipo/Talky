@@ -35,65 +35,97 @@ class ChatDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final messages = ref.watch(messagesProvider(conversationId));
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
+    final resolvedNameFuture = _resolveContactName(ref);
 
-    return Scaffold(
-      backgroundColor: context.appThemeColors.background,
-      appBar: AppBar(
-        backgroundColor: context.appThemeColors.background,
-        title: Text('Détails',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          _HeaderCard(
-            name: contactName,
-            photoUrl: contactPhoto,
-            isGroup: isGroup,
-            presenceUserId: isGroup ? null : contactUserId,
+    return FutureBuilder<String>(
+      future: resolvedNameFuture,
+      builder: (context, nameSnap) {
+        final displayName = nameSnap.data ?? contactName;
+        return Scaffold(
+          backgroundColor: context.appThemeColors.background,
+          appBar: AppBar(
+            backgroundColor: context.appThemeColors.background,
+            title: Text('Détails',
+                style: TextStyle(fontWeight: FontWeight.w700)),
           ),
-          const SizedBox(height: 14),
-          if (isGroup && conversation != null)
-            _GroupMembersCard(
-              conversation: conversation!,
-              currentUserId: currentUid,
-            )
-          else
-            _ContactInfoCard(userId: contactUserId),
-          const SizedBox(height: 14),
-          _MediaSection(messages: messages),
-          const SizedBox(height: 16),
-          if (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: Icon(Icons.share_rounded),
-                label: Text('Partager le contact'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ShareContactScreen(
-                        contactUserId: contactUserId!,
-                        contactName: contactName,
-                        contactPhoto: contactPhoto,
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              _HeaderCard(
+                name: displayName,
+                photoUrl: contactPhoto,
+                isGroup: isGroup,
+                presenceUserId: isGroup ? null : contactUserId,
+              ),
+              const SizedBox(height: 14),
+              if (isGroup && conversation != null)
+                _GroupMembersCard(
+                  conversation: conversation!,
+                  currentUserId: currentUid,
+                )
+              else
+                _ContactInfoCard(userId: contactUserId),
+              const SizedBox(height: 14),
+              _MediaSection(messages: messages),
+              const SizedBox(height: 16),
+              if (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.share_rounded),
+                    label: Text('Partager le contact'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShareContactScreen(
+                            contactUserId: contactUserId!,
+                            contactName: displayName,
+                            contactPhoto: contactPhoto,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Future<String> _resolveContactName(WidgetRef ref) async {
+    if (isGroup) return contactName;
+    if (contactUserId == null || contactUserId!.isEmpty) {
+      return contactName;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(contactUserId)
+          .get();
+      final data = doc.data();
+      final resolvedName = (data?['name'] as String?)?.trim();
+      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+          ? resolvedName
+          : contactName;
+      final phone = data?['phone'] as String?;
+      return ref.read(phoneContactsServiceProvider).resolveName(
+        fallbackName: baseName,
+        phone: phone,
+      );
+    } catch (_) {
+      return contactName;
+    }
   }
 }
 
@@ -210,7 +242,7 @@ class _ContactInfoCard extends StatelessWidget {
   }
 }
 
-class _GroupMembersCard extends StatelessWidget {
+class _GroupMembersCard extends ConsumerWidget {
   final ConversationModel conversation;
   final String currentUserId;
   const _GroupMembersCard({
@@ -219,7 +251,7 @@ class _GroupMembersCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final members = conversation.participantIds
         .where((id) => id != currentUserId)
         .toList();
@@ -242,19 +274,39 @@ class _GroupMembersCard extends StatelessWidget {
                 style: TextStyle(color: context.appThemeColors.textSecondary))
           else
             ...members.map((id) {
-              final name = conversation.participantNames[id] ?? 'Utilisateur';
+              final baseName = conversation.participantNames[id] ?? 'Utilisateur';
               final photo = conversation.participantPhotos[id];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    _Avatar(name: name, photoUrl: photo, isGroup: false),
-                    const SizedBox(width: 10),
-                    Text(name,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
+              return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                future: FirebaseFirestore.instance.collection('users').doc(id).get(),
+                builder: (context, snap) {
+                  final data = snap.data?.data();
+                  final resolvedName = (data?['name'] as String?)?.trim();
+                  final name = (resolvedName != null && resolvedName.isNotEmpty)
+                      ? resolvedName
+                      : baseName;
+                  final phone = data?['phone'] as String?;
+                  return FutureBuilder<String>(
+                    future: ref.read(phoneContactsServiceProvider).resolveName(
+                      fallbackName: name,
+                      phone: phone,
+                    ),
+                    builder: (context, nameSnap) {
+                      final displayName = nameSnap.data ?? name;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            _Avatar(name: displayName, photoUrl: photo, isGroup: false),
+                            const SizedBox(width: 10),
+                            Text(displayName,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               );
             }),
         ],

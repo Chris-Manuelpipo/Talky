@@ -325,6 +325,7 @@ class _ConversationTile extends ConsumerWidget {
     final isMe        = conversation.lastMessageSenderId == currentUserId;
     final otherId     = conversation.participantIds
         .firstWhere((id) => id != currentUserId, orElse: () => '');
+    final contactsService = ref.read(phoneContactsServiceProvider);
     // Always resolve for non-group chats to get fresh profile photos from Firestore
     if (!conversation.isGroup && otherId.isNotEmpty) {
       return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -337,7 +338,24 @@ class _ConversationTile extends ConsumerWidget {
               ? resolvedName
               : displayName;
           final photoUrl = resolvedPhoto ?? photo;
-          return _buildTile(context, ref, name, photoUrl, unread, isMe);
+          final phone = data?['phone'] as String?;
+          return FutureBuilder<String>(
+            future: contactsService.resolveName(
+              fallbackName: name,
+              phone: phone,
+            ),
+            builder: (context, nameSnap) {
+              final resolvedDisplayName = nameSnap.data ?? name;
+              return _buildTile(
+                context,
+                ref,
+                resolvedDisplayName,
+                photoUrl,
+                unread,
+                isMe,
+              );
+            },
+          );
         },
       );
     }
@@ -358,7 +376,7 @@ class _ConversationTile extends ConsumerWidget {
         AppRoutes.chat.replaceAll(':conversationId', conversation.id),
         extra: {'name': displayName, 'photo': photo},
       ),
-      onLongPress: () => _showConversationOptions(context, ref),
+      onLongPress: () => _showConversationOptions(context, ref, displayName),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -482,7 +500,11 @@ class _ConversationTile extends ConsumerWidget {
     );
   }
 
-  void _showConversationOptions(BuildContext context, WidgetRef ref) {
+  void _showConversationOptions(
+    BuildContext context,
+    WidgetRef ref,
+    String displayName,
+  ) {
     final chatService = ref.read(chatServiceProvider);
     
     showModalBottomSheet(
@@ -613,8 +635,6 @@ class _ConversationTile extends ConsumerWidget {
       ),
     );
   }
-
-  String get displayName => conversation.getDisplayName(currentUserId);
 
   String _formatTime(DateTime dt) {
     final now = DateTime.now();

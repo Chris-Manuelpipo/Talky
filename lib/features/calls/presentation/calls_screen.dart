@@ -1,11 +1,13 @@
 // lib/features/calls/presentation/calls_screen.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../chat/data/chat_providers.dart';
 import '../data/call_providers.dart';
 import '../domain/call_history_model.dart';
 import 'call_screen.dart';
@@ -406,17 +408,56 @@ class _DateHeader extends StatelessWidget {
 }
 
 // ── Tuile d'appel ───────────────────────────────────────────────────
-class _CallTile extends StatelessWidget {
+class _CallTile extends ConsumerWidget {
   final CallHistoryModel call;
   final String currentUserId;
 
   const _CallTile({required this.call, required this.currentUserId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final displayName = call.getDisplayName(currentUserId);
     final displayPhoto = call.getDisplayPhoto(currentUserId);
     final isOutgoing = call.isOutgoing(currentUserId);
+    final otherId = call.callerId == currentUserId
+        ? call.receiverId
+        : call.callerId;
+    final contactsService = ref.read(phoneContactsServiceProvider);
+
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
+      builder: (context, snap) {
+        final data = snap.data?.data();
+        final resolvedName = (data?['name'] as String?)?.trim();
+        final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+            ? resolvedName
+            : displayName;
+        final phone = data?['phone'] as String?;
+        return FutureBuilder<String>(
+          future: contactsService.resolveName(
+            fallbackName: baseName,
+            phone: phone,
+          ),
+          builder: (context, nameSnap) {
+            final resolvedDisplayName = nameSnap.data ?? baseName;
+            return _buildTile(
+              context,
+              resolvedDisplayName,
+              displayPhoto,
+              isOutgoing,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTile(
+    BuildContext context,
+    String displayName,
+    String? displayPhoto,
+    bool isOutgoing,
+  ) {
 
     return ListTile(
       leading: CircleAvatar(

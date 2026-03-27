@@ -48,6 +48,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   MessageModel? _replyTo;
   bool _isTyping    = false;
   bool _isRecording = false;
+  Future<String>? _resolvedNameFuture;
+  String? _resolvedNameKey;
 
   @override
   void initState() {
@@ -171,112 +173,121 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
     });
 
-    return Scaffold(
-      backgroundColor: context.appThemeColors.background,
-      appBar: _buildAppBar(context, convos, currentUid),
-      body: Column(
-        children: [
-          // Liste messages
-          Expanded(
-            child: messages.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error:   (e, _) => Center(child: Text('Erreur: $e')),
-              data:    (list) {
-                // Filtrer les messages supprimés pour l'utilisateur courant
-                final filteredList = list.where((m) {
-                  // Ne pas afficher si le message est supprimé pour cet utilisateur
-                  return !m.deletedFor.contains(currentUid);
-                }).toList();
-                
-                if (filteredList.isEmpty) return _EmptyChatState(name: widget.contactName);
-                
-                // Déterminer si c'est un groupe
-                final isGroup = convos.maybeWhen(
-                  data: (convoList) {
-                    final convo = convoList.firstWhere(
-                      (c) => c.id == widget.conversationId,
-                      orElse: () => ConversationModel(
-                        id: widget.conversationId,
-                        participantIds: const [],
-                        participantNames: const {},
-                        participantPhotos: const {},
-                        unreadCount: const {},
-                        lastMessageStatus: MessageStatus.sent,
-                      ),
-                    );
-                    return convo.isGroup;
-                  },
-                  orElse: () => false,
-                );
-                
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-                return ListView.builder(
-                  controller:  _scrollCtrl,
-                  padding:     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  itemCount:   filteredList.length,
-                  itemBuilder: (_, i) {
-                    final msg    = filteredList[i];
-                    final isMine = msg.senderId == currentUid;
-                    final showDate = i == 0 ||
-                        !_isSameDay(filteredList[i - 1].sentAt, msg.sentAt);
-                    return Column(
-                      children: [
-                        if (showDate) _DateDivider(date: msg.sentAt),
-                        _buildMessageWidget(msg, isMine, isGroup, currentUid),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-
-          // Barre de réponse
-          if (_replyTo != null) _ReplyBar(
-            message:  _replyTo!,
-            onCancel: () => setState(() => _replyTo = null),
-          ),
-
-          // Enregistrement vocal OU barre de saisie
-          if (_isRecording)
-            VoiceRecorderWidget(
-              onRecordingComplete: (path, duration) async {
-                setState(() => _isRecording = false);
-                // Upload + envoi
-                final user = ref.read(authStateProvider).value;
-                if (user == null) return;
-                try {
-                  final file = File(path);
-                  final senderName =
-                      await ref.read(currentUserNameProvider.future);
-                  final url = await MediaService().uploadAudio(
-                    file: file,
-                    conversationId: widget.conversationId,
-                  );
-                  await ref.read(chatServiceProvider).sendMediaMessage(
-                    conversationId: widget.conversationId,
-                    senderId:       user.uid,
-                    senderName:     senderName,
-                    mediaUrl:       url,
-                    type:           MessageType.audio,
-                    mediaDuration:  duration,
-                  );
-                } catch (_) {}
-              },
-              onCancel: () => setState(() => _isRecording = false),
-            )
-          else
-            _InputBar(
-              controller: _controller,
-              onSend:     _send,
-              onAttach:   _openMediaPicker,
-              onMicHold:  () => setState(() => _isRecording = true),
-              onEmoji:    _openEmojiPicker,
-              onChanged:  (v) => setState(() => _isTyping = v.isNotEmpty),
-              isTyping:   _isTyping,
-            ),
-        ],
+    final convo = convos.maybeWhen(
+      data: (list) => list.firstWhere(
+        (c) => c.id == widget.conversationId,
+        orElse: () => ConversationModel(
+          id: widget.conversationId,
+          participantIds: const [],
+          participantNames: const {},
+          participantPhotos: const {},
+          unreadCount: const {},
+          lastMessageStatus: MessageStatus.sent,
+        ),
       ),
+      orElse: () => null,
+    );
+
+    final nameFuture = _getResolvedNameFuture(convo, currentUid);
+
+    return FutureBuilder<String>(
+      future: nameFuture,
+      builder: (context, nameSnap) {
+        final displayName = nameSnap.data ?? widget.contactName;
+        return Scaffold(
+          backgroundColor: context.appThemeColors.background,
+          appBar: _buildAppBar(context, convo, currentUid, displayName),
+          body: Column(
+            children: [
+              // Liste messages
+              Expanded(
+                child: messages.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error:   (e, _) => Center(child: Text('Erreur: $e')),
+                  data:    (list) {
+                    // Filtrer les messages supprimés pour l'utilisateur courant
+                    final filteredList = list.where((m) {
+                      // Ne pas afficher si le message est supprimé pour cet utilisateur
+                      return !m.deletedFor.contains(currentUid);
+                    }).toList();
+                    
+                    if (filteredList.isEmpty) {
+                      return _EmptyChatState(name: displayName);
+                    }
+                    
+                    // Déterminer si c'est un groupe
+                    final isGroup = convo?.isGroup ?? false;
+                    
+                    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                    return ListView.builder(
+                      controller:  _scrollCtrl,
+                      padding:     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount:   filteredList.length,
+                      itemBuilder: (_, i) {
+                        final msg    = filteredList[i];
+                        final isMine = msg.senderId == currentUid;
+                        final showDate = i == 0 ||
+                            !_isSameDay(filteredList[i - 1].sentAt, msg.sentAt);
+                        return Column(
+                          children: [
+                            if (showDate) _DateDivider(date: msg.sentAt),
+                            _buildMessageWidget(msg, isMine, isGroup, currentUid),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              // Barre de réponse
+              if (_replyTo != null) _ReplyBar(
+                message:  _replyTo!,
+                onCancel: () => setState(() => _replyTo = null),
+              ),
+
+              // Enregistrement vocal OU barre de saisie
+              if (_isRecording)
+                VoiceRecorderWidget(
+                  onRecordingComplete: (path, duration) async {
+                    setState(() => _isRecording = false);
+                    // Upload + envoi
+                    final user = ref.read(authStateProvider).value;
+                    if (user == null) return;
+                    try {
+                      final file = File(path);
+                      final senderName =
+                          await ref.read(currentUserNameProvider.future);
+                      final url = await MediaService().uploadAudio(
+                        file: file,
+                        conversationId: widget.conversationId,
+                      );
+                      await ref.read(chatServiceProvider).sendMediaMessage(
+                        conversationId: widget.conversationId,
+                        senderId:       user.uid,
+                        senderName:     senderName,
+                        mediaUrl:       url,
+                        type:           MessageType.audio,
+                        mediaDuration:  duration,
+                      );
+                    } catch (_) {}
+                  },
+                  onCancel: () => setState(() => _isRecording = false),
+                )
+              else
+                _InputBar(
+                  controller: _controller,
+                  onSend:     _send,
+                  onAttach:   _openMediaPicker,
+                  onMicHold:  () => setState(() => _isRecording = true),
+                  onEmoji:    _openEmojiPicker,
+                  onChanged:  (v) => setState(() => _isTyping = v.isNotEmpty),
+                  isTyping:   _isTyping,
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -315,25 +326,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
-    AsyncValue<List<ConversationModel>> convos,
+    ConversationModel? convo,
     String currentUid,
+    String displayName,
   ) {
     final canPop = Navigator.of(context).canPop();
-    final convo = convos.maybeWhen(
-      data: (list) => list.firstWhere(
-        (c) => c.id == widget.conversationId,
-        orElse: () => ConversationModel(
-          id: widget.conversationId,
-          participantIds: const [],
-          participantNames: const {},
-          participantPhotos: const {},
-          unreadCount: const {},
-          lastMessageStatus: MessageStatus.sent,
-        ),
-      ),
-      orElse: () => null,
-    );
-
     final isGroup = convo?.isGroup ?? false;
     final otherUserId = (convo == null || currentUid.isEmpty)
         ? null
@@ -355,12 +352,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       leadingWidth: 30,
       title: Row(
         children: [
-          _AvatarWidget(name: widget.contactName, photoUrl: widget.contactPhoto),
+          _AvatarWidget(name: displayName, photoUrl: widget.contactPhoto),
           const SizedBox(width: 5),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.contactName,
+              Text(displayName,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               if (isGroup)
                 Text('Groupe',
@@ -381,6 +378,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ? () => _startCallFromChat(
                   context,
                   otherUserId!,
+                  displayName: displayName,
                   isVideo: true,
                 )
               : () => _showCallDisabled(context, isGroup),
@@ -391,6 +389,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ? () => _startCallFromChat(
                   context,
                   otherUserId!,
+                  displayName: displayName,
                   isVideo: false,
                 )
               : () => _showCallDisabled(context, isGroup),
@@ -403,7 +402,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               MaterialPageRoute(
                 builder: (_) => ChatDetailsScreen(
                   conversationId: widget.conversationId,
-                  contactName: widget.contactName,
+                  contactName: displayName,
                   contactPhoto: widget.contactPhoto,
                   contactUserId: otherUserId,
                   isGroup: isGroup,
@@ -433,6 +432,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _startCallFromChat(
     BuildContext context,
     String targetUserId, {
+    required String displayName,
     required bool isVideo,
   }) async {
     final micStatus = await Permission.microphone.request();
@@ -486,7 +486,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       await ref.read(callProvider.notifier).startCall(
         targetUserId: targetUserId,
-        targetName:   widget.contactName,
+        targetName:   displayName,
         targetPhoto:  widget.contactPhoto,
         isVideo:      isVideo,
       );
@@ -508,6 +508,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       }
     }
+  }
+
+  Future<String> _resolveDisplayName(
+    ConversationModel? convo,
+    String currentUid,
+  ) async {
+    if (convo == null) return widget.contactName;
+    if (convo.isGroup) {
+      return convo.groupName ?? widget.contactName;
+    }
+    final otherId = convo.participantIds.firstWhere(
+      (id) => id != currentUid,
+      orElse: () => '',
+    );
+    if (otherId.isEmpty) return widget.contactName;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(otherId)
+          .get();
+      final data = doc.data();
+      final resolvedName = (data?['name'] as String?)?.trim();
+      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+          ? resolvedName
+          : widget.contactName;
+      final phone = data?['phone'] as String?;
+      return ref.read(phoneContactsServiceProvider).resolveName(
+        fallbackName: baseName,
+        phone: phone,
+      );
+    } catch (_) {
+      return widget.contactName;
+    }
+  }
+
+  Future<String> _getResolvedNameFuture(
+    ConversationModel? convo,
+    String currentUid,
+  ) {
+    final key = '${convo?.id}|${convo?.participantIds.join(',')}|${convo?.isGroup}';
+    if (_resolvedNameFuture == null || _resolvedNameKey != key) {
+      _resolvedNameKey = key;
+      _resolvedNameFuture = _resolveDisplayName(convo, currentUid);
+    }
+    return _resolvedNameFuture!;
   }
 
   Future<void> _deleteMessage(MessageModel msg) async {

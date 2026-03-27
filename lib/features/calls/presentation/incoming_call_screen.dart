@@ -1,6 +1,7 @@
 // lib/features/calls/presentation/incoming_call_screen.dart
 
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,6 +10,7 @@ import '../../../core/theme/app_colors_provider.dart';
 import '../data/call_providers.dart';
 import '../data/call_service.dart';
 import 'call_screen.dart';
+import '../../chat/data/chat_providers.dart';
 
 class IncomingCallScreen extends ConsumerStatefulWidget {
   final String? callerId;
@@ -74,6 +76,10 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
   @override
   Widget build(BuildContext context) {
     final callState = ref.watch(callProvider);
+    final callerId = callState.incomingCall?.callerId ?? widget.callerId;
+    final fallbackName =
+        callState.remoteName ?? widget.callerName ?? 'Appel entrant';
+    final nameFuture = _resolveCallerName(callerId, fallbackName);
 
     // Si l'appel disparaît → fermer
     ref.listen(callProvider, (_, next) {
@@ -82,10 +88,14 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       }
     });
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
-      body: Stack(
-        children: [
+    return FutureBuilder<String>(
+      future: nameFuture,
+      builder: (context, nameSnap) {
+        final displayName = nameSnap.data ?? fallbackName;
+        return Scaffold(
+          backgroundColor: const Color(0xFF0D0D1A),
+          body: Stack(
+            children: [
           // Fond animé
           Positioned.fill(
             child: AnimatedBuilder(
@@ -143,7 +153,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                             callState.remotePhoto!, fit: BoxFit.cover))
                         : Center(
                             child: Text(
-                              (callState.remoteName ?? '?')[0].toUpperCase(),
+                              (displayName.isNotEmpty ? displayName : '?')[0]
+                                  .toUpperCase(),
                               style: TextStyle(
                                 color: Colors.white, fontSize: 52,
                                 fontWeight: FontWeight.w700),
@@ -154,7 +165,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                 const SizedBox(height: 24),
 
                 // Nom
-                Text(callState.remoteName ?? 'Appel entrant',
+                Text(displayName,
                   style: TextStyle(
                     color: Colors.white, fontSize: 32,
                     fontWeight: FontWeight.w700)),
@@ -270,8 +281,32 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
               ],
             ),
           ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Future<String> _resolveCallerName(String? userId, String fallbackName) async {
+    if (userId == null || userId.isEmpty) return fallbackName;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      final data = doc.data();
+      final resolvedName = (data?['name'] as String?)?.trim();
+      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+          ? resolvedName
+          : fallbackName;
+      final phone = data?['phone'] as String?;
+      return ref.read(phoneContactsServiceProvider).resolveName(
+        fallbackName: baseName,
+        phone: phone,
+      );
+    } catch (_) {
+      return fallbackName;
+    }
   }
 }

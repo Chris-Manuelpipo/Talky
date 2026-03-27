@@ -1,6 +1,7 @@
 // lib/features/chat/presentation/archived_conversations_screen.dart
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,13 +93,70 @@ class _ArchivedConversationTile extends ConsumerWidget {
     final unread = conversation.getUnreadCount(currentUserId);
     final isMe = conversation.lastMessageSenderId == currentUserId;
     final colors = context.appThemeColors;
+    final contactsService = ref.read(phoneContactsServiceProvider);
+    final otherId = conversation.participantIds
+        .firstWhere((id) => id != currentUserId, orElse: () => '');
 
+    if (!conversation.isGroup && otherId.isNotEmpty) {
+      return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
+        builder: (context, snap) {
+          final data = snap.data?.data();
+          final resolvedName  = (data?['name'] as String?)?.trim();
+          final resolvedPhoto = data?['photoUrl'] as String?;
+          final name = (resolvedName != null && resolvedName.isNotEmpty)
+              ? resolvedName
+              : displayName;
+          final photoUrl = resolvedPhoto ?? photo;
+          final phone = data?['phone'] as String?;
+          return FutureBuilder<String>(
+            future: contactsService.resolveName(
+              fallbackName: name,
+              phone: phone,
+            ),
+            builder: (context, nameSnap) {
+              final resolvedDisplayName = nameSnap.data ?? name;
+              return _buildTile(
+                context,
+                ref,
+                resolvedDisplayName,
+                photoUrl,
+                unread,
+                isMe,
+                colors,
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return _buildTile(
+      context,
+      ref,
+      displayName,
+      photo,
+      unread,
+      isMe,
+      colors,
+    );
+  }
+
+  Widget _buildTile(
+    BuildContext context,
+    WidgetRef ref,
+    String displayName,
+    String? photo,
+    int unread,
+    bool isMe,
+    AppThemeColors colors,
+  ) {
     return InkWell(
       onTap: () => context.push(
         AppRoutes.chat.replaceAll(':conversationId', conversation.id),
         extra: {'name': displayName, 'photo': photo},
       ),
-      onLongPress: () => _showOptions(context, ref),
+      onLongPress: () => _showOptions(context, ref, displayName),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -171,7 +229,7 @@ class _ArchivedConversationTile extends ConsumerWidget {
     );
   }
 
-  void _showOptions(BuildContext context, WidgetRef ref) {
+  void _showOptions(BuildContext context, WidgetRef ref, String displayName) {
     final chatService = ref.read(chatServiceProvider);
 
     showModalBottomSheet(
@@ -196,7 +254,7 @@ class _ArchivedConversationTile extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                conversation.getDisplayName(currentUserId),
+                displayName,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -367,8 +425,8 @@ class _Avatar extends StatelessWidget {
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 20,
-                ),
-              ),
+          ),
+        ),
       ),
     );
   }

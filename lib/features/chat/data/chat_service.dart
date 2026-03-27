@@ -533,20 +533,99 @@ class ChatService {
     final phoneList = uniquePhones.toList();
     const batchSize = 10;
     
+    // Préparer tous les batches
+    final batches = <List<String>>[];
     for (var i = 0; i < phoneList.length; i += batchSize) {
       final end = (i + batchSize > phoneList.length) ? phoneList.length : i + batchSize;
       final batch = phoneList.sublist(i, end);
-      
-      // Créer les deux versions: avec + et sans +
       final batchWithPlus = batch.map((p) => '+$p').toList();
-      final allBatch = [...batch, ...batchWithPlus];
-      
+      batches.add([...batch, ...batchWithPlus]);
+    }
+
+    // Lancer toutes les requêtes en parallèle
+    final futures = batches.map((batch) async {
+      try {
+        return await _db
+            .collection('users')
+            .where('phone', whereIn: batch)
+            .get();
+      } catch (e) {
+        // Fallback sur des queries individuelles pour ce batch
+        final results = <QueryDocumentSnapshot>[];
+        for (final phone in batch) {
+          try {
+            final singleSnap = await _db
+                .collection('users')
+                .where('phone', isEqualTo: phone)
+                .limit(1)
+                .get();
+            results.addAll(singleSnap.docs);
+          } catch (_) {
+            // Ignore
+          }
+        }
+        return results;
+      }
+    });
+
+    // Attendre toutes les requêtes en parallèle
+    final snapshots = await Future.wait(futures);
+
+    // Combiner les résultats
+    for (final snap in snapshots) {
+      if (snap is QuerySnapshot) {
+        for (final doc in snap.docs) {
+          if (!seenIds.contains(doc.id)) {
+            seenIds.add(doc.id);
+            results.add({'id': doc.id, ...doc.data() as Map<String, dynamic>});
+          }
+        }
+      } else if (snap is List<QueryDocumentSnapshot>) {
+        for (final doc in snap) {
+          if (!seenIds.contains(doc.id)) {
+            seenIds.add(doc.id);
+            results.add({'id': doc.id, ...doc.data() as Map<String, dynamic>});
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// Variante progressive: renvoie les résultats au fur et à mesure des batches
+  Stream<List<Map<String, dynamic>>> findUsersByPhonesProgressive(
+      List<String> phones) async* {
+    // Dédoublonner les numéros et créer les deux formats
+    final uniquePhones = <String>{};
+    for (final phone in phones) {
+      final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+      if (normalized.length >= 8) {
+        uniquePhones.add(normalized);
+      }
+    }
+
+    if (uniquePhones.isEmpty) {
+      yield [];
+      return;
+    }
+
+    final results = <Map<String, dynamic>>[];
+    final seenIds = <String>{};
+    final phoneList = uniquePhones.toList();
+    const batchSize = 10;
+
+    for (var i = 0; i < phoneList.length; i += batchSize) {
+      final end = (i + batchSize > phoneList.length) ? phoneList.length : i + batchSize;
+      final batch = phoneList.sublist(i, end);
+      final batchWithPlus = batch.map((p) => '+$p').toList();
+      final batchQuery = [...batch, ...batchWithPlus];
+
       try {
         final snap = await _db
             .collection('users')
-            .where('phone', whereIn: allBatch)
+            .where('phone', whereIn: batchQuery)
             .get();
-        
         for (final doc in snap.docs) {
           if (!seenIds.contains(doc.id)) {
             seenIds.add(doc.id);
@@ -554,27 +633,28 @@ class ChatService {
           }
         }
       } catch (e) {
-        // Fallback sur des queries individuelles
-        for (final phone in allBatch) {
+        // Fallback: requêtes individuelles pour ce batch
+        for (final phone in batchQuery) {
           try {
             final singleSnap = await _db
                 .collection('users')
                 .where('phone', isEqualTo: phone)
                 .limit(1)
                 .get();
-            
-            if (singleSnap.docs.isNotEmpty && !seenIds.contains(singleSnap.docs.first.id)) {
-              seenIds.add(singleSnap.docs.first.id);
-              results.add({'id': singleSnap.docs.first.id, ...singleSnap.docs.first.data()});
+            for (final doc in singleSnap.docs) {
+              if (!seenIds.contains(doc.id)) {
+                seenIds.add(doc.id);
+                results.add({'id': doc.id, ...doc.data()});
+              }
             }
           } catch (_) {
             // Ignore
           }
         }
       }
-    }
 
-    return results;
+      yield List<Map<String, dynamic>>.from(results);
+    }
   }
 
   // ── CONTACTS ─────────────────────────────────────────────────────────

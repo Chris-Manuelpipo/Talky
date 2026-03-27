@@ -2,13 +2,13 @@
 
 import 'dart:async';
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/app_colors_provider.dart';
-import '../data/call_providers.dart';
-import '../data/call_service.dart';
+import '../../../core/constants/app_colors.dart'; 
+import '../data/call_providers.dart'; 
+import '../../chat/data/chat_providers.dart';
 
 class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({super.key});
@@ -27,6 +27,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   StreamSubscription<MediaStream?>? _localStreamSub;
   StreamSubscription<MediaStream?>? _remoteStreamSub;
   bool _swapViews = false;
+  Future<String>? _resolvedRemoteNameFuture;
+  String? _resolvedRemoteNameKey;
 
   @override
   void initState() {
@@ -131,6 +133,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final pipIsLocal = !_swapViews;
     final mainRenderer = _swapViews ? _localRenderer : _remoteRenderer;
     final pipRenderer = _swapViews ? _remoteRenderer : _localRenderer;
+    final fallbackName = callState.remoteName ?? 'Appel';
+    final nameFuture = _getResolvedRemoteNameFuture(
+      callState.remoteUserId,
+      fallbackName,
+    );
 
     // Quand l'appel se termine → fermer l'écran
     ref.listen(callProvider, (prev, next) {
@@ -146,12 +153,16 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _onTap,
-        child: Stack(
-          children: [
+    return FutureBuilder<String>(
+      future: nameFuture,
+      builder: (context, nameSnap) {
+        final displayName = nameSnap.data ?? fallbackName;
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: GestureDetector(
+            onTap: _onTap,
+            child: Stack(
+              children: [
             // ── Vidéo remote (plein écran) ────────────────────────
             if (isVideo)
               Positioned.fill(
@@ -164,7 +175,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       ),
               )
             else
-              _AudioCallBackground(callState: callState),
+              _AudioCallBackground(
+                callState: callState,
+                displayName: displayName,
+              ),
 
             // ── Soft top overlay for readability ────────────────────
             if (isVideo)
@@ -253,7 +267,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(callState.remoteName ?? 'Appel',
+                              Text(displayName,
                                 style: const TextStyle(
                                   color: Colors.white, fontSize: 20,
                                   fontWeight: FontWeight.w700)),
@@ -384,13 +398,53 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         ),
       ),
     );
+      },
+    );
+  }
+
+  Future<String> _resolveRemoteName(String? userId, String fallbackName) async {
+    if (userId == null || userId.isEmpty) return fallbackName;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      final data = doc.data();
+      final resolvedName = (data?['name'] as String?)?.trim();
+      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+          ? resolvedName
+          : fallbackName;
+      final phone = data?['phone'] as String?;
+      return ref.read(phoneContactsServiceProvider).resolveName(
+        fallbackName: baseName,
+        phone: phone,
+      );
+    } catch (_) {
+      return fallbackName;
+    }
+  }
+
+  Future<String> _getResolvedRemoteNameFuture(
+    String? userId,
+    String fallbackName,
+  ) {
+    final key = '$userId|$fallbackName';
+    if (_resolvedRemoteNameFuture == null || _resolvedRemoteNameKey != key) {
+      _resolvedRemoteNameKey = key;
+      _resolvedRemoteNameFuture = _resolveRemoteName(userId, fallbackName);
+    }
+    return _resolvedRemoteNameFuture!;
   }
 }
 
 // ── Fond appel audio ───────────────────────────────────────────────────
 class _AudioCallBackground extends StatelessWidget {
   final CallState callState;
-  const _AudioCallBackground({required this.callState});
+  final String displayName;
+  const _AudioCallBackground({
+    required this.callState,
+    required this.displayName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -426,14 +480,14 @@ class _AudioCallBackground extends StatelessWidget {
                       callState.remotePhoto!, fit: BoxFit.cover))
                   : Center(
                       child: Text(
-                        (callState.remoteName ?? '?')[0].toUpperCase(),
+                        (displayName.isNotEmpty ? displayName : '?')[0].toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white, fontSize: 48,
                           fontWeight: FontWeight.w700),
                       )),
             ),
             const SizedBox(height: 24),
-            Text(callState.remoteName ?? '',
+            Text(displayName,
               style: const TextStyle(
                 color: Colors.white, fontSize: 32,
                 fontWeight: FontWeight.w700)),

@@ -31,6 +31,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   bool _hasPermission = false;
   bool _isLoadingContacts = true;
   bool _permissionDeniedPermanently = false;
+  bool _contactsLoadInProgress = false;
+  bool _contactsLoaded = false;
+  final Map<String, String> _phoneToContactName = {};
 
   // Phone contacts matched with Talky users
   List<_ContactWithPhoto> _onTalkyContacts = [];
@@ -42,17 +45,36 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadPhoneContacts();
+    _tabController.addListener(_handleTabChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _tabController.index == 0) {
+        _ensureContactsLoaded();
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
 
+  void _handleTabChange() {
+    if (_tabController.index == 0) {
+      _ensureContactsLoaded();
+    }
+  }
+
+  void _ensureContactsLoaded() {
+    if (_contactsLoaded || _contactsLoadInProgress) return;
+    _loadPhoneContacts();
+  }
+
   Future<void> _loadPhoneContacts() async {
+    if (_contactsLoadInProgress) return;
+    _contactsLoadInProgress = true;
     setState(() => _isLoadingContacts = true);
 
     try {
@@ -67,11 +89,12 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           _permissionDeniedPermanently = status.isPermanentlyDenied;
           _isLoadingContacts = false;
         });
+        _contactsLoadInProgress = false;
         return;
       }
 
       _hasPermission = true;
-      final phoneContacts = await service.getContacts();
+      final phoneContacts = await service.getContactsCached();
 
       // Debug: Show all contacts regardless
       // ignore: avoid_print
@@ -83,61 +106,80 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           _notOnTalkyContacts = [];
           _isLoadingContacts = false;
         });
+        _contactsLoadInProgress = false;
+        _contactsLoaded = true;
         return;
       }
 
       // Extract all phone numbers from contacts
       final allPhones = <String>[];
       for (final contact in phoneContacts) {
+        for (final phone in contact.phones) {
+          final normalized = _normalizePhone(phone);
+          if (normalized.isNotEmpty) {
+            _phoneToContactName[normalized] = contact.displayName;
+          }
+        }
         allPhones.addAll(contact.phones);
       }
 
-      // Find users on Talky by phone numbers
+      // Find users on Talky by phone numbers (progressif)
       final chatService = ref.read(chatServiceProvider);
-      final talkyUsers = await chatService.findUsersByPhones(allPhones);
+      await for (final talkyUsers
+          in chatService.findUsersByPhonesProgressive(allPhones)) {
+        if (!mounted) break;
 
-      // Create a map of phone -> user for quick lookup
-      final phoneToUser = <String, Map<String, dynamic>>{};
-      for (final user in talkyUsers) {
-        final phone = user['phone'] as String?;
-        if (phone != null) {
-          phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
-        }
-      }
-
-      // Match contacts with Talky users - store with photo
-      final onTalky = <_ContactWithPhoto>[];
-      final notOnTalky = <PhoneContact>[];
-
-      for (final contact in phoneContacts) {
-        String? photoUrl;
-        bool isOnTalky = false;
-        
-        for (final phone in contact.phones) {
-          final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-          if (phoneToUser.containsKey(normalized)) {
-            isOnTalky = true;
-            photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
-            break;
+        // Create a map of phone -> user for quick lookup
+        final phoneToUser = <String, Map<String, dynamic>>{};
+        for (final user in talkyUsers) {
+          final phone = user['phone'] as String?;
+          if (phone != null) {
+            phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
           }
         }
 
-        if (isOnTalky) {
-          onTalky.add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
-        } else {
-          notOnTalky.add(contact);
+        // Match contacts with Talky users - store with photo
+        final onTalky = <_ContactWithPhoto>[];
+        final notOnTalky = <PhoneContact>[];
+
+        for (final contact in phoneContacts) {
+          String? photoUrl;
+          bool isOnTalky = false;
+
+          for (final phone in contact.phones) {
+            final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+            if (phoneToUser.containsKey(normalized)) {
+              isOnTalky = true;
+              photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
+              break;
+            }
+          }
+
+          if (isOnTalky) {
+            onTalky.add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
+          } else {
+            notOnTalky.add(contact);
+          }
         }
+
+        setState(() {
+          _onTalkyContacts = onTalky;
+          _notOnTalkyContacts = notOnTalky;
+        });
       }
 
-      setState(() {
-        _onTalkyContacts = onTalky;
-        _notOnTalkyContacts = notOnTalky;
-        _isLoadingContacts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingContacts = false;
+        });
+      }
+      _contactsLoadInProgress = false;
+      _contactsLoaded = true;
     } catch (e) {
       setState(() {
         _isLoadingContacts = false;
       });
+      _contactsLoadInProgress = false;
     }
   }
 
@@ -225,20 +267,6 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   }
 
   Widget _buildContactsTab() {
-    if (_isLoadingContacts) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Chargement des contacts...',
-                style: TextStyle(color: context.appThemeColors.textSecondary)),
-          ],
-        ),
-      );
-    }
-
     if (!_hasPermission) {
       return Center(
         child: Padding(
@@ -371,10 +399,17 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(AppIcons.group, size: 48, color: colors.textHint),
-            SizedBox(height: 12),
-            Text('Aucun contact trouvé',
-                style: TextStyle(color: colors.textSecondary)),
+            if (_isLoadingContacts) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text('Chargement des contacts...',
+                  style: TextStyle(color: colors.textSecondary)),
+            ] else ...[
+              Icon(AppIcons.group, size: 48, color: colors.textHint),
+              SizedBox(height: 12),
+              Text('Aucun contact trouvé',
+                  style: TextStyle(color: colors.textSecondary)),
+            ],
           ],
         ),
       );
@@ -424,6 +459,26 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                 onTap: () => _inviteContact(contact),
               )),
         ],
+
+        if (_isLoadingContacts)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Chargement des contacts...',
+                  style: TextStyle(color: context.appThemeColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -461,7 +516,11 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('🔍', style: TextStyle(fontSize: 48)),
+                          Icon(
+                            Icons.search_rounded,
+                            size: 48,
+                            color: context.appThemeColors.textHint,
+                          ),
                           SizedBox(height: 12),
                           Text(
                             _searchCtrl.text.isEmpty
@@ -477,8 +536,13 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                       itemCount: _searchResults.length,
                       itemBuilder: (_, i) {
                         final user = _searchResults[i];
+                        final displayName = _resolveDisplayName(
+                          userName: user['name'] as String?,
+                          phone: user['phone'] as String?,
+                        );
                         return _UserTile(
                           user: user,
+                          displayNameOverride: displayName,
                           onTap: () => _startChatWithUser(user),
                         );
                       },
@@ -565,12 +629,17 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
       final myName = await ref.read(currentUserNameProvider.future);
       final myPhoto = await _getMyPhotoFromFirestore(currentUser.uid);
 
+      final displayName = _resolveDisplayName(
+        userName: user['name'] as String?,
+        phone: user['phone'] as String?,
+      );
+
       final convId = await ref.read(chatServiceProvider).getOrCreateConversation(
             currentUserId: currentUser.uid,
             currentUserName: myName,
             currentUserPhoto: myPhoto,
             otherUserId: user['id'] as String,
-            otherUserName: user['name'] as String? ?? 'Utilisateur',
+            otherUserName: displayName,
             otherUserPhoto: user['photoUrl'] as String?,
           );
 
@@ -578,7 +647,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         context.push(
           AppRoutes.chat.replaceAll(':conversationId', convId),
           extra: {
-            'name': user['name'] ?? 'Utilisateur',
+            'name': displayName,
             'photo': user['photoUrl'],
           },
         );
@@ -629,6 +698,19 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         ],
       ),
     );
+  }
+
+  String _normalizePhone(String phone) {
+    return phone.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  String _resolveDisplayName({String? userName, String? phone}) {
+    if (phone == null || phone.isEmpty) {
+      return userName ?? 'Utilisateur';
+    }
+    final normalized = _normalizePhone(phone);
+    if (normalized.isEmpty) return userName ?? 'Utilisateur';
+    return _phoneToContactName[normalized] ?? (userName ?? 'Utilisateur');
   }
 }
 
@@ -711,13 +793,18 @@ class _PhoneContactTile extends StatelessWidget {
 
 class _UserTile extends StatelessWidget {
   final Map<String, dynamic> user;
+  final String? displayNameOverride;
   final VoidCallback onTap;
 
-  const _UserTile({required this.user, required this.onTap});
+  const _UserTile({
+    required this.user,
+    required this.onTap,
+    this.displayNameOverride,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final name = user['name'] as String? ?? 'Utilisateur';
+    final name = displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
     final phone = user['phone'] as String? ?? '';
     final photo = user['photoUrl'] as String?;
 

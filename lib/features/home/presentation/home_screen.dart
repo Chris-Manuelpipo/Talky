@@ -8,6 +8,7 @@ import '../../groups/presentation/groups_screen.dart';
 import '../../status/presentation/status_screen.dart';
 import '../../calls/presentation/calls_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
+import '../../chat/data/chat_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +33,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(phoneContactsServiceProvider).warmUpIfPermitted();
+    });
   }
 
   @override
