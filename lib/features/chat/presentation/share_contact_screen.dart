@@ -1,6 +1,5 @@
 // lib/features/chat/presentation/share_contact_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
@@ -129,10 +128,10 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
         otherUserPhoto: otherUser['photoUrl'] as String?,
       );
 
-      final contactSnap = await FirebaseFirestore.instance
-          .collection('users').doc(widget.contactUserId).get();
-      final contactData = contactSnap.data() ?? {};
-      final contactPhone = contactData['phone'] as String? ?? '';
+      final contactProfile = await ref
+          .read(authServiceProvider)
+          .getUserProfile(widget.contactUserId);
+      final contactPhone = contactProfile?.phone ?? '';
 
       final content = contactPhone.isNotEmpty
           ? 'Contact: ${widget.contactName}\nTéléphone: $contactPhone'
@@ -165,13 +164,8 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
   }
 
   Future<String?> _getMyPhotoFromFirestore(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users').doc(uid).get();
-      return doc.data()?['photoUrl'] as String?;
-    } catch (_) {
-      return null;
-    }
+    final profile = await ref.read(authServiceProvider).getUserProfile(uid);
+    return profile?.photoUrl;
   }
 }
 

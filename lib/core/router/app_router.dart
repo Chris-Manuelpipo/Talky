@@ -28,6 +28,7 @@ abstract class AppRoutes {
   static const chat         = '/chat/:conversationId';
   static const archivedChats = '/archived-chats';
   static const incomingCall = '/incoming-call';
+  static const addStatus = '/add-status';
 }
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();

@@ -1,7 +1,9 @@
 // lib/core/services/phone_contacts_service.dart
 
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../cache/local_cache.dart';
 
 class PhoneContact {
   final String id;
@@ -19,6 +21,8 @@ class PhoneContactsService {
   List<PhoneContact>? _cachedContacts;
   Future<List<PhoneContact>>? _inFlightFetch;
   Map<String, String> _cachedNameByPhone = {};
+  static const _contactsCacheKey = 'contacts_v1';
+  static const _contactsCacheTtl = Duration(hours: 24);
 
   /// Demander la permission d'accéder aux contacts
   Future<bool> requestPermission() async {
@@ -64,11 +68,33 @@ class PhoneContactsService {
       return _inFlightFetch!;
     }
 
+    if (!forceRefresh) {
+      final entry = LocalCache.instance.getEntry(_contactsCacheKey);
+      if (entry != null) {
+        final cached = _deserializeContacts(entry.data);
+        if (cached != null) {
+          _cachedContacts = cached;
+          _buildNameCache(cached);
+          if (entry.isExpired) {
+            // refresh en arrière-plan
+            // ignore: unawaited_futures
+            _refreshContacts();
+          }
+          return cached;
+        }
+      }
+    }
+
     _inFlightFetch = _getContactsFromPlatform();
     try {
       final contacts = await _inFlightFetch!;
       _cachedContacts = contacts;
       _buildNameCache(contacts);
+      await LocalCache.instance.set(
+        _contactsCacheKey,
+        _serializeContacts(contacts),
+        ttl: _contactsCacheTtl,
+      );
       return contacts;
     } finally {
       _inFlightFetch = null;
@@ -136,6 +162,23 @@ class PhoneContactsService {
     return getContactsCached();
   }
 
+  Future<void> _refreshContacts() async {
+    if (_inFlightFetch != null) return;
+    _inFlightFetch = _getContactsFromPlatform();
+    try {
+      final contacts = await _inFlightFetch!;
+      _cachedContacts = contacts;
+      _buildNameCache(contacts);
+      await LocalCache.instance.set(
+        _contactsCacheKey,
+        _serializeContacts(contacts),
+        ttl: _contactsCacheTtl,
+      );
+    } finally {
+      _inFlightFetch = null;
+    }
+  }
+
   String normalizePhone(String phone) {
     return phone.replaceAll(RegExp(r'[^\d]'), '');
   }
@@ -195,5 +238,30 @@ class PhoneContactsService {
   String _normalizePhoneNumber(String phone) {
     // Remove all non-digit characters
     return phone.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  List<Map<String, dynamic>> _serializeContacts(List<PhoneContact> contacts) {
+    return contacts
+        .map((c) => {
+              'id': c.id,
+              'displayName': c.displayName,
+              'phones': c.phones,
+            })
+        .toList();
+  }
+
+  List<PhoneContact>? _deserializeContacts(dynamic data) {
+    if (data is! List) return null;
+    final result = <PhoneContact>[];
+    for (final item in data) {
+      if (item is Map) {
+        result.add(PhoneContact(
+          id: item['id']?.toString() ?? '',
+          displayName: item['displayName']?.toString() ?? 'Inconnu',
+          phones: (item['phones'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        ));
+      }
+    }
+    return result;
   }
 }

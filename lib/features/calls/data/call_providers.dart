@@ -221,6 +221,7 @@ class CallNotifier extends StateNotifier<CallState> {
     required List<String> targetUserIds,
     required bool isVideo,
     List<GroupParticipant> initialParticipants = const [],
+    String groupName = 'Appel de groupe',
   }) async {
     final user = _ref.read(authStateProvider).value;
     if (user == null) return;
@@ -245,7 +246,7 @@ class CallNotifier extends StateNotifier<CallState> {
       groupRoomId: roomId,
       groupParticipants: _groupParticipants.values.toList(),
       isVideo: isVideo,
-      remoteName: 'Appel de groupe',
+      remoteName: groupName,
       remotePhoto: null,
       errorMessage: null,
     );
@@ -342,7 +343,43 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   Future<void> _saveCompletedCall() async {
-    if (state.isGroup) return;
+    if (state.isGroup) {
+      final user = _ref.read(authStateProvider).value;
+      if (user == null) return;
+      final myName = await _ref.read(currentUserNameProvider.future);
+      final myPhoto = user.photoURL;
+
+      int durationSeconds = 0;
+      if (_callStartTime != null) {
+        durationSeconds = DateTime.now().difference(_callStartTime!).inSeconds;
+      }
+
+      final historyService = _ref.read(callHistoryServiceProvider);
+      final participantIds = state.groupParticipants.map((p) => p.id).toList();
+      final participantNames = {
+        for (final p in state.groupParticipants) p.id: p.name,
+      };
+      final participantPhotos = {
+        for (final p in state.groupParticipants) p.id: p.photo,
+      };
+      await historyService.saveCallHistory(
+        currentUserId: user.uid,
+        currentUserName: myName,
+        currentUserPhoto: myPhoto,
+        targetUserId: state.groupRoomId ?? 'group',
+        targetUserName: state.remoteName ?? 'Appel de groupe',
+        targetUserPhoto: null,
+        isGroup: true,
+        groupName: state.remoteName ?? 'Appel de groupe',
+        participantIds: participantIds,
+        participantNames: participantNames,
+        participantPhotos: participantPhotos,
+        type: _isOutgoing ? CallType.outgoing : CallType.incoming,
+        durationSeconds: durationSeconds,
+        isVideo: state.isVideo,
+      );
+      return;
+    }
     if (_pendingTargetUserId == null) return;
     
     final user = _ref.read(authStateProvider).value;
@@ -373,7 +410,38 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   Future<void> _saveMissedCall() async {
-    if (state.isGroup) return;
+    if (state.isGroup) {
+      final user = _ref.read(authStateProvider).value;
+      if (user == null) return;
+      final myName = await _ref.read(currentUserNameProvider.future);
+      final myPhoto = user.photoURL;
+
+      final historyService = _ref.read(callHistoryServiceProvider);
+      final participantIds = state.groupParticipants.map((p) => p.id).toList();
+      final participantNames = {
+        for (final p in state.groupParticipants) p.id: p.name,
+      };
+      final participantPhotos = {
+        for (final p in state.groupParticipants) p.id: p.photo,
+      };
+      await historyService.saveCallHistory(
+        currentUserId: user.uid,
+        currentUserName: myName,
+        currentUserPhoto: myPhoto,
+        targetUserId: state.groupRoomId ?? 'group',
+        targetUserName: state.remoteName ?? 'Appel de groupe',
+        targetUserPhoto: null,
+        isGroup: true,
+        groupName: state.remoteName ?? 'Appel de groupe',
+        participantIds: participantIds,
+        participantNames: participantNames,
+        participantPhotos: participantPhotos,
+        type: _isOutgoing ? CallType.outgoing : CallType.missed,
+        durationSeconds: 0,
+        isVideo: state.isVideo,
+      );
+      return;
+    }
     if (_pendingTargetUserId == null) return;
     
     final user = _ref.read(authStateProvider).value;
@@ -490,6 +558,11 @@ class CallHistoryService {
     required String targetUserId,
     required String targetUserName,
     String? targetUserPhoto,
+    bool isGroup = false,
+    String? groupName,
+    List<String> participantIds = const [],
+    Map<String, String> participantNames = const {},
+    Map<String, String?> participantPhotos = const {},
     required CallType type,
     required int durationSeconds,
     required bool isVideo,
@@ -501,6 +574,11 @@ class CallHistoryService {
       'receiverId': targetUserId,
       'receiverName': targetUserName,
       'receiverPhoto': targetUserPhoto,
+      'isGroup': isGroup,
+      'groupName': groupName,
+      'participantIds': participantIds,
+      'participantNames': participantNames,
+      'participantPhotos': participantPhotos,
       'type': type.name,
       'timestamp': DateTime.now().toIso8601String(),
       'durationSeconds': durationSeconds,
@@ -515,7 +593,7 @@ class CallHistoryService {
         .add(callData);
 
     // Sauvegarder aussi dans l'historique du réceptionnaire (pour les appels entrants et manqués)
-    if (type != CallType.outgoing) {
+    if (!isGroup && type != CallType.outgoing) {
       await _db
           .collection('users')
           .doc(targetUserId)

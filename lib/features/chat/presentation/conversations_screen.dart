@@ -1,7 +1,6 @@
 // lib/features/chat/presentation/conversations_screen.dart
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +55,22 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
               userId: uid,
             );
           }
+        }
+      });
+    });
+
+    // Prefetch profils des autres utilisateurs (cache)
+    ref.listen(conversationsProvider, (_, next) {
+      final uid = ref.read(authStateProvider).value?.uid;
+      if (uid == null) return;
+      next.whenData((list) {
+        final ids = <String>{};
+        for (final c in list) {
+          ids.addAll(c.participantIds);
+        }
+        ids.remove(uid);
+        if (ids.isNotEmpty) {
+          ref.read(authServiceProvider).prefetchUserProfiles(ids.toList());
         }
       });
     });
@@ -147,11 +162,9 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
     try {
       final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .get()
-          .then((d) => d.data()?['photoUrl'] as String?);
+      final myProfile = await ref.read(authServiceProvider)
+          .getUserProfile(currentUser.uid);
+      final myPhoto = myProfile?.photoUrl;
 
       final convId = await ref.read(chatServiceProvider).getOrCreateConversation(
         currentUserId:    currentUser.uid,
@@ -328,35 +341,24 @@ class _ConversationTile extends ConsumerWidget {
     final contactsService = ref.read(phoneContactsServiceProvider);
     // Always resolve for non-group chats to get fresh profile photos from Firestore
     if (!conversation.isGroup && otherId.isNotEmpty) {
-      return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
-        builder: (context, snap) {
-          final data = snap.data?.data();
-          final resolvedName  = (data?['name'] as String?)?.trim();
-          final resolvedPhoto = data?['photoUrl'] as String?;
-          final name = (resolvedName != null && resolvedName.isNotEmpty)
-              ? resolvedName
-              : displayName;
-          final photoUrl = resolvedPhoto ?? photo;
-          final phone = data?['phone'] as String?;
-          return FutureBuilder<String>(
-            future: contactsService.resolveName(
-              fallbackName: name,
-              phone: phone,
-            ),
-            builder: (context, nameSnap) {
-              final resolvedDisplayName = nameSnap.data ?? name;
-              return _buildTile(
-                context,
-                ref,
-                resolvedDisplayName,
-                photoUrl,
-                unread,
-                isMe,
-              );
-            },
-          );
-        },
+      final userAsync = ref.watch(userProfileStreamProvider(otherId));
+      final user = userAsync.asData?.value;
+      final resolvedName = user?.name.trim();
+      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+          ? resolvedName
+          : displayName;
+      final photoUrl = user?.photoUrl ?? photo;
+      final resolvedDisplayName = contactsService.resolveNameFromCache(
+        fallbackName: baseName,
+        phone: user?.phone,
+      );
+      return _buildTile(
+        context,
+        ref,
+        resolvedDisplayName,
+        photoUrl,
+        unread,
+        isMe,
       );
     }
 

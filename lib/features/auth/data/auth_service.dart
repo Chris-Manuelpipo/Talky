@@ -2,7 +2,9 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../../core/cache/local_cache.dart';
 import '../domain/user_model.dart';
 
 class AuthService {
@@ -65,6 +67,8 @@ class AuthService {
   }
 
   // ── PROFIL UTILISATEUR ────────────────────────────────────────────
+  static const _profileCachePrefix = 'user_profile_';
+  static const _profileCacheTtl = Duration(hours: 24);
 
   /// Créer ou mettre à jour le profil dans Firestore
   Future<void> saveUserProfile(UserModel user) async {
@@ -80,21 +84,152 @@ class AuthService {
         await _auth.currentUser!.updatePhotoURL(user.photoUrl);
       }
     }
+
+    await LocalCache.instance.set(
+      '$_profileCachePrefix${user.uid}',
+      _serializeUser(user),
+      ttl: _profileCacheTtl,
+    );
   }
 
   /// Récupérer le profil depuis Firestore
   Future<UserModel?> getUserProfile(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    if (doc.exists) {
-      return UserModel.fromMap(doc.data()!);
+    final cacheKey = '$_profileCachePrefix$uid';
+    final entry = LocalCache.instance.getEntry(cacheKey);
+    if (entry != null) {
+      final cached = _deserializeUser(entry.data);
+      if (cached != null) {
+        if (entry.isExpired) {
+          // Refresh en arrière-plan
+          // ignore: unawaited_futures
+          _refreshUserProfile(uid);
+        }
+        return cached;
+      }
     }
-    return null;
+
+    return _refreshUserProfile(uid);
+  }
+
+  /// Stream de profil (cache immédiat + mises à jour live)
+  Stream<UserModel?> watchUserProfile(String uid) async* {
+    final cacheKey = '$_profileCachePrefix$uid';
+    final entry = LocalCache.instance.getEntry(cacheKey);
+    if (entry != null) {
+      final cached = _deserializeUser(entry.data);
+      if (cached != null) {
+        yield cached;
+      }
+    }
+
+    yield* _firestore.collection('users').doc(uid).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      final user = UserModel.fromMap(doc.data()!);
+      // Best-effort cache update
+      // ignore: unawaited_futures
+      LocalCache.instance.set(
+        cacheKey,
+        _serializeUser(user),
+        ttl: _profileCacheTtl,
+      );
+      return user;
+    });
+  }
+
+  /// Prefetch cache pour une liste d'utilisateurs
+  Future<void> prefetchUserProfiles(List<String> uids) async {
+    final unique = <String>{};
+    for (final uid in uids) {
+      if (uid.trim().isNotEmpty) unique.add(uid);
+    }
+    if (unique.isEmpty) return;
+
+    final toFetch = <String>[];
+    for (final uid in unique) {
+      final entry = LocalCache.instance.getEntry('$_profileCachePrefix$uid');
+      if (entry == null || entry.isExpired) {
+        toFetch.add(uid);
+      }
+    }
+    if (toFetch.isEmpty) return;
+
+    const batchSize = 10;
+    for (var i = 0; i < toFetch.length; i += batchSize) {
+      final end = (i + batchSize > toFetch.length) ? toFetch.length : i + batchSize;
+      final batch = toFetch.sublist(i, end);
+      try {
+        final snap = await _firestore
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+        for (final doc in snap.docs) {
+          final user = UserModel.fromMap(doc.data());
+          await LocalCache.instance.set(
+            '$_profileCachePrefix${doc.id}',
+            _serializeUser(user),
+            ttl: _profileCacheTtl,
+          );
+        }
+      } catch (_) {
+        // Fallback: fetch individuel
+        for (final uid in batch) {
+          await _refreshUserProfile(uid);
+        }
+      }
+    }
   }
 
   /// Vérifier si le profil est complet (nom renseigné)
   Future<bool> isProfileComplete(String uid) async {
     final user = await getUserProfile(uid);
     return user != null && user.name.isNotEmpty;
+  }
+
+  Future<UserModel?> _refreshUserProfile(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    if (doc.exists) {
+      final user = UserModel.fromMap(doc.data()!);
+      await LocalCache.instance.set(
+        '$_profileCachePrefix$uid',
+        _serializeUser(user),
+        ttl: _profileCacheTtl,
+      );
+      return user;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _serializeUser(UserModel user) {
+    return {
+      'uid': user.uid,
+      'name': user.name,
+      'phone': user.phone,
+      'email': user.email,
+      'photoUrl': user.photoUrl,
+      'status': user.status,
+      'preferredLanguage': user.preferredLanguage,
+      'isOnline': user.isOnline,
+      'lastSeenMs': user.lastSeen?.millisecondsSinceEpoch,
+      'ghostMode': user.ghostMode,
+    };
+  }
+
+  UserModel? _deserializeUser(dynamic data) {
+    if (data is! Map) return null;
+    return UserModel(
+      uid: data['uid']?.toString() ?? '',
+      name: data['name']?.toString() ?? '',
+      phone: data['phone']?.toString() ?? '',
+      email: data['email']?.toString(),
+      photoUrl: data['photoUrl']?.toString(),
+      status: data['status']?.toString() ?? 'Disponible sur Talky',
+      preferredLanguage: data['preferredLanguage']?.toString() ?? 'fr',
+      isOnline: data['isOnline'] == true,
+      lastSeen: data['lastSeenMs'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(data['lastSeenMs'] as int)
+          : null,
+      ghostMode: data['ghostMode'] == true,
+    );
   }
 
   /// Mettre à jour le statut en ligne

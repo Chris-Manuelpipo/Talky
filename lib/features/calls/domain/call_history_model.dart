@@ -10,6 +10,11 @@ class CallHistoryModel {
   final String receiverId;
   final String receiverName;
   final String? receiverPhoto;
+  final bool isGroup;
+  final String? groupName;
+  final List<String> participantIds;
+  final Map<String, String> participantNames;
+  final Map<String, String?> participantPhotos;
   final CallType type;
   final DateTime timestamp;
   final int durationSeconds; // Durée en secondes (0 pour appels manqués)
@@ -23,6 +28,11 @@ class CallHistoryModel {
     required this.receiverId,
     required this.receiverName,
     this.receiverPhoto,
+    this.isGroup = false,
+    this.groupName,
+    this.participantIds = const [],
+    this.participantNames = const {},
+    this.participantPhotos = const {},
     required this.type,
     required this.timestamp,
     this.durationSeconds = 0,
@@ -36,6 +46,11 @@ class CallHistoryModel {
         'receiverId': receiverId,
         'receiverName': receiverName,
         'receiverPhoto': receiverPhoto,
+        'isGroup': isGroup,
+        'groupName': groupName,
+        'participantIds': participantIds,
+        'participantNames': participantNames,
+        'participantPhotos': participantPhotos,
         'type': type.name,
         'timestamp': timestamp.toIso8601String(),
         'durationSeconds': durationSeconds,
@@ -51,6 +66,13 @@ class CallHistoryModel {
         receiverId: map['receiverId'] as String,
         receiverName: map['receiverName'] as String,
         receiverPhoto: map['receiverPhoto'] as String?,
+        isGroup: map['isGroup'] as bool? ?? false,
+        groupName: map['groupName'] as String?,
+        participantIds: List<String>.from(map['participantIds'] ?? const []),
+        participantNames:
+            Map<String, String>.from(map['participantNames'] ?? const {}),
+        participantPhotos:
+            Map<String, String?>.from(map['participantPhotos'] ?? const {}),
         type: CallType.values.firstWhere(
           (e) => e.name == map['type'],
           orElse: () => CallType.missed,
@@ -75,6 +97,7 @@ class CallHistoryModel {
 
   /// Returns the name of the other person in the call
   String getDisplayName(String currentUserId) {
+    if (isGroup) return groupName ?? 'Appel de groupe';
     if (callerId == currentUserId) {
       return receiverName;
     }
@@ -83,6 +106,7 @@ class CallHistoryModel {
 
   /// Returns the photo of the other person in the call
   String? getDisplayPhoto(String currentUserId) {
+    if (isGroup) return null;
     if (callerId == currentUserId) {
       return receiverPhoto;
     }

@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
@@ -587,23 +586,20 @@ class _ViewerTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data();
-        final name = (data?['name'] as String?) ?? 'Utilisateur';
-        final photo = data?['photoUrl'] as String?;
-        return ListTile(
-          leading: Stack(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppColors.primary,
-                backgroundImage: photo != null ? NetworkImage(photo) : null,
-                child: photo == null
-                    ? Text(name[0].toUpperCase(),
-                        style: TextStyle(color: Colors.white))
-                    : null,
-              ),
+    final user = ref.watch(userProfileStreamProvider(userId)).asData?.value;
+    final name = (user?.name?.isNotEmpty == true) ? user!.name : 'Utilisateur';
+    final photo = user?.photoUrl;
+    return ListTile(
+      leading: Stack(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.primary,
+            backgroundImage: photo != null ? NetworkImage(photo) : null,
+            child: photo == null
+                ? Text(name[0].toUpperCase(),
+                    style: TextStyle(color: Colors.white))
+                : null,
+          ),
               // Subtle heart indicator for those who liked
               if (hasLiked)
                 Positioned(
@@ -635,8 +631,6 @@ class _ViewerTile extends ConsumerWidget {
           trailing: hasLiked
               ? Icon(Icons.favorite, color: AppColors.primary, size: 18)
               : null,
-        );
-      },
     );
   }
 }

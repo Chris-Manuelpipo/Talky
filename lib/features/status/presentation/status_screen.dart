@@ -72,8 +72,9 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.more_vert_rounded, color: context.appThemeColors.textSecondary),
-            onPressed: () {},
+            icon: const Icon(Icons.edit_rounded),
+            onPressed: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const AddStatusScreen())),
           ),
         ],
       ),

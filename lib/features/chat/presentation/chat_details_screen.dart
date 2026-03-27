@@ -1,7 +1,6 @@
 // lib/features/chat/presentation/chat_details_screen.dart
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
@@ -35,97 +34,80 @@ class ChatDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final messages = ref.watch(messagesProvider(conversationId));
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
-    final resolvedNameFuture = _resolveContactName(ref);
+    final contactsService = ref.read(phoneContactsServiceProvider);
+    final user = (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
+        ? ref.watch(userProfileStreamProvider(contactUserId!)).asData?.value
+        : null;
+    final resolvedName = user?.name.trim();
+    final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+        ? resolvedName
+        : contactName;
+    final displayName = isGroup
+        ? contactName
+        : contactsService.resolveNameFromCache(
+            fallbackName: baseName,
+            phone: user?.phone,
+          );
+    final displayPhoto = isGroup ? contactPhoto : (user?.photoUrl ?? contactPhoto);
 
-    return FutureBuilder<String>(
-      future: resolvedNameFuture,
-      builder: (context, nameSnap) {
-        final displayName = nameSnap.data ?? contactName;
-        return Scaffold(
-          backgroundColor: context.appThemeColors.background,
-          appBar: AppBar(
-            backgroundColor: context.appThemeColors.background,
-            title: Text('Détails',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+    return Scaffold(
+      backgroundColor: context.appThemeColors.background,
+      appBar: AppBar(
+        backgroundColor: context.appThemeColors.background,
+        title: Text('Détails',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _HeaderCard(
+            name: displayName,
+            photoUrl: displayPhoto,
+            isGroup: isGroup,
+            presenceUserId: isGroup ? null : contactUserId,
           ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              _HeaderCard(
-                name: displayName,
-                photoUrl: contactPhoto,
-                isGroup: isGroup,
-                presenceUserId: isGroup ? null : contactUserId,
-              ),
-              const SizedBox(height: 14),
-              if (isGroup && conversation != null)
-                _GroupMembersCard(
-                  conversation: conversation!,
-                  currentUserId: currentUid,
-                )
-              else
-                _ContactInfoCard(userId: contactUserId),
-              const SizedBox(height: 14),
-              _MediaSection(messages: messages),
-              const SizedBox(height: 16),
-              if (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: Icon(Icons.share_rounded),
-                    label: Text('Partager le contact'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ShareContactScreen(
-                            contactUserId: contactUserId!,
-                            contactName: displayName,
-                            contactPhoto: contactPhoto,
-                          ),
-                        ),
-                      );
-                    },
+          const SizedBox(height: 14),
+          if (isGroup && conversation != null)
+            _GroupMembersCard(
+              conversation: conversation!,
+              currentUserId: currentUid,
+            )
+          else
+            _ContactInfoCard(userId: contactUserId),
+          const SizedBox(height: 14),
+          _MediaSection(messages: messages),
+          const SizedBox(height: 16),
+          if (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.share_rounded),
+                label: Text('Partager le contact'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-            ],
-          ),
-        );
-      },
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ShareContactScreen(
+                        contactUserId: contactUserId!,
+                        contactName: displayName,
+                        contactPhoto: displayPhoto,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
     );
-  }
-
-  Future<String> _resolveContactName(WidgetRef ref) async {
-    if (isGroup) return contactName;
-    if (contactUserId == null || contactUserId!.isEmpty) {
-      return contactName;
-    }
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(contactUserId)
-          .get();
-      final data = doc.data();
-      final resolvedName = (data?['name'] as String?)?.trim();
-      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
-          ? resolvedName
-          : contactName;
-      final phone = data?['phone'] as String?;
-      return ref.read(phoneContactsServiceProvider).resolveName(
-        fallbackName: baseName,
-        phone: phone,
-      );
-    } catch (_) {
-      return contactName;
-    }
   }
 }
 
@@ -181,12 +163,12 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-class _ContactInfoCard extends StatelessWidget {
+class _ContactInfoCard extends ConsumerWidget {
   final String? userId;
   const _ContactInfoCard({required this.userId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (userId == null || userId!.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -199,45 +181,40 @@ class _ContactInfoCard extends StatelessWidget {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
-      builder: (context, snap) {
-        final data = snap.data?.data() ?? {};
-        final phone = data['phone'] as String? ?? '';
-        final about = data['about'] as String? ?? '';
+    final user = ref.watch(userProfileStreamProvider(userId!)).asData?.value;
+    final phone = user?.phone ?? '';
+    final about = user?.status ?? '';
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: context.appThemeColors.surface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Infos',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13)),
-              const SizedBox(height: 10),
-              if (phone.isNotEmpty)
-                _InfoRow(
-                  icon: Icons.phone_rounded,
-                  label: 'Téléphone',
-                  value: phone,
-                ),
-              if (about.isNotEmpty)
-                _InfoRow(
-                  icon: Icons.info_outline_rounded,
-                  label: 'À propos',
-                  value: about,
-                ),
-              if (phone.isEmpty && about.isEmpty)
-                Text('Aucune information',
-                    style: TextStyle(color: context.appThemeColors.textSecondary)),
-            ],
-          ),
-        );
-      },
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: context.appThemeColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Infos',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 10),
+          if (phone.isNotEmpty)
+            _InfoRow(
+              icon: Icons.phone_rounded,
+              label: 'Téléphone',
+              value: phone,
+            ),
+          if (about.isNotEmpty)
+            _InfoRow(
+              icon: Icons.info_outline_rounded,
+              label: 'À propos',
+              value: about,
+            ),
+          if (phone.isEmpty && about.isEmpty)
+            Text('Aucune information',
+                style: TextStyle(color: context.appThemeColors.textSecondary)),
+        ],
+      ),
     );
   }
 }
@@ -255,6 +232,7 @@ class _GroupMembersCard extends ConsumerWidget {
     final members = conversation.participantIds
         .where((id) => id != currentUserId)
         .toList();
+    final contactsService = ref.read(phoneContactsServiceProvider);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -275,38 +253,27 @@ class _GroupMembersCard extends ConsumerWidget {
           else
             ...members.map((id) {
               final baseName = conversation.participantNames[id] ?? 'Utilisateur';
-              final photo = conversation.participantPhotos[id];
-              return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future: FirebaseFirestore.instance.collection('users').doc(id).get(),
-                builder: (context, snap) {
-                  final data = snap.data?.data();
-                  final resolvedName = (data?['name'] as String?)?.trim();
-                  final name = (resolvedName != null && resolvedName.isNotEmpty)
-                      ? resolvedName
-                      : baseName;
-                  final phone = data?['phone'] as String?;
-                  return FutureBuilder<String>(
-                    future: ref.read(phoneContactsServiceProvider).resolveName(
-                      fallbackName: name,
-                      phone: phone,
-                    ),
-                    builder: (context, nameSnap) {
-                      final displayName = nameSnap.data ?? name;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            _Avatar(name: displayName, photoUrl: photo, isGroup: false),
-                            const SizedBox(width: 10),
-                            Text(displayName,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
+              final user = ref.watch(userProfileStreamProvider(id)).asData?.value;
+              final resolvedName = user?.name.trim();
+              final name = (resolvedName != null && resolvedName.isNotEmpty)
+                  ? resolvedName
+                  : baseName;
+              final displayName = contactsService.resolveNameFromCache(
+                fallbackName: name,
+                phone: user?.phone,
+              );
+              final photo = user?.photoUrl ?? conversation.participantPhotos[id];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    _Avatar(name: displayName, photoUrl: photo, isGroup: false),
+                    const SizedBox(width: 10),
+                    Text(displayName,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
               );
             }),
         ],
@@ -509,7 +476,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _PresenceLine extends StatelessWidget {
+class _PresenceLine extends ConsumerWidget {
   final String userId;
   const _PresenceLine({required this.userId});
 
@@ -532,31 +499,22 @@ class _PresenceLine extends StatelessWidget {
   String _two(int v) => v.toString().padLeft(2, '0');
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
-      builder: (context, snap) {
-        final data = snap.data?.data();
-        final isOnline = data?['isOnline'] == true;
-        final lastSeenTs = data?['lastSeen'];
-        DateTime? lastSeen;
-        if (lastSeenTs is Timestamp) {
-          lastSeen = lastSeenTs.toDate();
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileStreamProvider(userId)).asData?.value;
+    final isOnline = user?.isOnline == true;
+    final lastSeen = user?.lastSeen;
 
-        if (isOnline) {
-          return Text('En ligne',
-              style: TextStyle(fontSize: 12, color: AppColors.accent));
-        }
-        if (lastSeen != null) {
-          return Text(_formatLastSeen(lastSeen),
-              style: TextStyle(
-                  fontSize: 12, color: context.appThemeColors.textSecondary));
-        }
-        return Text('Hors ligne',
-            style: TextStyle(fontSize: 12, color: context.appThemeColors.textSecondary));
-      },
-    );
+    if (isOnline) {
+      return Text('En ligne',
+          style: TextStyle(fontSize: 12, color: AppColors.accent));
+    }
+    if (lastSeen != null) {
+      return Text(_formatLastSeen(lastSeen),
+          style: TextStyle(
+              fontSize: 12, color: context.appThemeColors.textSecondary));
+    }
+    return Text('Hors ligne',
+        style: TextStyle(fontSize: 12, color: context.appThemeColors.textSecondary));
   }
 }
 

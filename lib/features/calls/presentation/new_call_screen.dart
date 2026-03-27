@@ -318,6 +318,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
       targetUserIds: _selectedContacts.toList(),
       isVideo: isVideo,
       initialParticipants: participants,
+      groupName: 'Appel de groupe',
     );
 
     // Utiliser le root navigator global car l'écran courant est déjà pop

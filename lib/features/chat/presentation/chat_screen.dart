@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors_provider.dart';
@@ -48,8 +47,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   MessageModel? _replyTo;
   bool _isTyping    = false;
   bool _isRecording = false;
-  Future<String>? _resolvedNameFuture;
-  String? _resolvedNameKey;
 
   @override
   void initState() {
@@ -188,17 +185,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       orElse: () => null,
     );
 
-    final nameFuture = _getResolvedNameFuture(convo, currentUid);
+    final isGroup = convo?.isGroup ?? false;
+    final otherId = (convo == null || currentUid.isEmpty)
+        ? ''
+        : convo.participantIds.firstWhere(
+            (id) => id != currentUid,
+            orElse: () => '',
+          );
+    final contactsService = ref.read(phoneContactsServiceProvider);
+    final user = (!isGroup && otherId.isNotEmpty)
+        ? ref.watch(userProfileStreamProvider(otherId)).asData?.value
+        : null;
+    final resolvedName = user?.name.trim();
+    final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+        ? resolvedName
+        : widget.contactName;
+    final displayName = isGroup
+        ? (convo?.groupName ?? widget.contactName)
+        : contactsService.resolveNameFromCache(
+            fallbackName: baseName,
+            phone: user?.phone,
+          );
+    final displayPhoto = isGroup ? widget.contactPhoto : (user?.photoUrl ?? widget.contactPhoto);
 
-    return FutureBuilder<String>(
-      future: nameFuture,
-      builder: (context, nameSnap) {
-        final displayName = nameSnap.data ?? widget.contactName;
-        return Scaffold(
-          backgroundColor: context.appThemeColors.background,
-          appBar: _buildAppBar(context, convo, currentUid, displayName),
-          body: Column(
-            children: [
+    return Scaffold(
+      backgroundColor: context.appThemeColors.background,
+      appBar: _buildAppBar(context, convo, currentUid, displayName, displayPhoto),
+      body: Column(
+        children: [
               // Liste messages
               Expanded(
                 child: messages.when(
@@ -287,8 +301,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildMessageWidget(MessageModel msg, bool isMine, bool isGroup, String currentUid) {
@@ -329,6 +341,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ConversationModel? convo,
     String currentUid,
     String displayName,
+    String? displayPhoto,
   ) {
     final canPop = Navigator.of(context).canPop();
     final isGroup = convo?.isGroup ?? false;
@@ -338,7 +351,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             (id) => id != currentUid,
             orElse: () => '',
           );
-    final canCall = !isGroup && otherUserId != null && otherUserId.isNotEmpty;
+    final canCall = otherUserId != null && otherUserId.isNotEmpty;
 
     return AppBar(
       backgroundColor: context.appThemeColors.surface,
@@ -352,7 +365,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       leadingWidth: 30,
       title: Row(
         children: [
-          _AvatarWidget(name: displayName, photoUrl: widget.contactPhoto),
+          _AvatarWidget(name: displayName, photoUrl: displayPhoto),
           const SizedBox(width: 5),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,23 +388,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         IconButton(
           icon: Icon(Icons.videocam_rounded),
           onPressed: canCall
-              ? () => _startCallFromChat(
-                  context,
-                  otherUserId!,
-                  displayName: displayName,
-                  isVideo: true,
-                )
+              ? () => isGroup
+                  ? _startGroupCallFromChat(
+                      context,
+                      convo,
+                      currentUid,
+                      displayName,
+                      isVideo: true,
+                    )
+                  : _startCallFromChat(
+                      context,
+                      otherUserId!,
+                      displayName: displayName,
+                      isVideo: true,
+                    )
               : () => _showCallDisabled(context, isGroup),
         ),
         IconButton(
           icon: Icon(Icons.call_rounded),
           onPressed: canCall
-              ? () => _startCallFromChat(
-                  context,
-                  otherUserId!,
-                  displayName: displayName,
-                  isVideo: false,
-                )
+              ? () => isGroup
+                  ? _startGroupCallFromChat(
+                      context,
+                      convo,
+                      currentUid,
+                      displayName,
+                      isVideo: false,
+                    )
+                  : _startCallFromChat(
+                      context,
+                      otherUserId!,
+                      displayName: displayName,
+                      isVideo: false,
+                    )
               : () => _showCallDisabled(context, isGroup),
         ),
         IconButton(
@@ -427,6 +456,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _startGroupCallFromChat(
+    BuildContext context,
+    ConversationModel? convo,
+    String currentUid,
+    String displayName, {
+    required bool isVideo,
+  }) async {
+    if (convo == null) return;
+    final participantIds = convo.participantIds
+        .where((id) => id != currentUid)
+        .toList();
+    if (participantIds.isEmpty) {
+      _showCallDisabled(context, true);
+      return;
+    }
+
+    final participants = convo.participantIds.map((id) {
+      return GroupParticipant(
+        id: id,
+        name: convo.participantNames[id] ?? 'Utilisateur',
+        photo: convo.participantPhotos[id],
+      );
+    }).toList();
+
+    await ref.read(callProvider.notifier).startGroupCall(
+          targetUserIds: participantIds,
+          isVideo: isVideo,
+          initialParticipants: participants,
+          groupName: convo.groupName ?? displayName,
+        );
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const CallScreen()),
+      );
+    }
   }
 
   Future<void> _startCallFromChat(
@@ -508,52 +576,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       }
     }
-  }
-
-  Future<String> _resolveDisplayName(
-    ConversationModel? convo,
-    String currentUid,
-  ) async {
-    if (convo == null) return widget.contactName;
-    if (convo.isGroup) {
-      return convo.groupName ?? widget.contactName;
-    }
-    final otherId = convo.participantIds.firstWhere(
-      (id) => id != currentUid,
-      orElse: () => '',
-    );
-    if (otherId.isEmpty) return widget.contactName;
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(otherId)
-          .get();
-      final data = doc.data();
-      final resolvedName = (data?['name'] as String?)?.trim();
-      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
-          ? resolvedName
-          : widget.contactName;
-      final phone = data?['phone'] as String?;
-      return ref.read(phoneContactsServiceProvider).resolveName(
-        fallbackName: baseName,
-        phone: phone,
-      );
-    } catch (_) {
-      return widget.contactName;
-    }
-  }
-
-  Future<String> _getResolvedNameFuture(
-    ConversationModel? convo,
-    String currentUid,
-  ) {
-    final key = '${convo?.id}|${convo?.participantIds.join(',')}|${convo?.isGroup}';
-    if (_resolvedNameFuture == null || _resolvedNameKey != key) {
-      _resolvedNameKey = key;
-      _resolvedNameFuture = _resolveDisplayName(convo, currentUid);
-    }
-    return _resolvedNameFuture!;
   }
 
   Future<void> _deleteMessage(MessageModel msg) async {
@@ -1401,7 +1423,7 @@ class _EmojiPicker extends StatelessWidget {
 }
 
 // ── Présence utilisateur ──────────────────────────────────────────────
-class _PresenceText extends StatelessWidget {
+class _PresenceText extends ConsumerWidget {
   final String userId;
   const _PresenceText({required this.userId});
 
@@ -1421,32 +1443,23 @@ class _PresenceText extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
-      builder: (context, snap) {
-        final data = snap.data?.data();
-        final isOnline = data?['isOnline'] == true;
-        final lastSeenTs = data?['lastSeen'];
-        DateTime? lastSeen;
-        if (lastSeenTs is Timestamp) {
-          lastSeen = lastSeenTs.toDate();
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileStreamProvider(userId)).asData?.value;
+    final isOnline = user?.isOnline == true;
+    final lastSeen = user?.lastSeen;
 
-        if (isOnline) {
-          return Text('En ligne',
-            style: TextStyle(fontSize: 11, color: AppColors.accent));
-        }
+    if (isOnline) {
+      return Text('En ligne',
+        style: TextStyle(fontSize: 11, color: AppColors.accent));
+    }
 
-        if (lastSeen != null) {
-          return Text(_formatLastSeen(lastSeen),
-            style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
-        }
+    if (lastSeen != null) {
+      return Text(_formatLastSeen(lastSeen),
+        style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
+    }
 
-        return Text('Hors ligne',
-          style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
-      },
-    );
+    return Text('Hors ligne',
+      style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
   }
 }
 

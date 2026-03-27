@@ -1,6 +1,5 @@
 // lib/features/chat/presentation/new_chat_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -553,15 +552,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   }
 
   Future<String?> _getMyPhotoFromFirestore(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      return doc.data()?['photoUrl'] as String?;
-    } catch (_) {
-      return null;
-    }
+    final profile = await ref.read(authServiceProvider).getUserProfile(uid);
+    return profile?.photoUrl;
   }
 
   Future<void> _startChatWithContact(PhoneContact contact) async {

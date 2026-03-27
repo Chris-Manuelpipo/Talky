@@ -8,6 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
+import '../../chat/data/chat_providers.dart';
+import 'dart:async';
 import '../../auth/data/auth_providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -42,6 +44,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           }
           if (isComplete) {
             await ref.read(authServiceProvider).saveFcmToken(user.uid);
+            // Précharger les contacts en arrière-plan dès le splash
+            unawaited(ref.read(phoneContactsServiceProvider).warmUpIfPermitted());
           }
         }
       },

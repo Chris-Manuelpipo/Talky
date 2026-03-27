@@ -1,12 +1,12 @@
 // lib/features/calls/presentation/incoming_call_screen.dart
 
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
+import '../../auth/data/auth_providers.dart';
 import '../data/call_providers.dart';
 import '../data/call_service.dart';
 import 'call_screen.dart';
@@ -92,9 +92,21 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     final callerId = callState.incomingCall?.callerId ?? widget.callerId;
     final fallbackName =
         callState.remoteName ?? widget.callerName ?? 'Appel entrant';
-    final nameFuture = _resolveCallerName(callerId, fallbackName);
     final isGroupCall =
         callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
+    final contactsService = ref.read(phoneContactsServiceProvider);
+    final user = (callerId != null && callerId.isNotEmpty)
+        ? ref.watch(userProfileStreamProvider(callerId)).asData?.value
+        : null;
+    final resolvedName = user?.name.trim();
+    final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+        ? resolvedName
+        : fallbackName;
+    final displayName = contactsService.resolveNameFromCache(
+      fallbackName: baseName,
+      phone: user?.phone,
+    );
+    final displayPhoto = user?.photoUrl ?? callState.remotePhoto;
 
     // Si l'appel disparaît → fermer
     ref.listen(callProvider, (_, next) {
@@ -103,14 +115,10 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       }
     });
 
-    return FutureBuilder<String>(
-      future: nameFuture,
-      builder: (context, nameSnap) {
-        final displayName = nameSnap.data ?? fallbackName;
-        return Scaffold(
-          backgroundColor: const Color(0xFF0D0D1A),
-          body: Stack(
-            children: [
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D1A),
+      body: Stack(
+        children: [
           // Fond animé
           Positioned.fill(
             child: AnimatedBuilder(
@@ -169,9 +177,9 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                           blurRadius: 40, spreadRadius: 10),
                       ],
                     ),
-                    child: callState.remotePhoto != null
+                    child: displayPhoto != null
                         ? ClipOval(child: Image.network(
-                            callState.remotePhoto!, fit: BoxFit.cover))
+                            displayPhoto!, fit: BoxFit.cover))
                         : Center(
                             child: Text(
                               (displayName.isNotEmpty ? displayName : '?')[0]
@@ -313,29 +321,6 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
             ],
           ),
         );
-      },
-    );
   }
 
-  Future<String> _resolveCallerName(String? userId, String fallbackName) async {
-    if (userId == null || userId.isEmpty) return fallbackName;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final data = doc.data();
-      final resolvedName = (data?['name'] as String?)?.trim();
-      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
-          ? resolvedName
-          : fallbackName;
-      final phone = data?['phone'] as String?;
-      return ref.read(phoneContactsServiceProvider).resolveName(
-        fallbackName: baseName,
-        phone: phone,
-      );
-    } catch (_) {
-      return fallbackName;
-    }
-  }
 }

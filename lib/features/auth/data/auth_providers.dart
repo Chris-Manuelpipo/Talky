@@ -26,6 +26,18 @@ final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
   );
 });
 
+// ── Stream : profil utilisateur par uid (cache + updates live) ──────────
+final userProfileStreamProvider =
+    StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.read(authServiceProvider).watchUserProfile(uid);
+});
+
+// ── Prefetch cache pour une liste d'utilisateurs ──────────────────────
+final prefetchUserProfilesProvider =
+    FutureProvider.family<void, List<String>>((ref, uids) async {
+  await ref.read(authServiceProvider).prefetchUserProfiles(uids);
+});
+
 // ── Notifier : gestion du flux OTP ────────────────────────────────────
 class OtpNotifier extends StateNotifier<OtpState> {
   final AuthService _authService;

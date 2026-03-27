@@ -1,6 +1,5 @@
 // lib/features/calls/presentation/calls_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -152,6 +151,25 @@ class _CallsContent extends ConsumerWidget {
 
     final callHistoryAsync = ref.watch(callHistoryProvider(currentUser.uid));
     final weeklyDurationAsync = ref.watch(weeklyCallDurationProvider(currentUser.uid));
+
+    // Prefetch profils pour l'historique d'appels
+    ref.listen(callHistoryProvider(currentUser.uid), (_, next) {
+      next.whenData((calls) {
+        final ids = <String>{};
+        for (final call in calls) {
+          if (call.isGroup) {
+            ids.addAll(call.participantIds);
+          } else {
+            ids.add(call.callerId);
+            ids.add(call.receiverId);
+          }
+        }
+        ids.remove(currentUser.uid);
+        if (ids.isNotEmpty) {
+          ref.read(authServiceProvider).prefetchUserProfiles(ids.toList());
+        }
+      });
+    });
 
     return Column(
       children: [
@@ -424,31 +442,35 @@ class _CallTile extends ConsumerWidget {
         : call.callerId;
     final contactsService = ref.read(phoneContactsServiceProvider);
 
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance.collection('users').doc(otherId).get(),
-      builder: (context, snap) {
-        final data = snap.data?.data();
-        final resolvedName = (data?['name'] as String?)?.trim();
-        final baseName = (resolvedName != null && resolvedName.isNotEmpty)
-            ? resolvedName
-            : displayName;
-        final phone = data?['phone'] as String?;
-        return FutureBuilder<String>(
-          future: contactsService.resolveName(
-            fallbackName: baseName,
-            phone: phone,
-          ),
-          builder: (context, nameSnap) {
-            final resolvedDisplayName = nameSnap.data ?? baseName;
-            return _buildTile(
-              context,
-              resolvedDisplayName,
-              displayPhoto,
-              isOutgoing,
-            );
-          },
-        );
-      },
+    if (call.isGroup) {
+      return _buildTile(
+        context,
+        displayName,
+        displayPhoto,
+        isOutgoing,
+        ref,
+        isGroup: true,
+        otherId: otherId,
+      );
+    }
+
+    final user = ref.watch(userProfileStreamProvider(otherId)).asData?.value;
+    final resolvedName = user?.name.trim();
+    final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+        ? resolvedName
+        : displayName;
+    final resolvedDisplayName = contactsService.resolveNameFromCache(
+      fallbackName: baseName,
+      phone: user?.phone,
+    );
+    final photo = user?.photoUrl ?? displayPhoto;
+    return _buildTile(
+      context,
+      resolvedDisplayName,
+      photo,
+      isOutgoing,
+      ref,
+      otherId: otherId,
     );
   }
 
@@ -457,6 +479,10 @@ class _CallTile extends ConsumerWidget {
     String displayName,
     String? displayPhoto,
     bool isOutgoing,
+    WidgetRef ref, {
+    bool isGroup = false,
+    required String otherId,
+  }
   ) {
 
     return ListTile(
@@ -510,7 +536,38 @@ class _CallTile extends ConsumerWidget {
               color: AppColors.primary,
             ),
             onPressed: () {
-              // Rappeler
+              if (isGroup) {
+                final currentId = ref.read(authStateProvider).value?.uid ?? '';
+                final targetUserIds = call.participantIds
+                    .where((id) => id != currentId)
+                    .toList();
+                final participants = call.participantIds.map((id) {
+                  return GroupParticipant(
+                    id: id,
+                    name: call.participantNames[id] ?? 'Utilisateur',
+                    photo: call.participantPhotos[id],
+                  );
+                }).toList();
+                ref.read(callProvider.notifier).startGroupCall(
+                      targetUserIds: targetUserIds,
+                      isVideo: call.isVideo,
+                      initialParticipants: participants,
+                      groupName: call.groupName ?? 'Appel de groupe',
+                    );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CallScreen()),
+                );
+              } else {
+                CallsScreen.startCallFromContact(
+                  context,
+                  ref,
+                  otherId,
+                  displayName,
+                  displayPhoto,
+                  call.isVideo,
+                );
+              }
             },
           ),
         ],

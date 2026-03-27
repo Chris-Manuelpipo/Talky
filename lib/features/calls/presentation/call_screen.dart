@@ -2,11 +2,11 @@
 
 import 'dart:async';
 import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/constants/app_colors.dart'; 
+import '../../auth/data/auth_providers.dart';
 import '../data/call_providers.dart'; 
 import '../../chat/data/chat_providers.dart';
 
@@ -27,8 +27,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   StreamSubscription<MediaStream?>? _localStreamSub;
   StreamSubscription<MediaStream?>? _remoteStreamSub;
   bool _swapViews = false;
-  Future<String>? _resolvedRemoteNameFuture;
-  String? _resolvedRemoteNameKey;
 
   @override
   void initState() {
@@ -134,9 +132,21 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final mainRenderer = _swapViews ? _localRenderer : _remoteRenderer;
     final pipRenderer = _swapViews ? _remoteRenderer : _localRenderer;
     final fallbackName = callState.remoteName ?? 'Appel';
-    final nameFuture = _getResolvedRemoteNameFuture(
-      callState.remoteUserId,
-      fallbackName,
+    final contactsService = ref.read(phoneContactsServiceProvider);
+    final user = (!callState.isGroup &&
+            callState.remoteUserId != null &&
+            callState.remoteUserId!.isNotEmpty)
+        ? ref.watch(userProfileStreamProvider(callState.remoteUserId!))
+            .asData
+            ?.value
+        : null;
+    final resolvedName = user?.name.trim();
+    final baseName = (resolvedName != null && resolvedName.isNotEmpty)
+        ? resolvedName
+        : fallbackName;
+    final displayName = contactsService.resolveNameFromCache(
+      fallbackName: baseName,
+      phone: user?.phone,
     );
 
     // Quand l'appel se termine → fermer l'écran
@@ -157,16 +167,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       return _buildGroupCallScreen(context, callState);
     }
 
-    return FutureBuilder<String>(
-      future: nameFuture,
-      builder: (context, nameSnap) {
-        final displayName = nameSnap.data ?? fallbackName;
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: GestureDetector(
-            onTap: _onTap,
-            child: Stack(
-              children: [
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _onTap,
+        child: Stack(
+          children: [
             // ── Vidéo remote (plein écran) ────────────────────────
             if (isVideo)
               Positioned.fill(
@@ -398,46 +404,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-      },
-    );
-  }
-
-  Future<String> _resolveRemoteName(String? userId, String fallbackName) async {
-    if (userId == null || userId.isEmpty) return fallbackName;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final data = doc.data();
-      final resolvedName = (data?['name'] as String?)?.trim();
-      final baseName = (resolvedName != null && resolvedName.isNotEmpty)
-          ? resolvedName
-          : fallbackName;
-      final phone = data?['phone'] as String?;
-      return ref.read(phoneContactsServiceProvider).resolveName(
-        fallbackName: baseName,
-        phone: phone,
-      );
-    } catch (_) {
-      return fallbackName;
-    }
-  }
-
-  Future<String> _getResolvedRemoteNameFuture(
-    String? userId,
-    String fallbackName,
-  ) {
-    final key = '$userId|$fallbackName';
-    if (_resolvedRemoteNameFuture == null || _resolvedRemoteNameKey != key) {
-      _resolvedRemoteNameKey = key;
-      _resolvedRemoteNameFuture = _resolveRemoteName(userId, fallbackName);
-    }
-    return _resolvedRemoteNameFuture!;
+              ],
+            ),
+          ),
+        );
   }
 
   Widget _buildGroupCallScreen(BuildContext context, CallState callState) {
