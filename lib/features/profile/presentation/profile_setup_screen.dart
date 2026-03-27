@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/widgets/talky_button.dart';
@@ -24,10 +25,12 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController   = TextEditingController();
   final _statusController = TextEditingController();
+  final _phoneController  = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _selectedLanguage = 'fr';
   String? _localImagePath;
   bool _isLoading = false;
+  bool _phoneReadOnly = false;
 
   final _languages = [
     {'code': 'fr', 'name': 'Français',  'flag': '🇫🇷'},
@@ -42,7 +45,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   void dispose() {
     _nameController.dispose();
     _statusController.dispose();
+    _phoneController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final authService = ref.read(authServiceProvider);
+    final phone = authService.currentUser?.phoneNumber ?? '';
+    if (phone.isNotEmpty) {
+      _phoneController.text = phone;
+      _phoneReadOnly = true;
+    }
   }
 
   Future<void> _pickImage() async {
@@ -58,7 +73,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       final uid = authService.currentUser!.uid;
-      final phone = authService.currentUser!.phoneNumber ?? '';
+      final phone = _phoneController.text.trim().isNotEmpty
+          ? _phoneController.text.trim()
+          : (authService.currentUser!.phoneNumber ?? '');
 
       // Upload photo vers Cloudinary si sélectionnée
       String? photoUrl;
@@ -77,6 +94,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         uid:               uid,
         name:              _nameController.text.trim(),
         phone:             phone,
+        email:             authService.currentUser?.email,
         photoUrl:          photoUrl,
         status:            _statusController.text.trim().isEmpty
                                ? 'Disponible sur Talky'
@@ -210,6 +228,32 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   hint: ' Disponible sur Talky',
                   prefixIcon: Icons.edit_outlined,
                 ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2, end: 0),
+
+                const SizedBox(height: 24),
+
+                // ── Téléphone ─────────────────────────────────────
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  readOnly: _phoneReadOnly,
+                  validator: (v) {
+                    final value = v?.trim() ?? '';
+                    if (value.isEmpty) return 'Numéro requis';
+                    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                    if (digits.length < 8) return 'Numéro invalide';
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Numéro de téléphone *',
+                    hintText: '+237 6XX XXX XXX',
+                    prefixIcon: const Icon(Icons.phone_android_rounded,
+                        color: AppColors.textHint, size: 20),
+                    suffixIcon: _phoneReadOnly
+                        ? const Icon(Icons.lock_outline_rounded,
+                            color: AppColors.textHint, size: 18)
+                        : null,
+                  ),
+                ).animate(delay: 220.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
                 const SizedBox(height: 24),
 

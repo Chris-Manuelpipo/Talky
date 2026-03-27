@@ -18,6 +18,7 @@ dependencies:
   firebase_messaging: ^15.2.10
   firebase_database: ^11.3.1
   flutter_local_notifications: ^18.0.1
+  google_sign_in: ^6.3.0
 
   # State management
   flutter_riverpod: ^2.6.1

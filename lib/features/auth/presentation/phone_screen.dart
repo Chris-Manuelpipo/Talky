@@ -22,6 +22,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _phoneController = TextEditingController();
   String _selectedCountryCode = '+237'; // Cameroun par défaut
   final _formKey = GlobalKey<FormState>();
+  bool _googleLoading = false;
 
   final _countryCodes = [
     {'code': '+237', 'flag': '🇨🇲', 'name': 'Cameroun'},
@@ -56,6 +57,41 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(state.error!), backgroundColor: AppColors.error),
       );
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_googleLoading) return;
+    setState(() => _googleLoading = true);
+    try {
+      String? phoneHint;
+      final digits = _phoneController.text.trim();
+      if (digits.isNotEmpty && digits.length >= 8) {
+        phoneHint = '$_selectedCountryCode$digits';
+      }
+
+      final result = await ref.read(authServiceProvider).signInWithGoogle(
+        phoneHint: phoneHint,
+      );
+      if (!mounted) return;
+      if (result == null) {
+        setState(() => _googleLoading = false);
+        return;
+      }
+      final uid = ref.read(authServiceProvider).currentUser?.uid;
+      if (uid != null) {
+        final isComplete =
+            await ref.read(authServiceProvider).isProfileComplete(uid);
+        if (!mounted) return;
+        context.go(isComplete ? AppRoutes.home : AppRoutes.profileSetup);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur Google: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
     }
   }
 
@@ -205,13 +241,22 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
                 const Spacer(),
 
-                // ── Bouton ────────────────────────────────────────
+                // ── Boutons ───────────────────────────────────────
                 TalkyButton(
-                  label: 'Envoyer le code',
+                  label: 'Envoyer le code par SMS',
                   onPressed: _sendOtp,
                   isLoading: otpState.isLoading,
-                  icon: Icons.send_rounded,
+                  icon: Icons.sms_rounded,
                 ).animate(delay: 300.ms).fadeIn().slideY(begin: 0.3, end: 0),
+
+                const SizedBox(height: 12),
+
+                TalkyButton(
+                  label: 'Se connecter avec Google',
+                  onPressed: _signInWithGoogle,
+                  isLoading: _googleLoading,
+                  icon: Icons.login_rounded,
+                ).animate(delay: 340.ms).fadeIn().slideY(begin: 0.3, end: 0),
 
                 const SizedBox(height: 32),
               ],

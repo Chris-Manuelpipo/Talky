@@ -25,6 +25,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   final _nameController = TextEditingController();
   final _statusController = TextEditingController();
   bool _isLoading = false;
+  bool _isLinkingGoogle = false;
   String? _photoUrl;
   String? _phone;
 
@@ -114,6 +115,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
         uid: authState.uid,
         name: _nameController.text.trim(),
         phone: _phone ?? authState.phoneNumber ?? '',
+        email: authState.email,
         photoUrl: _photoUrl,
         status: _statusController.text.trim().isEmpty
             ? 'Disponible sur Talky'
@@ -155,6 +157,37 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
     }
   }
 
+  Future<void> _linkGoogle() async {
+    if (_isLinkingGoogle) return;
+    setState(() => _isLinkingGoogle = true);
+    try {
+      final result = await ref.read(authServiceProvider).signInWithGoogle(
+        linkIfPossible: true,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Compte Google lié avec succès'),
+            backgroundColor: context.appThemeColors.success,
+          ),
+        );
+        // Refresh UI
+        ref.invalidate(currentUserProfileProvider);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLinkingGoogle = false);
+    }
+  }
+
   // Met à jour participantPhotos dans toutes les conversations
   Future<void> _updatePhotoInConversations(String uid, String photoUrl) async {
     try {
@@ -175,6 +208,10 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appThemeColors;
+    final authUser = ref.watch(authStateProvider).value;
+    final hasGoogle =
+        authUser?.providerData.any((p) => p.providerId == 'google.com') ?? false;
+    final email = authUser?.email ?? '';
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
@@ -351,6 +388,78 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
 
             const SizedBox(height: 24),
 
+            // Email / Lier Google
+            const Text(
+              'Compte Google',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (hasGoogle)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.mail_outline_rounded,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        email.isNotEmpty ? email : 'Email non disponible',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      color: AppColors.textHint,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLinkingGoogle ? null : _linkGoogle,
+                  icon: _isLinkingGoogle
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.link_rounded),
+                  label: Text(
+                    _isLinkingGoogle ? 'Liaison...' : 'Lier Google',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.surfaceVariant,
+                    foregroundColor: colors.textPrimary,
+                    side: BorderSide(color: colors.border),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 24),
+
             // Numéro de téléphone
             const Text(
               'Numéro de téléphone',
@@ -395,7 +504,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Le numéro de téléphone ne peut pas être modifié',
+              'Le numéro de téléphone et l\'adresse email ne peuvent pas être modifiés',
               style: TextStyle(
                 color: AppColors.textHint,
                 fontSize: 12,

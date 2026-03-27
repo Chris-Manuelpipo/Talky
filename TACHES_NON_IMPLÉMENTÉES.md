@@ -63,7 +63,7 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 
 ---
 
-### 3. Réponses aux messages (Citation)
+### 3. Réponses aux messages (Citation) 
 
 | Aspect | Détails |
 |--------|---------|
@@ -72,16 +72,16 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 
 #### UI (Interface Utilisateur)
 
-- [ ] **Affichage du message cité** : Prévisualisation du message parent au-dessus de la réponse
-- [ ] **Mise en forme distinctive** : Style visuel différent (couleur, bordure, indentation)
-- [ ] **Navigation** : Clic sur le message cité pour remonter à la conversation originale
-- [ ] **Bouton répondre** : Action dans le menu contextuel des messages
+- [✅] **Affichage du message cité** : Prévisualisation du message parent au-dessus de la réponse
+- [✅ ] **Mise en forme distinctive** : Style visuel différent (couleur, bordure, indentation)
+- [✅ ] **Navigation** : Clic sur le message cité pour remonter à la conversation originale
+- [✅ ] **Bouton répondre** : Action dans le menu contextuel des messages
 
 #### Logique (Backend)
 
-- [ ] **Stockage référence message parent** : Champ `replyTo` dans le modèle de message
-- [ ] **Récupération des messages cités** : Requête pour afficher le contexte
-- [ ] **Gestion des messages supprimés** : Affichage "Message supprimé" si le parent n'existe plus
+- [✅ ] **Stockage référence message parent** : Champ `replyTo` dans le modèle de message
+- [✅ ] **Récupération des messages cités** : Requête pour afficher le contexte
+- [ ✅] **Gestion des messages supprimés** : Affichage "Message supprimé" si le parent n'existe plus
 
 ---
 
@@ -94,16 +94,16 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 
 #### UI (Interface Utilisateur)
 
-- [ ] **Option dans le menu message** : "Supprimer pour tout le monde" vs "Supprimer pour moi"
-- [ ] **Confirmation dialog** : Avertissement avant suppression irréversible
-- [ ] **Indicateur visuel** : Le message devient "Message supprimé" pour les deux parties
+- [ ✅] **Option dans le menu message** : "Supprimer pour tout le monde" vs "Supprimer pour moi"
+- [✅ ] **Confirmation dialog** : Avertissement avant suppression irréversible
+- [✅ ] **Indicateur visuel** : Le message devient "Message supprimé" pour les deux parties
 
 #### Logique (Backend)
 
-- [ ] **Suppression Firestore** : Suppression du document dans la collection messages
-- [ ] **Permissions** : Vérification que l'utilisateur est l'expéditeur
-- [ ] **Notifications de suppression** : Mise à jour en temps réel pour le destinataire
-- [ ] **Règles de sécurité** : Validation Firestore
+- [✅ ] **Suppression Firestore** : Suppression du document dans la collection messages
+- [ ✅] **Permissions** : Vérification que l'utilisateur est l'expéditeur
+- [ ✅] **Notifications de suppression** : Mise à jour en temps réel pour le destinataire
+- [ ✅] **Règles de sécurité** : Validation Firestore
 
 
 
@@ -118,14 +118,14 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 
 #### UI (Interface Utilisateur)
 
-- [ ] **Option dans le menu message** : "Modifier"
-- [ ] **Indicateur visuel** : Le message a un badge 'modifié'
+- [✅ ] **Option dans le menu message** : "Modifier"
+- [✅ ] **Indicateur visuel** : Le message a un badge 'modifié'
 
 #### Logique (Backend)
 
-- [ ] **Modification Firestore** :Modification du document dans la collection messages
-- [ ] **Permissions** : Vérification que l'utilisateur est l'expéditeur 
-- [ ] **Règles de sécurité** : Validation Firestore
+- [✅ ] **Modification Firestore** :Modification du document dans la collection messages
+- [✅ ] **Permissions** : Vérification que l'utilisateur est l'expéditeur 
+- [ ✅] **Règles de sécurité** : Validation Firestore
 
 ### 5. Bloquer un contact 
 
@@ -204,16 +204,16 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 
 #### UI (Interface Utilisateur)
 
-- [ ] **Bouton micro** : Dans la visionneuse de statuts
-- [ ] **Interface d'enregistrement** : Indicateur visuel d'enregistrement
+- [✅ ] **Bouton micro** : Dans la visionneuse de statuts
+- [✅ ] **Interface d'enregistrement** : Indicateur visuel d'enregistrement
 - [ ] **Prévisualisation audio** : Lecture avant envoi
-- [ ] **Envoi comme message** : Le statut vocal devient un message dans la conversation
+- [✅ ] **Envoi comme message** : Le statut vocal devient un message dans la conversation
 
 #### Logique (Backend)
 
-- [ ] **Enregistrement audio** : Utilisation du package `record` ou équivalent
-- [ ] **Upload vers Storage** : Firebase Storage pour les fichiers audio
-- [ ] **Création du message** : Insertion dans Firestore
+- [ ✅] **Enregistrement audio** : Utilisation du package `record` ou équivalent
+- [ ✅] **Upload vers Storage** : Firebase Storage pour les fichiers audio
+- [ ✅] **Création du message** : Insertion dans Firestore
 
 ---
 
@@ -250,14 +250,14 @@ Ce document recense l'ensemble des fonctionnalités manquantes identifiées lors
 #### UI (Interface Utilisateur)
 
 - [ ] **Feuille modal infos** : Affichage des détails de l'appel
-- [ ] **Durée de l'appel** : Temps de conversation
-- [ ] **Date et heure** : Timestamp formaté
+- [ ✅] **Durée de l'appel** : Temps de conversation
+- [✅ ] **Date et heure** : Timestamp formaté
 - [ ] **Statut** : Reçu, passé, manqué
 
 #### Logique (Backend)
 
 - [ ] **Récupération métadonnées** : Données stockées dans l'appel history
-- [ ] **Calcul de durée** : Différence entre start et end time
+- [✅ ] **Calcul de durée** : Différence entre start et end time
 
 ---
 

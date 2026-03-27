@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/cache/local_cache.dart';
 import '../domain/user_model.dart';
 
@@ -64,6 +65,68 @@ class AuthService {
       smsCode: smsCode,
     );
     return await _auth.signInWithCredential(credential);
+  }
+
+  // ── AUTHENTIFICATION GOOGLE ──────────────────────────────────────
+  Future<UserCredential?> signInWithGoogle({
+    bool linkIfPossible = true,
+    String? phoneHint,
+  }) async {
+    final googleSignIn = GoogleSignIn();
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) return null;
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    try {
+      final current = _auth.currentUser;
+      if (linkIfPossible && current != null) {
+        return await current.linkWithCredential(credential);
+      }
+      final result = await _auth.signInWithCredential(credential);
+
+      final hint = phoneHint?.trim();
+      if (hint != null && hint.isNotEmpty) {
+        final existing = await _firestore
+            .collection('users')
+            .where('phone', isEqualTo: hint)
+            .limit(1)
+            .get();
+        if (existing.docs.isNotEmpty &&
+            existing.docs.first.id != result.user?.uid) {
+          // Un compte existe déjà pour ce numéro → éviter un doublon Google
+          try {
+            await result.user?.delete();
+          } catch (_) {}
+          await _auth.signOut();
+          await googleSignIn.signOut();
+          throw Exception(
+            'Compte déjà lié à ce numéro. '
+            'Connectez-vous par SMS puis liez Google.',
+          );
+        }
+      }
+
+      return result;
+    } on FirebaseAuthException catch (e) {
+      await googleSignIn.signOut();
+      if (e.code == 'account-exists-with-different-credential') {
+        throw Exception(
+          'Un compte existe déjà avec un autre mode. '
+          'Connectez-vous d\'abord avec le téléphone, puis liez Google.',
+        );
+      }
+      if (e.code == 'credential-already-in-use') {
+        throw Exception(
+          'Ce compte Google est déjà lié à un autre utilisateur.',
+        );
+      }
+      rethrow;
+    }
   }
 
   // ── PROFIL UTILISATEUR ────────────────────────────────────────────
@@ -182,7 +245,7 @@ class AuthService {
   /// Vérifier si le profil est complet (nom renseigné)
   Future<bool> isProfileComplete(String uid) async {
     final user = await getUserProfile(uid);
-    return user != null && user.name.isNotEmpty;
+    return user != null && user.name.isNotEmpty && user.phone.isNotEmpty;
   }
 
   Future<UserModel?> _refreshUserProfile(String uid) async {

@@ -12,60 +12,11 @@ import '../domain/call_history_model.dart';
 import 'call_screen.dart';
 import 'new_call_screen.dart';
 
-class CallsScreen extends ConsumerWidget {
+class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // S'assurer que le service est connecté
-    ref.watch(callServiceProvider);
-
-    // Écouter les erreurs d'appel
-    ref.listen(callProvider, (prev, next) {
-      if (next.status == CallStatus.idle &&
-          next.errorMessage != null &&
-          next.errorMessage!.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    });
-
-    return Scaffold(
-      backgroundColor: context.appThemeColors.background,
-      appBar: AppBar(
-        backgroundColor: context.appThemeColors.background,
-        title: Text('Appels',
-          style: TextStyle(
-            color: context.appThemeColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          )),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search_rounded,
-                color: context.appThemeColors.textSecondary),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: const _CallsContent(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const NewCallScreen()),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add_call, color: Colors.white),
-      ),
-    );
-  }
+  ConsumerState<CallsScreen> createState() => _CallsScreenState();
 
   /// Static method to start a call from the new call screen
   static Future<void> startCallFromContact(
@@ -140,9 +91,96 @@ class CallsScreen extends ConsumerWidget {
   }
 }
 
+class _CallsScreenState extends ConsumerState<CallsScreen> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // S'assurer que le service est connecté
+    ref.watch(callServiceProvider);
+
+    // Écouter les erreurs d'appel
+    ref.listen(callProvider, (prev, next) {
+      if (next.status == CallStatus.idle &&
+          next.errorMessage != null &&
+          next.errorMessage!.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+
+    return Scaffold(
+      backgroundColor: context.appThemeColors.background,
+      appBar: AppBar(
+        backgroundColor: context.appThemeColors.background,
+        title: _searching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                style: TextStyle(color: context.appThemeColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: TextStyle(color: context.appThemeColors.textHint),
+                  border: InputBorder.none,
+                ),
+              )
+            : Text('Appels',
+                style: TextStyle(
+                  color: context.appThemeColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                )),
+        actions: [
+          IconButton(
+            icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded,
+                color: context.appThemeColors.textSecondary),
+            onPressed: () {
+              setState(() {
+                _searching = !_searching;
+                if (!_searching) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              });
+            },
+          ),
+        ],
+      ),
+      body: _CallsContent(query: _query),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NewCallScreen()),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add_call, color: Colors.white),
+      ),
+    );
+  }
+
+}
+
 // ── Contenu de l'écran d'appels ───────────────────────────────────────
 class _CallsContent extends ConsumerWidget {
-  const _CallsContent();
+  final String query;
+
+  const _CallsContent({required this.query});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -181,7 +219,11 @@ class _CallsContent extends ConsumerWidget {
         // Liste des appels
         Expanded(
           child: callHistoryAsync.when(
-            data: (calls) => _CallsList(calls: calls, currentUserId: currentUser.uid),
+            data: (calls) => _CallsList(
+              calls: calls,
+              currentUserId: currentUser.uid,
+              query: query,
+            ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
               child: Text('Erreur: $e',
@@ -305,24 +347,65 @@ class _WeeklyStatsCard extends StatelessWidget {
 class _CallsList extends StatelessWidget {
   final List<CallHistoryModel> calls;
   final String currentUserId;
+  final String query;
 
-  const _CallsList({required this.calls, required this.currentUserId});
+  const _CallsList({
+    required this.calls,
+    required this.currentUserId,
+    required this.query,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (calls.isEmpty) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final filteredCalls = normalizedQuery.isEmpty
+        ? calls
+        : calls.where((call) => _matchesQuery(call, normalizedQuery)).toList();
+
+    if (filteredCalls.isEmpty) {
+      if (calls.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.phone_outlined,
+                size: 64,
+                color: context.appThemeColors.textHint,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun appel',
+                style: TextStyle(
+                  color: context.appThemeColors.textSecondary,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Vos appels apparaîtront ici',
+                style: TextStyle(
+                  color: context.appThemeColors.textHint,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.phone_outlined,
+              Icons.search_off_rounded,
               size: 64,
               color: context.appThemeColors.textHint,
             ),
             const SizedBox(height: 16),
             Text(
-              'Aucun appel',
+              'Aucun résultat',
               style: TextStyle(
                 color: context.appThemeColors.textSecondary,
                 fontSize: 16,
@@ -330,7 +413,7 @@ class _CallsList extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Vos appels apparaîtront ici',
+              'Aucun appel ne correspond à votre recherche',
               style: TextStyle(
                 color: context.appThemeColors.textHint,
                 fontSize: 14,
@@ -342,7 +425,7 @@ class _CallsList extends StatelessWidget {
     }
 
     // Grouper les appels par date
-    final groupedCalls = _groupCallsByDate(calls);
+    final groupedCalls = _groupCallsByDate(filteredCalls);
 
     return ListView.builder(
       itemCount: groupedCalls.length,
@@ -379,6 +462,21 @@ class _CallsList extends StatelessWidget {
     }
 
     return result;
+  }
+
+  bool _matchesQuery(CallHistoryModel call, String query) {
+    if (query.isEmpty) return true;
+
+    final parts = <String>[
+      call.getDisplayName(currentUserId),
+      call.callerName,
+      call.receiverName,
+      if (call.groupName != null) call.groupName!,
+      ...call.participantNames.values,
+    ];
+
+    final haystack = parts.join(' ').toLowerCase();
+    return haystack.contains(query);
   }
 }
 
