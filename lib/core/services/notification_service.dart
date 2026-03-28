@@ -65,7 +65,9 @@ class NotificationService {
       sound: true,
     );
 
-    FirebaseMessaging.onMessage.listen(showNotificationFromMessage);
+    FirebaseMessaging.onMessage.listen(
+      (message) => showNotificationFromMessage(message, forceLocal: true),
+    );
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageNavigation);
     FirebaseMessaging.instance.onTokenRefresh.listen((token) {
       // Updated when user is known via registerTokenForUser.
@@ -89,7 +91,15 @@ class NotificationService {
     });
   }
 
-  Future<void> showNotificationFromMessage(RemoteMessage message) async {
+  Future<void> showNotificationFromMessage(
+    RemoteMessage message, {
+    bool forceLocal = false,
+  }) async {
+    // If the message already includes a notification payload, the OS will
+    // display it in background. Avoid duplicating it with a local notification.
+    if (!forceLocal && message.notification != null) {
+      return;
+    }
     if (!_initialized) {
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const iosInit = DarwinInitializationSettings();

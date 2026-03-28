@@ -1,0 +1,3 @@
+-keep class org.webrtc.** { *; }
+-keep class com.webrtc.** { *; }
+-keep class com.example.talky.** { *; } 
