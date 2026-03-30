@@ -41,19 +41,6 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            // Récupère le nom de base (release ou debug)
-            def baseName = "talky"
-            // Ajoute la variante (debug/release) si souhaité
-            def variantName = variant.name.capitalize()
-            // Définit le nom du fichier
-            outputFileName = "${baseName}-${variant.versionName}.apk"
-            // Si vous voulez inclure le type de build (release/debug) :
-            // outputFileName = "${baseName}-${variantName.toLowerCase()}-${variant.versionName}.apk"
-        }
-    }
 }
 
 dependencies {
