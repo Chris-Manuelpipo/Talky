@@ -5,9 +5,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import '../../../core/constants/app_colors.dart'; 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/services/ringback_service.dart';
 import '../../auth/data/auth_providers.dart';
-import '../data/call_providers.dart'; 
+import '../data/call_providers.dart';
 import '../../chat/data/chat_providers.dart';
 
 class CallScreen extends ConsumerStatefulWidget {
@@ -120,6 +121,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _hideTimer?.cancel();
     _localStreamSub?.cancel();
     _remoteStreamSub?.cancel();
+    RingbackService.instance.stop();
     super.dispose();
   }
 
@@ -153,12 +155,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     ref.listen(callProvider, (prev, next) {
       if (next.status == CallStatus.calling && mounted) {
         _stopDurationTimer(reset: true);
+        RingbackService.instance.play();
       }
       if (next.status == CallStatus.connected && mounted) {
         _startDurationTimer();
+        RingbackService.instance.stop();
       }
       if (next.status == CallStatus.idle && mounted) {
         _stopDurationTimer(reset: true);
+        RingbackService.instance.stop();
         Navigator.pop(context);
       }
     });
