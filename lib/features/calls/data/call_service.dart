@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/services/fcm_sender.dart';
+import '../../../core/services/notification_service.dart';
 
 // serveur signaling
 const _signalingUrl = 'https://talky-signaling.onrender.com';
@@ -168,6 +169,17 @@ class CallService {
       _isVideo      = incoming.isVideo;
       _incomingCtrl.add(incoming);
       _eventCtrl.add(CallEvent.incomingCall);
+      
+      // NOUVEAU: Déclencher la notification full-screen si l'app n'est pas au premier plan
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        NotificationService.instance.showIncomingCallFullScreen(
+          callerId: incoming.callerId,
+          callerName: incoming.callerName,
+          isVideo: incoming.isVideo,
+          isGroup: false,
+          offer: incoming.offer,
+        );
+      }
     });
 
     _socket!.on('call_answered', (data) async {
@@ -223,6 +235,17 @@ class CallService {
       _isGroupCall = true;
       _incomingCtrl.add(incoming);
       _eventCtrl.add(CallEvent.incomingCall);
+      
+      // NOUVEAU: Déclencher la notification full-screen si l'app n'est pas au premier plan
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        NotificationService.instance.showIncomingCallFullScreen(
+          callerId: incoming.callerId,
+          callerName: incoming.callerName,
+          isVideo: incoming.isVideo,
+          isGroup: true,
+          roomId: incoming.roomId,
+        );
+      }
     });
 
     _socket!.on('group_user_joined', (data) {

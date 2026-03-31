@@ -9,10 +9,12 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.talky/contacts"
+    private val CALL_CHANNEL = "com.example.talky/call_notification"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
+        // Canal pour les contacts
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getContacts") {
                 val contacts = getContacts()
@@ -20,6 +22,46 @@ class MainActivity : FlutterActivity() {
             } else {
                 result.notImplemented()
             }
+        }
+        
+        // Canal pour les notifications d'appel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CALL_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "showIncomingCall" -> {
+                    val data = call.arguments as? Map<String, Any?> ?: emptyMap()
+                    val service = CallNotificationService(this)
+                    service.showIncomingCallNotification(data)
+                    result.success(null)
+                }
+                "cancelNotification" -> {
+                    val service = CallNotificationService(this)
+                    service.cancelNotification()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        
+        // Gérer les intents d'appel au démarrage
+        handleIncomingCallIntent()
+    }
+    
+    private fun handleIncomingCallIntent() {
+        val intent = intent
+        if (intent != null && intent.getStringExtra("type") == "call") {
+            // Stocker les données d'appel pour Flutter
+            val callData = mapOf(
+                "callerId" to intent.getStringExtra("callerId"),
+                "callerName" to intent.getStringExtra("callerName"),
+                "isVideo" to intent.getBooleanExtra("isVideo", false),
+                "isGroup" to intent.getBooleanExtra("isGroup", false),
+                "roomId" to intent.getStringExtra("roomId"),
+                "offer" to intent.getStringExtra("offer")
+            )
+            
+            // Envoyer les données à Flutter via un canal
+            val channel = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger ?: return, "com.example.talky/incoming_call")
+            channel.invokeMethod("onIncomingCall", callData)
         }
     }
 

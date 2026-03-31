@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "sqlproj: Build j",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"/home/chris-manuel/talky/j/j.sqlproj"
+			],
+			"problemMatcher": "$sqlproj-problem-matcher",
+			"isBackground": true,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "Builds the j SQL project"
+		}
+	]
+}

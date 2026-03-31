@@ -102,27 +102,39 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
       }
     });
 
-    // Écouter les appels entrants globalement
+    // Écouter les appels entrants globalement - PLUS RÉACTIF
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(callProvider, (prev, next) {
+        // Détecter le passage à l'état ringing
         if (next.status == CallStatus.ringing &&
             prev?.status != CallStatus.ringing) {
-          _showIncomingCall();
+          // Vérifier si l'application est au premier plan
+          if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+            // Afficher directement l'écran d'appel
+            _showIncomingCall();
+          }
+          // Sinon, la notification full-screen intent s'en charge
         }
       });
     });
   }
   
   void _showIncomingCall() {
-  final context = rootNavigatorKey.currentContext;
-  if (context == null) return;
-  Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => const IncomingCallScreen(),
-    ),
-  );
-}
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+    
+    // Vérifier si l'écran d'appel n'est pas déjà affiché
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    if (currentRoute == AppRoutes.incomingCall) return;
+    
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        settings: const RouteSettings(name: AppRoutes.incomingCall),
+        builder: (_) => const IncomingCallScreen(),
+      ),
+    );
+  }
 
   @override
   void dispose() {

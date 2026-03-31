@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
@@ -89,7 +90,22 @@ class NotificationService {
     });
   }
 
-  Future<void> showNotificationFromMessage(RemoteMessage message) async {
+  Future<void> showNotificationFromMessage(
+    RemoteMessage message, {
+    bool forceLocal = false,
+  }) async {
+    // Si l'application est au premier plan, ne pas afficher de notification
+    // L'écran d'appel sera affiché directement par le listener dans main.dart
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      debugPrint('[Notification] App au premier plan, pas de notification affichée');
+      return;
+    }
+    
+    // If the message already includes a notification payload, the OS will
+    // display it in background. Avoid duplicating it with a local notification.
+    if (!forceLocal && message.notification != null) {
+      return;
+    }
     if (!_initialized) {
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const iosInit = DarwinInitializationSettings();
@@ -204,7 +220,110 @@ class NotificationService {
   }
 
   void _handleTap(String? payload) {
-    // Si besoin, parser le payload string pour navigation
+    if (payload == null) {
+      rootNavigatorKey.currentContext?.go(AppRoutes.home);
+      return;
+    }
+    
+    // Parser le payload pour extraire les données
+    final data = _parsePayload(payload);
+    final type = data['type'] as String?;
+    
+    if (type == 'call') {
+      // Naviguer vers l'écran d'appel entrant
+      final callerId = data['callerId'] as String? ?? '';
+      final callerName = data['callerName'] as String? ?? 'Appel entrant';
+      final isVideo = (data['isVideo'] as String?) == 'true' || data['isVideo'] == true;
+      final isGroup = (data['isGroup'] as String?) == 'true' || data['isGroup'] == true;
+      final roomId = data['roomId'] as String?;
+      
+      rootNavigatorKey.currentContext?.push(
+        AppRoutes.incomingCall,
+        extra: {
+          'callerId': callerId,
+          'callerName': callerName,
+          'isVideo': isVideo,
+          'isGroup': isGroup,
+          'roomId': roomId,
+        },
+      );
+      return;
+    }
+    
+    if (type == 'group_call') {
+      final callerId = data['callerId'] as String? ?? '';
+      final callerName = data['callerName'] as String? ?? 'Appel de groupe';
+      final roomId = data['roomId'] as String? ?? '';
+      final isVideo = (data['isVideo'] as String?) == 'true' || data['isVideo'] == true;
+      
+      if (roomId.isNotEmpty) {
+        rootNavigatorKey.currentContext?.push(
+          AppRoutes.incomingCall,
+          extra: {
+            'callerId': callerId,
+            'callerName': callerName,
+            'isVideo': isVideo,
+            'isGroup': true,
+            'roomId': roomId,
+          },
+        );
+        return;
+      }
+    }
+    
+    // Fallback → accueil
     rootNavigatorKey.currentContext?.go(AppRoutes.home);
+  }
+
+  Map<String, dynamic> _parsePayload(String payload) {
+    try {
+      // Le payload est une chaîne de caractères représentant une Map
+      // Format: "{key1: value1, key2: value2, ...}"
+      final cleaned = payload.replaceAll('{', '').replaceAll('}', '');
+      final pairs = cleaned.split(', ');
+      final result = <String, dynamic>{};
+      
+      for (final pair in pairs) {
+        final keyValue = pair.split(': ');
+        if (keyValue.length == 2) {
+          result[keyValue[0].trim()] = keyValue[1].trim();
+        }
+      }
+      
+      return result;
+    } catch (e) {
+      debugPrint('Erreur parsing payload: $e');
+      return {};
+    }
+  }
+
+  // Méthode pour afficher un appel entrant via Full-Screen Intent (Android)
+  Future<void> showIncomingCallFullScreen({
+    required String callerId,
+    required String callerName,
+    required bool isVideo,
+    bool isGroup = false,
+    String? roomId,
+    Map<String, dynamic>? offer,
+  }) async {
+    if (Platform.isAndroid) {
+      const platform = MethodChannel('com.example.talky/call_notification');
+      await platform.invokeMethod('showIncomingCall', {
+        'callerId': callerId,
+        'callerName': callerName,
+        'isVideo': isVideo,
+        'isGroup': isGroup,
+        'roomId': roomId,
+        'offer': offer?.toString(),
+      });
+    }
+  }
+
+  // Méthode pour annuler la notification d'appel
+  Future<void> cancelIncomingCallNotification() async {
+    if (Platform.isAndroid) {
+      const platform = MethodChannel('com.example.talky/call_notification');
+      await platform.invokeMethod('cancelNotification');
+    }
   }
 }
