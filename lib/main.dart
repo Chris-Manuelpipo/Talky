@@ -16,7 +16,7 @@ import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
 import 'core/services/notification_service.dart';
 import 'features/settings/data/settings_providers.dart';
-import 'features/calls/data/call_providers.dart'; 
+import 'features/calls/data/call_providers.dart';
 import 'features/calls/presentation/incoming_call_screen.dart';
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
@@ -29,32 +29,25 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize date formatting for French locale
   await initializeDateFormatting('fr_FR', null);
 
-  // Initialiser Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Initialiser Hive (cache local)
   await LocalCache.init();
 
-  // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  // Enregistrer le handler background FCM
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await NotificationService.instance.init();
 
-  // Orientation portrait uniquement
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Style de la barre de statut (sera mis à jour selon le thème)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -85,48 +78,104 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
     with WidgetsBindingObserver {
   ProviderSubscription? _authSub;
 
+  // Canal pour recevoir les actions depuis IncomingCallActivity (natif)
+  static const _callActionChannel =
+      MethodChannel('com.example.talky/call_action');
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // ── Auth : démarrer les services quand l'utilisateur se connecte ──
     _authSub = ref.listenManual(authStateProvider, (_, next) {
       final user = next.value;
       if (user != null) {
         ref.read(authServiceProvider).setOnlineStatus(true);
         PresenceService.instance.start(user.uid);
         NotificationService.instance.registerTokenForUser(user.uid);
-        ref.read(callServiceProvider); // ← AJOUTER CETTE LIGNE
+        // Forcer l'init du callService (socket) dès la connexion
+        ref.read(callServiceProvider);
       } else {
         PresenceService.instance.stop();
       }
     });
 
-    // Écouter les appels entrants globalement - PLUS RÉACTIF
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ── Écouter les appels entrants via socket (app en foreground) ──
       ref.listenManual(callProvider, (prev, next) {
-        // Détecter le passage à l'état ringing
         if (next.status == CallStatus.ringing &&
             prev?.status != CallStatus.ringing) {
-          // Vérifier si l'application est au premier plan
-          if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-            // Afficher directement l'écran d'appel
-            _showIncomingCall();
+          if (WidgetsBinding.instance.lifecycleState ==
+              AppLifecycleState.resumed) {
+            _showIncomingCallScreen();
           }
-          // Sinon, la notification full-screen intent s'en charge
+          // Si app en background : IncomingCallActivity (natif) s'en charge
+        }
+      });
+
+      // ── Écouter les actions depuis IncomingCallActivity (natif) ─────
+      // Quand l'utilisateur répond ou refuse depuis l'écran natif (lock screen),
+      // MainActivity envoie l'action ici via MethodChannel.
+      _callActionChannel.setMethodCallHandler((call) async {
+        if (call.method != 'onCallAction') return;
+        final args = Map<String, dynamic>.from(call.arguments as Map);
+        final action = args['action'] as String?;
+
+        switch (action) {
+          case 'answer':
+            _handleAnswerFromNative(args);
+            break;
+          case 'reject':
+            _handleRejectFromNative(args);
+            break;
         }
       });
     });
   }
-  
-  void _showIncomingCall() {
+
+  // ── Répondre depuis l'écran natif ─────────────────────────────────
+  void _handleAnswerFromNative(Map<String, dynamic> args) {
+    final callState = ref.read(callProvider);
+
+    // Si le callProvider a déjà les données (socket arrivé avant le tap) → répondre
+    if (callState.status == CallStatus.ringing &&
+        callState.incomingCall != null) {
+      _showIncomingCallScreen();
+      return;
+    }
+
+    // Sinon : le socket n'a pas encore émis incoming_call.
+    // On affiche IncomingCallScreen dès que le status passe à ringing.
+    // Le listener ci-dessus dans initState s'en chargera automatiquement.
+    // On amène juste l'app au premier plan (déjà fait par MainActivity).
+    debugPrint('[CallAction] answer reçu — en attente du socket incoming_call');
+  }
+
+  // ── Refuser depuis l'écran natif ──────────────────────────────────
+  void _handleRejectFromNative(Map<String, dynamic> args) {
+    final callState = ref.read(callProvider);
+    if (callState.incomingCall != null) {
+      final isGroup = args['isGroup'] as bool? ?? false;
+      if (isGroup) {
+        ref.read(callProvider.notifier).rejectGroupCall();
+      } else {
+        ref.read(callProvider.notifier).rejectCall();
+      }
+    }
+    // Annuler la notification si elle est encore visible
+    NotificationService.instance.cancelIncomingCallNotification();
+  }
+
+  // ── Afficher IncomingCallScreen (foreground) ──────────────────────
+  void _showIncomingCallScreen() {
     final context = rootNavigatorKey.currentContext;
     if (context == null) return;
-    
-    // Vérifier si l'écran d'appel n'est pas déjà affiché
+
+    // Éviter d'empiler plusieurs fois le même écran
     final currentRoute = ModalRoute.of(context)?.settings.name;
     if (currentRoute == AppRoutes.incomingCall) return;
-    
+
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         fullscreenDialog: true,

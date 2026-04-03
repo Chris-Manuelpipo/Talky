@@ -10,7 +10,6 @@ import '../../../core/services/notification_service.dart';
 // serveur signaling
 const _signalingUrl = 'https://talky-signaling.onrender.com';
 
-// Événements émis par le service
 enum CallEvent {
   incomingCall,
   callAnswered,
@@ -41,7 +40,7 @@ class IncomingCallData {
 }
 
 class GroupCallEvent {
-  final String type; // user_joined, user_left, participants
+  final String type;
   final String roomId;
   final String? userId;
   final String? userName;
@@ -77,38 +76,37 @@ class CallService {
   String? _groupRoomId;
   String? _lastError;
 
-  // Streams pour notifier l'UI
-  final _eventCtrl   = StreamController<CallEvent>.broadcast();
-  final _incomingCtrl = StreamController<IncomingCallData>.broadcast();
-  final _localStreamCtrl = StreamController<MediaStream?>.broadcast();
-  final _remoteStreamCtrl = StreamController<MediaStream?>.broadcast();
-  final _groupRemoteStreamsCtrl =
-      StreamController<Map<String, MediaStream>>.broadcast();
-  final _groupEventCtrl = StreamController<GroupCallEvent>.broadcast();
+  // Guard pour éviter d'émettre callConnected plusieurs fois
+  bool _callConnectedEmitted = false;
 
-  Stream<CallEvent>       get events       => _eventCtrl.stream;
-  Stream<IncomingCallData> get incomingCalls => _incomingCtrl.stream;
-  Stream<MediaStream?> get localStreamUpdates => _localStreamCtrl.stream;
-  Stream<MediaStream?> get remoteStreamUpdates => _remoteStreamCtrl.stream;
-  Stream<Map<String, MediaStream>> get groupRemoteStreamsUpdates =>
-      _groupRemoteStreamsCtrl.stream;
-  Stream<GroupCallEvent> get groupEvents => _groupEventCtrl.stream;
+  final _eventCtrl              = StreamController<CallEvent>.broadcast();
+  final _incomingCtrl           = StreamController<IncomingCallData>.broadcast();
+  final _localStreamCtrl        = StreamController<MediaStream?>.broadcast();
+  final _remoteStreamCtrl       = StreamController<MediaStream?>.broadcast();
+  final _groupRemoteStreamsCtrl  = StreamController<Map<String, MediaStream>>.broadcast();
+  final _groupEventCtrl         = StreamController<GroupCallEvent>.broadcast();
 
-  MediaStream? get localStream  => _localStream;
-  MediaStream? get remoteStream => _remoteStream;
-  Map<String, MediaStream> get groupRemoteStreams => _groupRemoteStreams;
-  bool get isGroupCall => _isGroupCall;
-  String? get groupRoomId => _groupRoomId;
-  bool get isConnected => _socket?.connected ?? false;
-  String? get lastError => _lastError;
+  Stream<CallEvent>                    get events                  => _eventCtrl.stream;
+  Stream<IncomingCallData>             get incomingCalls           => _incomingCtrl.stream;
+  Stream<MediaStream?>                 get localStreamUpdates      => _localStreamCtrl.stream;
+  Stream<MediaStream?>                 get remoteStreamUpdates     => _remoteStreamCtrl.stream;
+  Stream<Map<String, MediaStream>>     get groupRemoteStreamsUpdates => _groupRemoteStreamsCtrl.stream;
+  Stream<GroupCallEvent>               get groupEvents             => _groupEventCtrl.stream;
+
+  MediaStream?                     get localStream        => _localStream;
+  MediaStream?                     get remoteStream       => _remoteStream;
+  Map<String, MediaStream>         get groupRemoteStreams  => _groupRemoteStreams;
+  bool                             get isGroupCall         => _isGroupCall;
+  String?                          get groupRoomId         => _groupRoomId;
+  bool                             get isConnected         => _socket?.connected ?? false;
+  String?                          get lastError           => _lastError;
 
   // ── Connexion au serveur de signaling ─────────────────────────────
   void connect(String userId) {
     _myUserId = userId;
 
-    // Si socket existe mais déconnecté → nettoyer et reconnecter
     if (_socket != null) {
-      if (_socket!.connected) return; // déjà connecté ✅
+      if (_socket!.connected) return;
       _socket!.dispose();
       _socket = null;
     }
@@ -116,27 +114,23 @@ class CallService {
     _socket = io.io(_signalingUrl, io.OptionBuilder()
         .setTransports(['websocket'])
         .disableAutoConnect()
-        .enableReconnection()         // ← reconnexion auto
-        .setReconnectionAttempts(10) // ← Augmenté à 10 tentatives
-        .setReconnectionDelay(2000)  // ← attendre 2s entre chaque
-        .setReconnectionDelayMax(10000) // ← max 10s entre tentatives
+        .enableReconnection()
+        .setReconnectionAttempts(10)
+        .setReconnectionDelay(2000)
+        .setReconnectionDelayMax(10000)
         .build());
 
     _socket!.connect();
 
     _socket!.onConnect((_) {
       debugPrint('[Socket] Connecté ✅');
-      if (_myUserId != null) {
-        _socket!.emit('register', _myUserId);
-      }
+      _socket!.emit('register', _myUserId);
     });
 
     _socket!.onReconnect((_) {
       debugPrint('[Socket] Reconnecté ✅');
-      if (_myUserId != null) {
-        _socket!.emit('register', _myUserId);
-      }
-    }); 
+      _socket!.emit('register', _myUserId);
+    });
 
     _socket!.onReconnectAttempt((attempt) {
       debugPrint('[Socket] Tentative de reconnexion $attempt...');
@@ -155,7 +149,7 @@ class CallService {
 
     _socket!.onDisconnect((_) => debugPrint('[Socket] Déconnecté'));
 
-    // ── Écouter les événements ─────────────────────────────────────
+    // ── Événements socket ─────────────────────────────────────────
     _socket!.on('incoming_call', (data) async {
       debugPrint('[Socket] incoming_call received: $data');
       final incoming = IncomingCallData(
@@ -169,15 +163,14 @@ class CallService {
       _isVideo      = incoming.isVideo;
       _incomingCtrl.add(incoming);
       _eventCtrl.add(CallEvent.incomingCall);
-      
-      // NOUVEAU: Déclencher la notification full-screen si l'app n'est pas au premier plan
+
+      // App en background → déclencher l'écran natif
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         NotificationService.instance.showIncomingCallFullScreen(
-          callerId: incoming.callerId,
+          callerId:   incoming.callerId,
           callerName: incoming.callerName,
-          isVideo: incoming.isVideo,
-          isGroup: false,
-          offer: incoming.offer,
+          isVideo:    incoming.isVideo,
+          isGroup:    false,
         );
       }
     });
@@ -185,7 +178,7 @@ class CallService {
     _socket!.on('call_answered', (data) async {
       debugPrint('[Socket] Call answered received: $data');
       final answer = RTCSessionDescription(
-        data['answer']['sdp'], data['answer']['type']);
+          data['answer']['sdp'], data['answer']['type']);
       await _peerConnection?.setRemoteDescription(answer);
       _eventCtrl.add(CallEvent.callAnswered);
     });
@@ -196,7 +189,7 @@ class CallService {
     });
 
     _socket!.on('ice_candidate', (data) async {
-      debugPrint('[Socket] ICE candidate received: $data');
+      debugPrint('[Socket] ICE candidate received');
       if (data != null && data['candidate'] != null) {
         final candidate = RTCIceCandidate(
           data['candidate']['candidate'] as String,
@@ -204,7 +197,6 @@ class CallService {
           data['candidate']['sdpMLineIndex'] as int,
         );
         await _peerConnection?.addCandidate(candidate);
-        debugPrint('[Socket] ICE candidate added to peer connection');
       }
     });
 
@@ -219,7 +211,7 @@ class CallService {
       _eventCtrl.add(CallEvent.callFailed);
     });
 
-    // ── Group calls events ───────────────────────────────────────────
+    // ── Group calls ──────────────────────────────────────────────
     _socket!.on('group_call_invite', (data) {
       debugPrint('[Socket] group_call_invite received: $data');
       final incoming = IncomingCallData(
@@ -235,15 +227,14 @@ class CallService {
       _isGroupCall = true;
       _incomingCtrl.add(incoming);
       _eventCtrl.add(CallEvent.incomingCall);
-      
-      // NOUVEAU: Déclencher la notification full-screen si l'app n'est pas au premier plan
+
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         NotificationService.instance.showIncomingCallFullScreen(
-          callerId: incoming.callerId,
+          callerId:   incoming.callerId,
           callerName: incoming.callerName,
-          isVideo: incoming.isVideo,
-          isGroup: true,
-          roomId: incoming.roomId,
+          isVideo:    incoming.isVideo,
+          isGroup:    true,
+          roomId:     incoming.roomId,
         );
       }
     });
@@ -253,109 +244,83 @@ class CallService {
       final roomId = data['roomId'];
       final userId = data['userId'];
       if (roomId == _groupRoomId && userId != null) {
-        // Créer une offre vers le nouvel utilisateur
         _getOrCreateGroupPeer(userId).then((pc) async {
           final offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           _socket?.emit('group_offer', {
-            'roomId': roomId,
+            'roomId':     roomId,
             'fromUserId': _myUserId,
-            'toUserId': userId,
-            'offer': {
-              'sdp': offer.sdp,
-              'type': offer.type,
-            },
+            'toUserId':   userId,
+            'offer':      {'sdp': offer.sdp, 'type': offer.type},
           });
         });
       }
       _groupEventCtrl.add(GroupCallEvent(
-        type: 'user_joined',
-        roomId: roomId,
-        userId: userId,
-        userName: data['userName'],
+        type:      'user_joined',
+        roomId:    roomId,
+        userId:    userId,
+        userName:  data['userName'],
         userPhoto: data['userPhoto'],
       ));
     });
 
     _socket!.on('group_participants', (data) {
-      debugPrint('[Socket] group_participants: $data');
       _groupEventCtrl.add(GroupCallEvent(
-        type: 'participants',
-        roomId: data['roomId'],
-        participants:
-            (data['participants'] as List?)?.map((e) => e.toString()).toList(),
+        type:         'participants',
+        roomId:       data['roomId'],
+        participants: (data['participants'] as List?)?.map((e) => e.toString()).toList(),
       ));
     });
 
     _socket!.on('group_offer', (data) async {
-      debugPrint('[Socket] group_offer received: $data');
-      final roomId = data['roomId'];
       final fromUserId = data['fromUserId'];
-      final offer = data['offer'];
+      final offer      = data['offer'];
       if (offer == null || fromUserId == null) return;
-
       final pc = await _getOrCreateGroupPeer(fromUserId);
-      final remoteDesc = RTCSessionDescription(
-        offer['sdp'],
-        offer['type'],
-      );
-      await pc.setRemoteDescription(remoteDesc);
-
+      await pc.setRemoteDescription(RTCSessionDescription(offer['sdp'], offer['type']));
       final answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-
       _socket!.emit('group_answer', {
-        'roomId': roomId,
+        'roomId':     data['roomId'],
         'fromUserId': _myUserId,
-        'toUserId': fromUserId,
-        'answer': {
-          'sdp': answer.sdp,
-          'type': answer.type,
-        },
+        'toUserId':   fromUserId,
+        'answer':     {'sdp': answer.sdp, 'type': answer.type},
       });
     });
 
     _socket!.on('group_answer', (data) async {
-      debugPrint('[Socket] group_answer received: $data');
       final fromUserId = data['fromUserId'];
-      final answer = data['answer'];
+      final answer     = data['answer'];
       if (fromUserId == null || answer == null) return;
       final pc = _groupPeerConnections[fromUserId];
       if (pc == null) return;
-      final remoteDesc = RTCSessionDescription(
-        answer['sdp'],
-        answer['type'],
-      );
-      await pc.setRemoteDescription(remoteDesc);
+      await pc.setRemoteDescription(RTCSessionDescription(answer['sdp'], answer['type']));
     });
 
     _socket!.on('group_ice_candidate', (data) async {
       final fromUserId = data['fromUserId'];
-      final cand = data['candidate'];
+      final cand       = data['candidate'];
       if (fromUserId == null || cand == null) return;
       final pc = _groupPeerConnections[fromUserId];
       if (pc == null) return;
-      final candidate = RTCIceCandidate(
+      await pc.addCandidate(RTCIceCandidate(
         cand['candidate'] as String,
         cand['sdpMid'] as String?,
         cand['sdpMLineIndex'] as int,
-      );
-      await pc.addCandidate(candidate);
+      ));
     });
 
     _socket!.on('group_call_ended', (data) {
-      debugPrint('[Socket] group_call_ended: $data');
       _cleanupGroup();
       _eventCtrl.add(CallEvent.callEnded);
     });
 
     _socket!.on('group_user_left', (data) {
-      debugPrint('[Socket] group_user_left: $data');
       final userId = data['userId'];
       if (userId == null) return;
       _removeGroupPeer(userId);
       _groupEventCtrl.add(GroupCallEvent(
-        type: 'user_left',
+        type:   'user_left',
         roomId: data['roomId'],
         userId: userId,
       ));
@@ -372,7 +337,6 @@ class CallService {
     _remoteUserId = targetUserId;
     _isVideo      = isVideo;
 
-    // Vérifier si le socket est connecté
     if (_socket == null || !_socket!.connected) {
       _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
       _eventCtrl.add(CallEvent.callFailed);
@@ -381,8 +345,6 @@ class CallService {
 
     await _setupPeerConnection();
     await _getLocalStream(isVideo: isVideo);
-    
-    // Activer le haut-parleur pour les appels
     await setSpeaker(true);
 
     final offer = await _peerConnection!.createOffer();
@@ -394,23 +356,16 @@ class CallService {
       'callerName':   callerName,
       'callerPhoto':  callerPhoto,
       'isVideo':      isVideo,
-      'offer': {
-        'sdp':  offer.sdp,
-        'type': offer.type,
-      },
+      'offer':        {'sdp': offer.sdp, 'type': offer.type},
     });
-    debugPrint('[Socket] call_user emitted to $targetUserId');
 
     if (_myUserId != null) {
       await FcmSender.sendCallNotification(
-        toUserId: targetUserId,
+        toUserId:   targetUserId,
         callerName: callerName,
-        isVideo: isVideo,
-        callerId: _myUserId!,
-        offer: {
-          'sdp': offer.sdp,
-          'type': offer.type,
-        },
+        isVideo:    isVideo,
+        callerId:   _myUserId!,
+        offer:      {'sdp': offer.sdp, 'type': offer.type},
       );
     }
   }
@@ -423,9 +378,9 @@ class CallService {
     required bool isVideo,
     required List<String> targetUserIds,
   }) async {
-    _isGroupCall = true;
-    _groupRoomId = roomId;
-    _isVideo = isVideo;
+    _isGroupCall  = true;
+    _groupRoomId  = roomId;
+    _isVideo      = isVideo;
     _remoteUserId = null;
 
     if (_socket == null || !_socket!.connected) {
@@ -438,23 +393,22 @@ class CallService {
     await setSpeaker(true);
 
     _socket!.emit('create_group_call', {
-      'roomId': roomId,
-      'callerId': _myUserId,
-      'callerName': callerName,
-      'callerPhoto': callerPhoto,
-      'isVideo': isVideo,
+      'roomId':        roomId,
+      'callerId':      _myUserId,
+      'callerName':    callerName,
+      'callerPhoto':   callerPhoto,
+      'isVideo':       isVideo,
       'targetUserIds': targetUserIds,
     });
 
-    // Best-effort push notifications
     if (_myUserId != null) {
       for (final uid in targetUserIds) {
         await FcmSender.sendGroupCallNotification(
-          toUserId: uid,
+          toUserId:   uid,
           callerName: callerName,
-          isVideo: isVideo,
-          callerId: _myUserId!,
-          roomId: roomId,
+          isVideo:    isVideo,
+          callerId:   _myUserId!,
+          roomId:     roomId,
         );
       }
     }
@@ -468,9 +422,9 @@ class CallService {
     String? userPhoto,
     required bool isVideo,
   }) async {
-    _isGroupCall = true;
-    _groupRoomId = roomId;
-    _isVideo = isVideo;
+    _isGroupCall  = true;
+    _groupRoomId  = roomId;
+    _isVideo      = isVideo;
     _remoteUserId = null;
 
     if (_socket == null || !_socket!.connected) {
@@ -483,9 +437,9 @@ class CallService {
     await setSpeaker(true);
 
     _socket!.emit('join_group_call', {
-      'roomId': roomId,
-      'userId': userId,
-      'userName': userName,
+      'roomId':    roomId,
+      'userId':    userId,
+      'userName':  userName,
       'userPhoto': userPhoto,
     });
   }
@@ -501,7 +455,6 @@ class CallService {
 
   // ── Accepter un appel ──────────────────────────────────────────────
   Future<void> answerCall(IncomingCallData incoming) async {
-    // Vérifier si le socket est connecté
     if (_socket == null || !_socket!.connected) {
       _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
       _eventCtrl.add(CallEvent.callFailed);
@@ -510,12 +463,9 @@ class CallService {
 
     await _setupPeerConnection();
     await _getLocalStream(isVideo: incoming.isVideo);
-
-    // Activer le haut-parleur pour les appels
     await setSpeaker(true);
 
-    final offer = RTCSessionDescription(
-        incoming.offer['sdp'], incoming.offer['type']);
+    final offer = RTCSessionDescription(incoming.offer['sdp'], incoming.offer['type']);
     await _peerConnection!.setRemoteDescription(offer);
 
     final answer = await _peerConnection!.createAnswer();
@@ -523,18 +473,19 @@ class CallService {
 
     _socket!.emit('answer_call', {
       'callerId': incoming.callerId,
-      'answer': {
-        'sdp':  answer.sdp,
-        'type': answer.type,
-      },
+      'answer':   {'sdp': answer.sdp, 'type': answer.type},
     });
-    debugPrint('[Socket] answer_call emitted to ${incoming.callerId}');
+
+    // Annuler la notification d'appel entrant côté Android
+    await NotificationService.instance.cancelIncomingCallNotification();
   }
 
   // ── Refuser un appel ──────────────────────────────────────────────
   void rejectCall(String callerId) {
-    _socket!.emit('reject_call', {'callerId': callerId});
+    _socket?.emit('reject_call', {'callerId': callerId});
     _cleanup();
+    // Annuler la notification
+    NotificationService.instance.cancelIncomingCallNotification();
   }
 
   // ── Terminer l'appel ──────────────────────────────────────────────
@@ -546,46 +497,33 @@ class CallService {
       _cleanupGroup();
     } else {
       if (_remoteUserId != null) {
-        _socket!.emit('end_call', {'targetUserId': _remoteUserId});
+        _socket?.emit('end_call', {'targetUserId': _remoteUserId});
       }
       _cleanup();
     }
     _eventCtrl.add(CallEvent.callEnded);
+    // Annuler la notification si encore visible
+    NotificationService.instance.cancelIncomingCallNotification();
   }
 
-  // ── Toggle micro ──────────────────────────────────────────────────
+  // ── Toggle micro / caméra / speaker ──────────────────────────────
   void toggleMute() {
-    _localStream?.getAudioTracks().forEach((track) {
-      track.enabled = !track.enabled;
-    });
+    _localStream?.getAudioTracks().forEach((t) => t.enabled = !t.enabled);
   }
 
   bool get isMuted =>
       _localStream?.getAudioTracks().firstOrNull?.enabled == false;
 
-  // ── Toggle caméra ────────────────────────────────────────────────
   void toggleCamera() {
-    _localStream?.getVideoTracks().forEach((track) {
-      track.enabled = !track.enabled;
-    });
+    _localStream?.getVideoTracks().forEach((t) => t.enabled = !t.enabled);
   }
 
-  // ── Activer/désactiver le haut-parleur ─────────────────────────────
   Future<void> setSpeaker(bool enabled) async {
-    // Note: Le haut-parleur est géré automatiquement par flutter_webrtc
-    // Cette méthode n'est plus nécessaire avec les nouvelles versions
-    // mais conservée pour compatibilité
     try {
-      // Essayer différentes méthodes selon la version du plugin
       await WebRTC.invokeMethod('setSpeakerphoneOn', {'enabled': enabled});
-      debugPrint('[Audio] Speakerphone set to: $enabled');
-    } catch (e) {
-      // Ignorer l'erreur - le speaker fonctionne par défaut sur Android
-      debugPrint('[Audio] Speaker mode: using default (earpiece)');
-    }
+    } catch (_) {}
   }
 
-  // ── Retourner la caméra ───────────────────────────────────────────
   Future<void> switchCamera() async {
     final tracks = _localStream?.getVideoTracks();
     if (tracks != null && tracks.isNotEmpty) {
@@ -595,32 +533,16 @@ class CallService {
 
   // ── Setup PeerConnection ──────────────────────────────────────────
   Future<void> _setupPeerConnection() async {
-    // final config = {
-    //   'iceServers': [
-    //     // Serveurs STUN publics de Google
-    //     {'urls': 'stun:stun.l.google.com:19302'},
-    //     {'urls': 'stun:stun1.l.google.com:19302'},
-    //     {'urls': 'stun:stun2.l.google.com:19302'},
-    //     {'urls': 'stun:stun3.l.google.com:19302'},
-    //     {'urls': 'stun:stun4.l.google.com:19302'},
-    //     // Serveurs STUN supplémentaires
-    //     {'urls': 'stun:stun.freecall.com:3478'},
-    //     {'urls': 'stun:stun.qq.com:3478'},
-    //   ],
-    //   'iceCandidatePoolSize': 10,
-    // };
+    _callConnectedEmitted = false;
 
     final Map<String, dynamic> config = {
       'iceServers': [
-        // STUN servers
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun1.l.google.com:19302'},
         {'urls': 'stun:stun2.l.google.com:19302'},
         {'urls': 'stun:stun3.l.google.com:19302'},
         {'urls': 'stun:stun4.l.google.com:19302'},
         {'urls': 'stun:stun.relay.metered.ca:80'},
-        
-        // TURN server Metered (credentials utilisateur)
         {
           'urls': [
             'turn:global.relay.metered.ca:80',
@@ -628,16 +550,15 @@ class CallService {
             'turn:global.relay.metered.ca:443',
             'turns:global.relay.metered.ca:443?transport=tcp',
           ],
-          'username': '4ccd30e6211751522c93c044',
+          'username':   '4ccd30e6211751522c93c044',
           'credential': 'iB+/hPI3lLayZAKn',
         },
-        // TURN server ExpressTurn (free)
         {
           'urls': [
             'turn:free.expressturn.com:3478',
             'turn:free.expressturn.com:3478?transport=tcp',
           ],
-          'username': '000000002089277421',
+          'username':   '000000002089277421',
           'credential': 'MZNCzpa/GM4ZvRcYONi4+9qgZRU=',
         },
       ],
@@ -647,8 +568,7 @@ class CallService {
     _peerConnection = await createPeerConnection(config);
 
     _peerConnection!.onIceCandidate = (candidate) {
-      debugPrint('[WebRTC] Sending ICE candidate: ${candidate.candidate}');
-      _socket!.emit('ice_candidate', {
+      _socket?.emit('ice_candidate', {
         'targetUserId': _remoteUserId,
         'candidate': {
           'candidate':     candidate.candidate,
@@ -656,62 +576,48 @@ class CallService {
           'sdpMLineIndex': candidate.sdpMLineIndex,
         },
       });
-      debugPrint('[WebRTC] ICE candidate sent to $_remoteUserId');
     };
 
+    // onTrack : mettre à jour le stream distant uniquement
     _peerConnection!.onTrack = (event) async {
-      debugPrint('[WebRTC] onTrack received, tracks: ${event.track.kind}');
-      // Notifier que l'appel est connecté quand on reçoit un track distant
-      _eventCtrl.add(CallEvent.callConnected);
-      
-      // Utiliser le stream de l'événement si disponible
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
-        debugPrint('[WebRTC] Using stream from event: ${event.streams[0].id}');
       } else {
-        // Créer un nouveau stream local si nécessaire
-        debugPrint('[WebRTC] Creating new remote stream');
-        _remoteStream = await createLocalMediaStream('remote-${_remoteUserId ?? 'unknown'}');
+        _remoteStream = await createLocalMediaStream(
+            'remote-${_remoteUserId ?? 'unknown'}');
         _remoteStream!.addTrack(event.track);
       }
       _remoteStreamCtrl.add(_remoteStream);
     };
 
+    // onConnectionState : log uniquement, pas d'événement callConnected ici
     _peerConnection!.onConnectionState = (state) {
       debugPrint('[WebRTC] Connection state: $state');
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-        _eventCtrl.add(CallEvent.callConnected);
-      }
-      // Gérer les autres états de connexion
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         debugPrint('[WebRTC] Connection lost or failed');
       }
     };
 
-    // Gestion de l'état ICE pour détecter la connexion
+    // onIceConnectionState : source unique de vérité pour callConnected
     _peerConnection!.onIceConnectionState = (state) {
       debugPrint('[ICE] Connection state: $state');
-      // Considérer la connexion établie quand ICE est connecté ou completed
-      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
-          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
-        debugPrint('[ICE] Connection established!');
+      if ((state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+              state == RTCIceConnectionState.RTCIceConnectionStateCompleted) &&
+          !_callConnectedEmitted) {
+        _callConnectedEmitted = true;
         _eventCtrl.add(CallEvent.callConnected);
       }
-      // Gérer les états d'erreur
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
           state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
         debugPrint('[ICE] Connection failed or disconnected');
       }
     };
 
-    _peerConnection!.onSignalingState = (state) {
-      debugPrint('[Signaling] State: $state');
-    };
-
-    _peerConnection!.onIceGatheringState = (state) {
-      debugPrint('[ICE] Gathering state: $state');
-    };
+    _peerConnection!.onSignalingState =
+        (state) => debugPrint('[Signaling] State: $state');
+    _peerConnection!.onIceGatheringState =
+        (state) => debugPrint('[ICE] Gathering state: $state');
   }
 
   Future<RTCPeerConnection> _getOrCreateGroupPeer(String userId) async {
@@ -722,9 +628,6 @@ class CallService {
       'iceServers': [
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun1.l.google.com:19302'},
-        {'urls': 'stun:stun2.l.google.com:19302'},
-        {'urls': 'stun:stun3.l.google.com:19302'},
-        {'urls': 'stun:stun4.l.google.com:19302'},
         {'urls': 'stun:stun.relay.metered.ca:80'},
         {
           'urls': [
@@ -733,16 +636,8 @@ class CallService {
             'turn:global.relay.metered.ca:443',
             'turns:global.relay.metered.ca:443?transport=tcp',
           ],
-          'username': '4ccd30e6211751522c93c044',
+          'username':   '4ccd30e6211751522c93c044',
           'credential': 'iB+/hPI3lLayZAKn',
-        },
-        {
-          'urls': [
-            'turn:free.expressturn.com:3478',
-            'turn:free.expressturn.com:3478?transport=tcp',
-          ],
-          'username': '000000002089277421',
-          'credential': 'MZNCzpa/GM4ZvRcYONi4+9qgZRU=',
         },
       ],
       'iceCandidatePoolSize': 10,
@@ -751,7 +646,6 @@ class CallService {
     final pc = await createPeerConnection(config);
     _groupPeerConnections[userId] = pc;
 
-    // Ajouter les tracks locaux au peer
     if (_localStream != null) {
       _localStream!.getTracks().forEach((track) {
         pc.addTrack(track, _localStream!);
@@ -761,12 +655,12 @@ class CallService {
     pc.onIceCandidate = (candidate) {
       if (_groupRoomId == null) return;
       _socket?.emit('group_ice_candidate', {
-        'roomId': _groupRoomId,
+        'roomId':     _groupRoomId,
         'fromUserId': _myUserId,
-        'toUserId': userId,
+        'toUserId':   userId,
         'candidate': {
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
+          'candidate':     candidate.candidate,
+          'sdpMid':        candidate.sdpMid,
           'sdpMLineIndex': candidate.sdpMLineIndex,
         },
       });
@@ -780,8 +674,12 @@ class CallService {
         stream.addTrack(event.track);
         _groupRemoteStreams[userId] = stream;
       }
-      _groupRemoteStreamsCtrl.add(Map<String, MediaStream>.from(_groupRemoteStreams));
-      _eventCtrl.add(CallEvent.callConnected);
+      _groupRemoteStreamsCtrl
+          .add(Map<String, MediaStream>.from(_groupRemoteStreams));
+      if (!_callConnectedEmitted) {
+        _callConnectedEmitted = true;
+        _eventCtrl.add(CallEvent.callConnected);
+      }
     };
 
     pc.onConnectionState = (state) {
@@ -799,38 +697,36 @@ class CallService {
     _groupPeerConnections.remove(userId);
     _groupRemoteStreams[userId]?.dispose();
     _groupRemoteStreams.remove(userId);
-    _groupRemoteStreamsCtrl.add(Map<String, MediaStream>.from(_groupRemoteStreams));
+    _groupRemoteStreamsCtrl
+        .add(Map<String, MediaStream>.from(_groupRemoteStreams));
   }
 
   void _cleanupGroup() {
-    // Désactiver le haut-parleur
     setSpeaker(false);
-
     _localStream?.dispose();
     _localStream = null;
     _localStreamCtrl.add(null);
-
     _groupPeerConnections.keys.toList().forEach(_removeGroupPeer);
     _groupPeerConnections.clear();
     _groupRemoteStreams.clear();
     _groupRemoteStreamsCtrl.add(<String, MediaStream>{});
-    _groupRoomId = null;
-    _isGroupCall = false;
+    _groupRoomId          = null;
+    _isGroupCall          = false;
+    _callConnectedEmitted = false;
+    // Annuler la notification d'appel entrant
+    NotificationService.instance.cancelIncomingCallNotification();
   }
 
-  // ── Obtenir le flux local (micro + caméra) ────────────────────────
   Future<void> _getLocalStream({required bool isVideo}) async {
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': {
         'echoCancellation': true,
         'noiseSuppression': true,
-        'autoGainControl': true,
+        'autoGainControl':  true,
       },
-      'video': isVideo ? {
-        'facingMode': 'user',
-        'width':  {'ideal': 1280},
-        'height': {'ideal': 720},
-      } : false,
+      'video': isVideo
+          ? {'facingMode': 'user', 'width': {'ideal': 1280}, 'height': {'ideal': 720}}
+          : false,
     });
 
     if (_peerConnection != null) {
@@ -843,18 +739,19 @@ class CallService {
 
   // ── Nettoyage ─────────────────────────────────────────────────────
   void _cleanup() {
-    // Désactiver le haut-parleur
     setSpeaker(false);
-    
     _localStream?.dispose();
     _localStream = null;
     _remoteStream?.dispose();
     _remoteStream = null;
     _peerConnection?.close();
-    _peerConnection = null;
-    _remoteUserId = null;
+    _peerConnection       = null;
+    _remoteUserId         = null;
+    _callConnectedEmitted = false;
     _localStreamCtrl.add(null);
     _remoteStreamCtrl.add(null);
+    // Annuler la notification d'appel entrant
+    NotificationService.instance.cancelIncomingCallNotification();
   }
 
   void disconnect() {

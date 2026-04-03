@@ -9,7 +9,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../router/app_router.dart';
-import '../../features/calls/presentation/incoming_call_screen.dart';
 
 class NotificationService {
   NotificationService._();
@@ -18,11 +17,6 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
-  
-  // Stocker les données d'appel entrant pour les utiliser après navigation
-  static Map<String, dynamic>? _pendingIncomingCall;
-  
-  static Map<String, dynamic>? get pendingIncomingCall => _pendingIncomingCall;
 
   static const _messageChannel = AndroidNotificationChannel(
     'messages',
@@ -34,10 +28,11 @@ class NotificationService {
   static const _callChannel = AndroidNotificationChannel(
     'calls',
     'Appels',
-    description: 'Notifications d’appels entrants',
+    description: 'Notifications d\'appels entrants',
     importance: Importance.max,
   );
 
+  // ── Init ──────────────────────────────────────────────────────────
   Future<void> init() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
@@ -66,66 +61,66 @@ class NotificationService {
       sound: true,
     );
 
-    FirebaseMessaging.onMessage.listen(showNotificationFromMessage);
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageNavigation);
-    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      // Updated when user is known via registerTokenForUser.
-      _lastToken = token;
-    });
+    // Foreground FCM
+    FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
+    // App en background → tap sur notification
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNavigation);
+
+    // Refresh token
+    FirebaseMessaging.instance.onTokenRefresh.listen((_) {});
+
+    // App fermée → tap sur notification
     final initial = await messaging.getInitialMessage();
-    if (initial != null) _handleMessageNavigation(initial);
+    if (initial != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleNavigation(initial);
+      });
+    }
   }
 
-  String? _lastToken;
-
+  // ── Token FCM ─────────────────────────────────────────────────────
   Future<void> registerTokenForUser(String uid) async {
-    final messaging = FirebaseMessaging.instance;
-    final token = await messaging.getToken();
-    _lastToken = token;
+    final token = await FirebaseMessaging.instance.getToken();
     if (token == null || token.isEmpty) return;
-
     await FirebaseFirestore.instance.collection('users').doc(uid).update({
       'fcmToken': token,
     });
   }
 
+  // ── Message en foreground ─────────────────────────────────────────
+  void _onForegroundMessage(RemoteMessage message) {
+    final type = message.data['type'] as String? ?? 'message';
+
+    if (type == 'call' || type == 'group_call') {
+      // Le socket émet incoming_call → listener dans main.dart gère l'affichage
+      debugPrint('[Notification] Appel en foreground — géré par socket');
+      return;
+    }
+
+    // Message normal en foreground → afficher une notif locale
+    showNotificationFromMessage(message, forceLocal: true);
+  }
+
+  // ── Afficher une notification locale ─────────────────────────────
   Future<void> showNotificationFromMessage(
     RemoteMessage message, {
     bool forceLocal = false,
   }) async {
-    // Si l'application est au premier plan, ne pas afficher de notification
-    // L'écran d'appel sera affiché directement par le listener dans main.dart
-    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-      debugPrint('[Notification] App au premier plan, pas de notification affichée');
-      return;
-    }
-    
-    // If the message already includes a notification payload, the OS will
-    // display it in background. Avoid duplicating it with a local notification.
-    if (!forceLocal && message.notification != null) {
-      return;
-    }
-    if (!_initialized) {
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const iosInit = DarwinInitializationSettings();
-      const initSettings =
-          InitializationSettings(android: androidInit, iOS: iosInit);
-      await _local.initialize(initSettings);
-      _initialized = true;
-    }
-    if (Platform.isAndroid) {
-      final android = _local.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      await android?.createNotificationChannel(_messageChannel);
-      await android?.createNotificationChannel(_callChannel);
-    }
+    // En background, si le système affiche déjà la notification, ne pas dupliquer
+    if (!forceLocal && message.notification != null) return;
+
+    if (!_initialized) await _ensureInitialized();
 
     final data = message.data;
     final type = data['type'] as String? ?? 'message';
-    final title = message.notification?.title ?? data['title'] ?? 'Talky';
-    final body = message.notification?.body ?? data['body'] ?? '';
-    final payload = data.isNotEmpty ? data.toString() : null;
+    final title =
+        message.notification?.title ?? data['title'] as String? ?? 'Talky';
+    final body =
+        message.notification?.body ?? data['body'] as String? ?? '';
+
+    // Payload en JSON propre — plus de toString() qui casse le parsing
+    final payload = jsonEncode(data);
 
     if (type == 'call' || type == 'group_call') {
       await _local.show(
@@ -167,137 +162,83 @@ class NotificationService {
     );
   }
 
-  void _handleMessageNavigation(RemoteMessage message) {
-    final data = message.data;
-    final type = data['type'] as String?;
-    
-    // Gérer les appels entrants - afficher l'écran d'appel
-    if (type == 'call') {
-      // Ne pas ouvrir l'écran ici — Socket.io va envoyer incoming_call
-      // avec la vraie offre SDP. On se contente de ramener l'app au premier plan.
-      rootNavigatorKey.currentContext?.go(AppRoutes.home);
-      return;
-    }
-
-    if (type == 'group_call') {
-      final callerId = data['callerId'] as String? ?? '';
-      final callerName = data['callerName'] as String? ?? 'Appel de groupe';
-      final roomId = data['roomId'] as String? ?? '';
-      final isVideo = (data['isVideo'] as String?) == 'true' ||
-          data['isVideo'] == true;
-      if (roomId.isNotEmpty) {
-        rootNavigatorKey.currentContext?.push(
-          AppRoutes.incomingCall,
-          extra: {
-            'callerId': callerId,
-            'callerName': callerName,
-            'isVideo': isVideo,
-            'isGroup': true,
-            'roomId': roomId,
-          },
-        );
-        return;
-      }
-      rootNavigatorKey.currentContext?.go(AppRoutes.home);
-      return;
-    }
-    
-    if (type == 'message') {
-      final convId = data['conversationId'] as String?;
-      final name = data['name'] as String? ?? 'Discussion';
-      final photo = data['photo'];
-      if (convId != null && convId.isNotEmpty) {
-        rootNavigatorKey.currentContext?.push(
-          AppRoutes.chat.replaceAll(':conversationId', convId),
-          extra: {'name': name, 'photo': photo},
-        );
-        return;
-      }
-    }
-
-    // Fallback → accueil
-    rootNavigatorKey.currentContext?.go(AppRoutes.home);
+  // ── Navigation depuis FCM (background / app fermée) ───────────────
+  void _handleNavigation(RemoteMessage message) {
+    _navigateFromData(message.data);
   }
 
+  // ── Tap sur notification locale ───────────────────────────────────
   void _handleTap(String? payload) {
     if (payload == null) {
       rootNavigatorKey.currentContext?.go(AppRoutes.home);
       return;
     }
-    
-    // Parser le payload pour extraire les données
-    final data = _parsePayload(payload);
-    final type = data['type'] as String?;
-    
-    if (type == 'call') {
-      // Naviguer vers l'écran d'appel entrant
-      final callerId = data['callerId'] as String? ?? '';
-      final callerName = data['callerName'] as String? ?? 'Appel entrant';
-      final isVideo = (data['isVideo'] as String?) == 'true' || data['isVideo'] == true;
-      final isGroup = (data['isGroup'] as String?) == 'true' || data['isGroup'] == true;
-      final roomId = data['roomId'] as String?;
-      
-      rootNavigatorKey.currentContext?.push(
-        AppRoutes.incomingCall,
-        extra: {
-          'callerId': callerId,
-          'callerName': callerName,
-          'isVideo': isVideo,
-          'isGroup': isGroup,
-          'roomId': roomId,
-        },
-      );
-      return;
-    }
-    
-    if (type == 'group_call') {
-      final callerId = data['callerId'] as String? ?? '';
-      final callerName = data['callerName'] as String? ?? 'Appel de groupe';
-      final roomId = data['roomId'] as String? ?? '';
-      final isVideo = (data['isVideo'] as String?) == 'true' || data['isVideo'] == true;
-      
-      if (roomId.isNotEmpty) {
-        rootNavigatorKey.currentContext?.push(
-          AppRoutes.incomingCall,
-          extra: {
-            'callerId': callerId,
-            'callerName': callerName,
-            'isVideo': isVideo,
-            'isGroup': true,
-            'roomId': roomId,
-          },
-        );
-        return;
-      }
-    }
-    
-    // Fallback → accueil
-    rootNavigatorKey.currentContext?.go(AppRoutes.home);
-  }
-
-  Map<String, dynamic> _parsePayload(String payload) {
     try {
-      // Le payload est une chaîne de caractères représentant une Map
-      // Format: "{key1: value1, key2: value2, ...}"
-      final cleaned = payload.replaceAll('{', '').replaceAll('}', '');
-      final pairs = cleaned.split(', ');
-      final result = <String, dynamic>{};
-      
-      for (final pair in pairs) {
-        final keyValue = pair.split(': ');
-        if (keyValue.length == 2) {
-          result[keyValue[0].trim()] = keyValue[1].trim();
-        }
-      }
-      
-      return result;
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      _navigateFromData(data);
     } catch (e) {
-      debugPrint('Erreur parsing payload: $e');
-      return {};
+      debugPrint('[Notification] Erreur parsing payload: $e');
+      rootNavigatorKey.currentContext?.go(AppRoutes.home);
     }
   }
 
-  // Méthode pour afficher un appel entrant via Full-Screen Intent (Android)
+  // ── Logique de navigation centralisée ─────────────────────────────
+  void _navigateFromData(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+
+    switch (type) {
+      case 'call':
+        // Ramener l'app au premier plan. Le socket va émettre incoming_call
+        // avec l'offre SDP réelle → listener dans main.dart affiche l'écran.
+        // Ne pas naviguer vers IncomingCallScreen ici (race condition socket).
+        GoRouter.of(context).go(AppRoutes.home);
+        break;
+
+      case 'group_call':
+        final callerId = data['callerId'] as String? ?? '';
+        final callerName =
+            data['callerName'] as String? ?? 'Appel de groupe';
+        final roomId = data['roomId'] as String? ?? '';
+        final isVideo =
+            data['isVideo'] == true || data['isVideo'] == 'true';
+        if (roomId.isNotEmpty) {
+          GoRouter.of(context).push(
+            AppRoutes.incomingCall,
+            extra: {
+              'callerId': callerId,
+              'callerName': callerName,
+              'isVideo': isVideo,
+              'isGroup': true,
+              'roomId': roomId,
+            },
+          );
+        } else {
+          GoRouter.of(context).go(AppRoutes.home);
+        }
+        break;
+
+      case 'message':
+        final convId = data['conversationId'] as String?;
+        final name = data['name'] as String? ?? 'Discussion';
+        final photo = data['photo'];
+        if (convId != null && convId.isNotEmpty) {
+          GoRouter.of(context).push(
+            AppRoutes.chat.replaceAll(':conversationId', convId),
+            extra: {'name': name, 'photo': photo},
+          );
+        } else {
+          GoRouter.of(context).go(AppRoutes.home);
+        }
+        break;
+
+      default:
+        GoRouter.of(context).go(AppRoutes.home);
+    }
+  }
+
+  // ── Notification full-screen appel entrant (background/socket) ───
   Future<void> showIncomingCallFullScreen({
     required String callerId,
     required String callerName,
@@ -306,24 +247,45 @@ class NotificationService {
     String? roomId,
     Map<String, dynamic>? offer,
   }) async {
-    if (Platform.isAndroid) {
-      const platform = MethodChannel('com.example.talky/call_notification');
+    if (!Platform.isAndroid) return;
+    const platform = MethodChannel('com.example.talky/call_notification');
+    try {
       await platform.invokeMethod('showIncomingCall', {
         'callerId': callerId,
         'callerName': callerName,
         'isVideo': isVideo,
         'isGroup': isGroup,
-        'roomId': roomId,
-        'offer': offer?.toString(),
+        'roomId': roomId ?? '',
+        // offre SDP volontairement omise — récupérée via socket au réveil
       });
+    } catch (e) {
+      debugPrint('[Notification] showIncomingCall erreur: $e');
     }
   }
 
-  // Méthode pour annuler la notification d'appel
   Future<void> cancelIncomingCallNotification() async {
-    if (Platform.isAndroid) {
-      const platform = MethodChannel('com.example.talky/call_notification');
+    if (!Platform.isAndroid) return;
+    const platform = MethodChannel('com.example.talky/call_notification');
+    try {
       await platform.invokeMethod('cancelNotification');
+    } catch (e) {
+      debugPrint('[Notification] cancelNotification erreur: $e');
     }
+  }
+
+  // ── Helper privé ──────────────────────────────────────────────────
+  Future<void> _ensureInitialized() async {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+    const initSettings =
+        InitializationSettings(android: androidInit, iOS: iosInit);
+    await _local.initialize(initSettings);
+    if (Platform.isAndroid) {
+      final android = _local.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(_messageChannel);
+      await android?.createNotificationChannel(_callChannel);
+    }
+    _initialized = true;
   }
 }
