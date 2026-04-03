@@ -29,6 +29,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   StreamSubscription<MediaStream?>? _remoteStreamSub;
   bool _swapViews = false;
   bool _ringbackStarted = false;
+  bool _timerStarted = false;  // ← Track if timer was already started
 
   @override
   void initState() {
@@ -43,9 +44,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final status = ref.read(callProvider).status;
+      
+      // Lancer le ringback si l'appel est en cours
       if (status == CallStatus.calling && !_ringbackStarted) {
         _ringbackStarted = true;
         RingbackService.instance.play();
+      }
+      
+      // Lancer le timer si l'appel est déjà connecté (race condition protection)
+      if (status == CallStatus.connected && !_timerStarted) {
+        _timerStarted = true;
+        _startDurationTimer();
+        RingbackService.instance.stop();
       }
     });
   }
@@ -142,6 +152,33 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final callState = ref.watch(callProvider);
+    
+    // 🔍 DEBUG: Voir quel status on a
+    debugPrint('[CallScreen] Status: ${callState.status}, timerStarted: $_timerStarted, isConnected: ${callState.status == CallStatus.connected}');
+    
+    // Watch for status changes
+    ref.listen(callProvider, (prev, next) {
+      debugPrint('[CallScreen.listener] Status changed from ${prev?.status} to ${next.status}');
+      // If status just became connected, ensure timer is started
+      if (next.status == CallStatus.connected && prev?.status != CallStatus.connected) {
+        debugPrint('[CallScreen.listener] >>> Status transitioned to CONNECTED');
+      }
+    });
+    
+    // ✅ SAFETY CHECK : Si status est connected ET timer pas lancé, le lancer maintenant
+    if (callState.status == CallStatus.connected && 
+        !_timerStarted && 
+        mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_timerStarted && mounted) {
+          _timerStarted = true;
+          _startDurationTimer();
+          RingbackService.instance.stop();
+          debugPrint('[CallScreen] ✅ Timer lancé depuis build safety check');
+        }
+      });
+    }
+    
     final isVideo = callState.isVideo;
     final mainIsLocal = _swapViews;
     final pipIsLocal = !_swapViews;
@@ -168,19 +205,37 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     // Quand l'appel se termine → fermer l'écran
     ref.listen(callProvider, (prev, next) {
+      // Côté appelant : passé de idle → calling
       if (next.status == CallStatus.calling && mounted && !_ringbackStarted) {
         _stopDurationTimer(reset: true);
         _ringbackStarted = true;
         RingbackService.instance.play();
       }
-      if (next.status == CallStatus.connected && mounted) {
+      
+      // Côté appelé : passe de ringing → connected OU côté appelant answer reçu
+      if (next.status == CallStatus.connected && mounted && !_timerStarted) {
+        _timerStarted = true;
         _startDurationTimer();
         RingbackService.instance.stop();
       }
+      
+      // Appel terminé
       if (next.status == CallStatus.idle && mounted) {
         _stopDurationTimer(reset: true);
+        _timerStarted = false;
+        _ringbackStarted = false;
         RingbackService.instance.stop();
         Navigator.pop(context);
+      }
+      
+      // Transition de ringing → connected (appelé qui accepte) = sécurité supplémentaire
+      if (prev?.status == CallStatus.ringing && 
+          next.status == CallStatus.connected && 
+          mounted && 
+          !_timerStarted) {
+        _timerStarted = true;
+        _startDurationTimer();
+        RingbackService.instance.stop();
       }
     });
 

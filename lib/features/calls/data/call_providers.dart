@@ -1,6 +1,7 @@
 // lib/features/calls/data/call_providers.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'call_service.dart';
 import '../../auth/data/auth_providers.dart';
@@ -114,18 +115,37 @@ class CallNotifier extends StateNotifier<CallState> {
   final Map<String, GroupParticipant> _groupParticipants = {};
 
   CallNotifier(this._service, this._ref) : super(const CallState()) {
+    debugPrint('[CallNotifier] >>> Initializing CallNotifier');
     _listenEvents();
+    debugPrint('[CallNotifier] >>> Event listeners registered');
   }
 
   void _listenEvents() {
+    // SYNC listener first - minimal delay for status updates
+    _service.events.listen((event) {
+      if (event == CallEvent.callConnected) {
+        debugPrint('[CallNotifier] [SYNC] CallConnected detected - updating status immediately');
+        _callStartTime = DateTime.now();
+        state = state.copyWith(status: CallStatus.connected);
+        debugPrint('[CallNotifier] [SYNC] Status updated to CONNECTED - state is now: ${state.status}');
+      }
+    }, onError: (error) {
+      debugPrint('[CallNotifier] [SYNC] Error in listener: $error');
+    });
+
+    // ASYNC listener for non-status events (DB saves, etc)
     _service.events.listen((event) async {
+      debugPrint('[CallNotifier] [ASYNC] Event received: $event');
       switch (event) {
         case CallEvent.callAnswered:
-          state = state.copyWith(status: CallStatus.calling);
+          // C'est juste un détail de signaling - ne pas changer le statut UI
+          // Le status ne change qu'avec callConnected
           break;
         case CallEvent.callConnected:
-          _callStartTime = DateTime.now();
-          state = state.copyWith(status: CallStatus.connected);
+          // Status already updated by SYNC listener above
+          // This async listener only handles DB operations
+          debugPrint('[CallNotifier] [ASYNC] CallConnected received - DB operations only');
+          // Status update is handled by SYNC listener for zero-delay UI responsiveness
           break;
         case CallEvent.callRejected:
           // Sauvegarder l'appel manqué
@@ -148,6 +168,8 @@ class CallNotifier extends StateNotifier<CallState> {
         case CallEvent.incomingCall:
           break;
       }
+    }, onError: (error) {
+      debugPrint('[CallNotifier] [ASYNC] Error in listener: $error');
     });
 
     _service.incomingCalls.listen((incoming) {

@@ -1,5 +1,7 @@
 // lib/core/services/ringback_service.dart
 
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
@@ -19,7 +21,10 @@ class RingbackService {
           'assets/sounds/475550__nucleartape__ring-back-tone.wav');
       await _player.setLoopMode(LoopMode.one);
       await _player.play();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[RingbackService.play()] Erreur: $e');
+      _isRinging = false;  // ← Réinitialiser le flag en cas d'erreur
+    }
   }
 
   // ── Appelé : sonnerie système du téléphone ─────────────────────────
@@ -32,7 +37,10 @@ class RingbackService {
         volume: 1.0,
         asAlarm: false,
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[RingbackService.playRingtone()] Erreur: $e');
+      _isRinging = false;  // ← Réinitialiser le flag en cas d'erreur
+    }
   }
 
   // ── Arrêter tout ───────────────────────────────────────────────────

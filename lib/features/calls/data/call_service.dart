@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/services/fcm_sender.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/services/ringback_service.dart';
 
 // serveur signaling
 const _signalingUrl = 'https://talky-signaling.onrender.com';
@@ -78,6 +79,10 @@ class CallService {
 
   // Guard pour éviter d'émettre callConnected plusieurs fois
   bool _callConnectedEmitted = false;
+  
+  // Buffer pour les ICE candidates reçus avant que RemoteDescription ne soit défini
+  final List<RTCIceCandidate> _pendingIceCandidates = [];
+  bool _remoteDescriptionSet = false;
 
   final _eventCtrl              = StreamController<CallEvent>.broadcast();
   final _incomingCtrl           = StreamController<IncomingCallData>.broadcast();
@@ -180,6 +185,19 @@ class CallService {
       final answer = RTCSessionDescription(
           data['answer']['sdp'], data['answer']['type']);
       await _peerConnection?.setRemoteDescription(answer);
+      _remoteDescriptionSet = true;
+      debugPrint('[Socket] OK Remote description set. Processing ${_pendingIceCandidates.length} pending ICE candidates...');
+      
+      // Ajouter tous les ICE candidates en attente
+      for (final candidate in _pendingIceCandidates) {
+        try {
+          await _peerConnection?.addCandidate(candidate);
+        } catch (e) {
+          debugPrint('[Socket] Error adding pending candidate: $e');
+        }
+      }
+      _pendingIceCandidates.clear();
+      
       _eventCtrl.add(CallEvent.callAnswered);
     });
 
@@ -196,7 +214,19 @@ class CallService {
           data['candidate']['sdpMid'] as String?,
           data['candidate']['sdpMLineIndex'] as int,
         );
-        await _peerConnection?.addCandidate(candidate);
+        
+        // Si remote description n'est pas encore set, buffer le candidate
+        if (!_remoteDescriptionSet) {
+          debugPrint('[Socket] Buffering ICE candidate (remote description not yet set)');
+          _pendingIceCandidates.add(candidate);
+        } else {
+          // Sinon, ajouter directement
+          try {
+            await _peerConnection?.addCandidate(candidate);
+          } catch (e) {
+            debugPrint('[Socket] Error adding ICE candidate: $e');
+          }
+        }
       }
     });
 
@@ -343,6 +373,9 @@ class CallService {
       return;
     }
 
+    // ✅ Arrêter le ringback/ringtone AVANT d'acquérir le stream audio
+    await RingbackService.instance.stop();
+
     await _setupPeerConnection();
     await _getLocalStream(isVideo: isVideo);
     await setSpeaker(true);
@@ -389,6 +422,9 @@ class CallService {
       return;
     }
 
+    // ✅ Arrêter le ringback/ringtone AVANT d'acquérir le stream audio
+    await RingbackService.instance.stop();
+
     await _getLocalStream(isVideo: isVideo);
     await setSpeaker(true);
 
@@ -433,6 +469,9 @@ class CallService {
       return;
     }
 
+    // ✅ Arrêter le ringback/ringtone AVANT d'acquérir le stream audio
+    await RingbackService.instance.stop();
+
     await _getLocalStream(isVideo: isVideo);
     await setSpeaker(true);
 
@@ -461,12 +500,28 @@ class CallService {
       return;
     }
 
+    // ✅ Arrêter le ringback/ringtone AVANT d'acquérir le stream audio
+    await RingbackService.instance.stop();
+
+    _remoteUserId = incoming.callerId;  // ← DÉFINIR la source comme remote
     await _setupPeerConnection();
     await _getLocalStream(isVideo: incoming.isVideo);
     await setSpeaker(true);
 
     final offer = RTCSessionDescription(incoming.offer['sdp'], incoming.offer['type']);
     await _peerConnection!.setRemoteDescription(offer);
+    _remoteDescriptionSet = true;  // ← ACTIVER le flag après setRemoteDescription!
+    debugPrint('[Call] OK Remote description set (answer side). Processing ${_pendingIceCandidates.length} pending candidates...');
+    
+    // Ajouter tous les ICE candidates en attente
+    for (final candidate in _pendingIceCandidates) {
+      try {
+        await _peerConnection?.addCandidate(candidate);
+      } catch (e) {
+        debugPrint('[Call] Error adding pending candidate: $e');
+      }
+    }
+    _pendingIceCandidates.clear();
 
     final answer = await _peerConnection!.createAnswer();
     await _peerConnection!.setLocalDescription(answer);
@@ -534,6 +589,8 @@ class CallService {
   // ── Setup PeerConnection ──────────────────────────────────────────
   Future<void> _setupPeerConnection() async {
     _callConnectedEmitted = false;
+    _remoteDescriptionSet = false;  // Réinitialiser le flag
+    _pendingIceCandidates.clear();  // Nettoyer les candidates en attente
 
     final Map<String, dynamic> config = {
       'iceServers': [
@@ -578,8 +635,10 @@ class CallService {
       });
     };
 
-    // onTrack : mettre à jour le stream distant uniquement
+    // onTrack : mettre à jour le stream distant et émettre callConnected en fallback
     _peerConnection!.onTrack = (event) async {
+      debugPrint('[WebRTC] 🔊 Remote track received: ${event.track.kind}');
+      
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
       } else {
@@ -588,36 +647,86 @@ class CallService {
         _remoteStream!.addTrack(event.track);
       }
       _remoteStreamCtrl.add(_remoteStream);
-    };
-
-    // onConnectionState : log uniquement, pas d'événement callConnected ici
-    _peerConnection!.onConnectionState = (state) {
-      debugPrint('[WebRTC] Connection state: $state');
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
-          state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-        debugPrint('[WebRTC] Connection lost or failed');
+      
+      // Émettre callConnected si pas encore fait (fallback pour 1-to-1)
+      // Cela s'exécute si onConnectionState ou onIceConnectionState ne l'ont pas fait
+      if (!_callConnectedEmitted) {
+        _callConnectedEmitted = true;
+        debugPrint('[WebRTC] ✅ Call connected via onTrack (fallback)');
+        debugPrint('[CallService] >>> About to emit CallEvent.callConnected to listeners');
+        _eventCtrl.add(CallEvent.callConnected);
+        debugPrint('[CallService] >>> CallEvent.callConnected emitted');
       }
     };
 
-    // onIceConnectionState : source unique de vérité pour callConnected
+    // onConnectionState : gérer les changements d'état et les erreurs
+    _peerConnection!.onConnectionState = (state) {
+      debugPrint('[WebRTC] Connection state: $state');
+      
+      // Emitter callConnected si la connexion s'établit (backup du fallback)
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected &&
+          !_callConnectedEmitted) {
+        _callConnectedEmitted = true;
+        debugPrint('[CallService] >>> About to emit CallEvent.callConnected from onConnectionState');
+        _eventCtrl.add(CallEvent.callConnected);
+        debugPrint('[CallService] >>> CallEvent.callConnected emitted from onConnectionState');
+        debugPrint('[WebRTC] Call connected via onConnectionState');
+      }
+      
+      // Gérer les erreurs et fermetures
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+          state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        debugPrint('[WebRTC] ❌ Connection lost or failed: $state');
+        _lastError = 'Connection failed: $state';
+        _eventCtrl.add(CallEvent.callFailed);
+        _cleanup();  // ← Nettoyer proprement en cas d'erreur
+      }
+      
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+        debugPrint('[WebRTC] Connection closed');
+      }
+    };
+
+    // onIceConnectionState : source unique de vérité pour ICE diagnostics
     _peerConnection!.onIceConnectionState = (state) {
       debugPrint('[ICE] Connection state: $state');
+      
+      // Émettre callConnected si ICE est établie
       if ((state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
               state == RTCIceConnectionState.RTCIceConnectionStateCompleted) &&
           !_callConnectedEmitted) {
         _callConnectedEmitted = true;
+        debugPrint('[CallService] >>> About to emit CallEvent.callConnected from onIceConnectionState');
         _eventCtrl.add(CallEvent.callConnected);
+        debugPrint('[CallService] >>> CallEvent.callConnected emitted from onIceConnectionState');
+        debugPrint('[ICE] ✅ Call connected via ICE');
       }
-      if (state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
-          state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-        debugPrint('[ICE] Connection failed or disconnected');
+      
+      // Surveiller les problèmes de connexion ICE
+      if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        debugPrint('[ICE] ❌ ICE connection FAILED - this is likely a STUN/TURN or NAT issue');
+        _lastError = 'ICE connection failed';
+      }
+      
+      if (state == RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+        debugPrint('[ICE] Connection disconnected, attempting to reconnect...');
+      }
+      
+      if (state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+        debugPrint('[ICE] Connection closed');
       }
     };
 
-    _peerConnection!.onSignalingState =
-        (state) => debugPrint('[Signaling] State: $state');
-    _peerConnection!.onIceGatheringState =
-        (state) => debugPrint('[ICE] Gathering state: $state');
+    _peerConnection!.onSignalingState = (state) {
+      debugPrint('[Signaling] State: $state');
+    };
+    
+    _peerConnection!.onIceGatheringState = (state) {
+      debugPrint('[ICE] Gathering state: $state');
+      if (state == RTCIceGatheringState.RTCIceGatheringStateComplete) {
+        debugPrint('[ICE] ✅ ICE gathering completed');
+      }
+    };
   }
 
   Future<RTCPeerConnection> _getOrCreateGroupPeer(String userId) async {
@@ -718,23 +827,42 @@ class CallService {
   }
 
   Future<void> _getLocalStream({required bool isVideo}) async {
-    _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': {
-        'echoCancellation': true,
-        'noiseSuppression': true,
-        'autoGainControl':  true,
-      },
-      'video': isVideo
-          ? {'facingMode': 'user', 'width': {'ideal': 1280}, 'height': {'ideal': 720}}
-          : false,
-    });
-
-    if (_peerConnection != null) {
-      _localStream!.getTracks().forEach((track) {
-        _peerConnection!.addTrack(track, _localStream!);
+    try {
+      debugPrint('[Media] Requesting local media stream (audio + ${isVideo ? 'video' : 'no video'})');
+      
+      _localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl':  true,
+        },
+        'video': isVideo
+            ? {'facingMode': 'user', 'width': {'ideal': 1280}, 'height': {'ideal': 720}}
+            : false,
       });
+
+      debugPrint('[Media] OK Local stream acquired: ${_localStream?.getTracks().length} tracks');
+      
+      // Ajouter les tracks au PeerConnection
+      if (_peerConnection != null) {
+        debugPrint('[Media] Adding ${_localStream?.getTracks().length} tracks to PeerConnection');
+        _localStream!.getTracks().forEach((track) {
+          debugPrint('[Media] Adding track: ${track.kind}');
+          _peerConnection!.addTrack(track, _localStream!);
+        });
+        debugPrint('[Media] OK All tracks added to PeerConnection');
+      } else {
+        debugPrint('[Media] WARNING: _peerConnection is null when adding tracks!');
+        _lastError = 'PeerConnection not initialized when adding tracks';
+      }
+      
+      _localStreamCtrl.add(_localStream);
+    } catch (e) {
+      debugPrint('[Media] ERROR getting local media: $e');
+      _lastError = 'Failed to get local media: $e';
+      _eventCtrl.add(CallEvent.callFailed);
+      rethrow;
     }
-    _localStreamCtrl.add(_localStream);
   }
 
   // ── Nettoyage ─────────────────────────────────────────────────────
@@ -748,6 +876,8 @@ class CallService {
     _peerConnection       = null;
     _remoteUserId         = null;
     _callConnectedEmitted = false;
+    _remoteDescriptionSet = false;  // Réinitialiser le flag
+    _pendingIceCandidates.clear();  // Nettoyer les candidates en attente
     _localStreamCtrl.add(null);
     _remoteStreamCtrl.add(null);
     // Annuler la notification d'appel entrant
