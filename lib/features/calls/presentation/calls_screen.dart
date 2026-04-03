@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../../core/services/ringback_service.dart';
 import '../../chat/data/chat_providers.dart';
 import '../data/call_providers.dart';
 import '../domain/call_history_model.dart';
@@ -72,6 +73,8 @@ class CallsScreen extends ConsumerStatefulWidget {
         targetPhoto: photo,
         isVideo: isVideo,
       );
+
+      RingbackService.instance.play();
 
       if (context.mounted) {
         Navigator.push(context,
