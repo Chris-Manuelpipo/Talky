@@ -19,15 +19,16 @@ class CallScreen extends ConsumerStatefulWidget {
 }
 
 class _CallScreenState extends ConsumerState<CallScreen> {
-  final _localRenderer  = RTCVideoRenderer();
+  final _localRenderer = RTCVideoRenderer();
   final _remoteRenderer = RTCVideoRenderer();
   Timer? _durationTimer;
-  int _durationSeconds  = 0;
-  bool _showControls    = true;
+  int _durationSeconds = 0;
+  bool _showControls = true;
   Timer? _hideTimer;
   StreamSubscription<MediaStream?>? _localStreamSub;
   StreamSubscription<MediaStream?>? _remoteStreamSub;
   bool _swapViews = false;
+  bool _ringbackStarted = false;
 
   @override
   void initState() {
@@ -35,6 +36,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _initRenderers();
     _listenStreamUpdates();
     _scheduleHideControls();
+    _checkInitialCallStatus();
+  }
+
+  void _checkInitialCallStatus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final status = ref.read(callProvider).status;
+      if (status == CallStatus.calling && !_ringbackStarted) {
+        _ringbackStarted = true;
+        RingbackService.instance.play();
+      }
+    });
   }
 
   Future<void> _initRenderers() async {
@@ -51,10 +64,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     // Attendre que les streams soient disponibles
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() {
-        _localRenderer.srcObject  = service.localStream;
-        _remoteRenderer.srcObject = service.remoteStream;
-      });
+      if (mounted)
+        setState(() {
+          _localRenderer.srcObject = service.localStream;
+          _remoteRenderer.srcObject = service.remoteStream;
+        });
     });
   }
 
@@ -128,7 +142,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final callState = ref.watch(callProvider);
-    final isVideo   = callState.isVideo;
+    final isVideo = callState.isVideo;
     final mainIsLocal = _swapViews;
     final pipIsLocal = !_swapViews;
     final mainRenderer = _swapViews ? _localRenderer : _remoteRenderer;
@@ -138,7 +152,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final user = (!callState.isGroup &&
             callState.remoteUserId != null &&
             callState.remoteUserId!.isNotEmpty)
-        ? ref.watch(userProfileStreamProvider(callState.remoteUserId!))
+        ? ref
+            .watch(userProfileStreamProvider(callState.remoteUserId!))
             .asData
             ?.value
         : null;
@@ -153,8 +168,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     // Quand l'appel se termine → fermer l'écran
     ref.listen(callProvider, (prev, next) {
-      if (next.status == CallStatus.calling && mounted) {
+      if (next.status == CallStatus.calling && mounted && !_ringbackStarted) {
         _stopDurationTimer(reset: true);
+        _ringbackStarted = true;
         RingbackService.instance.play();
       }
       if (next.status == CallStatus.connected && mounted) {
@@ -186,7 +202,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     : RTCVideoView(
                         mainRenderer,
                         mirror: mainIsLocal,
-                        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                       ),
               )
             else
@@ -198,7 +215,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             // ── Soft top overlay for readability ────────────────────
             if (isVideo)
               Positioned(
-                top: 0, left: 0, right: 0, height: 180,
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 180,
                 child: IgnorePointer(
                   child: Container(
                     decoration: BoxDecoration(
@@ -218,11 +238,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             // ── Vidéo locale (petit coin) ──────────────────────────
             if (isVideo)
               Positioned(
-                right: 16, top: 72,
+                right: 16,
+                top: 72,
                 child: GestureDetector(
                   onTap: _toggleSwap,
                   child: Container(
-                    width: 110, height: 150,
+                    width: 110,
+                    height: 150,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: Colors.white.withOpacity(0.2)),
@@ -283,17 +305,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(displayName,
-                                style: const TextStyle(
-                                  color: Colors.white, fontSize: 20,
-                                  fontWeight: FontWeight.w700)),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700)),
                               const SizedBox(height: 4),
                               Text(
-                                callState.status == CallStatus.calling
-                                    ? 'Connexion...'
-                                    : _formattedDuration,
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.85),
-                                    fontSize: 13)),
+                                  callState.status == CallStatus.calling
+                                      ? 'Connexion...'
+                                      : _formattedDuration,
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.85),
+                                      fontSize: 13)),
                             ],
                           ),
                         ),
@@ -306,7 +329,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
             // ── Contrôles en bas ───────────────────────────────────
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: AnimatedOpacity(
                 opacity: _showControls || !isVideo ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
@@ -331,11 +356,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           children: [
                             // Micro
                             _CallButton(
-                              icon:      callState.isMuted
+                              icon: callState.isMuted
                                   ? Icons.mic_off_rounded
                                   : Icons.mic_rounded,
-                              label:     callState.isMuted ? 'Micro off' : 'Micro',
-                              color:     callState.isMuted
+                              label: callState.isMuted ? 'Micro off' : 'Micro',
+                              color: callState.isMuted
                                   ? Colors.red.withOpacity(0.85)
                                   : Colors.white.withOpacity(0.18),
                               onPressed: () =>
@@ -344,10 +369,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
                             // Terminer
                             _CallButton(
-                              icon:      Icons.call_end_rounded,
-                              label:     'Terminer',
-                              color:     Colors.red,
-                              size:      64,
+                              icon: Icons.call_end_rounded,
+                              label: 'Terminer',
+                              color: Colors.red,
+                              size: 64,
                               onPressed: () =>
                                   ref.read(callProvider.notifier).endCall(),
                             ),
@@ -355,21 +380,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                             // Caméra (si vidéo) ou haut-parleur (si audio)
                             if (isVideo)
                               _CallButton(
-                                icon:      callState.isCameraOff
+                                icon: callState.isCameraOff
                                     ? Icons.videocam_off_rounded
                                     : Icons.videocam_rounded,
-                                label:     'Caméra',
-                                color:     callState.isCameraOff
+                                label: 'Caméra',
+                                color: callState.isCameraOff
                                     ? Colors.red.withOpacity(0.85)
                                     : Colors.white.withOpacity(0.18),
-                                onPressed: () =>
-                                    ref.read(callProvider.notifier).toggleCamera(),
+                                onPressed: () => ref
+                                    .read(callProvider.notifier)
+                                    .toggleCamera(),
                               )
                             else
                               _CallButton(
-                                icon:      Icons.volume_up_rounded,
-                                label:     'HP',
-                                color:     Colors.white.withOpacity(0.18),
+                                icon: Icons.volume_up_rounded,
+                                label: 'HP',
+                                color: Colors.white.withOpacity(0.18),
                                 onPressed: () {},
                               ),
                           ],
@@ -384,13 +410,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             // ── Bouton retourner caméra ────────────────────────────
             if (isVideo && _showControls)
               Positioned(
-                top: 72, left: 16,
+                top: 72,
+                left: 16,
                 child: SafeArea(
                   child: ClipOval(
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: Container(
-                        width: 44, height: 44,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.35),
                           border: Border.all(
@@ -409,10 +437,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   ),
                 ),
               ),
-              ],
-            ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildGroupCallScreen(BuildContext context, CallState callState) {
@@ -436,7 +464,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   participants: callState.groupParticipants,
                   title: callState.remoteName ?? 'Appel de groupe',
                 ),
-
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -485,9 +512,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   ),
                 ),
               ),
-
               Positioned(
-                bottom: 0, left: 0, right: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
                   child: ClipRRect(
@@ -535,8 +563,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                 color: callState.isCameraOff
                                     ? Colors.red.withOpacity(0.85)
                                     : Colors.white.withOpacity(0.18),
-                                onPressed: () =>
-                                    ref.read(callProvider.notifier).toggleCamera(),
+                                onPressed: () => ref
+                                    .read(callProvider.notifier)
+                                    .toggleCamera(),
                               )
                             else
                               _CallButton(
@@ -708,9 +737,7 @@ class _GroupAudioList extends StatelessWidget {
                           p.photo != null ? NetworkImage(p.photo!) : null,
                       child: p.photo == null
                           ? Text(
-                              p.name.isNotEmpty
-                                  ? p.name[0].toUpperCase()
-                                  : '?',
+                              p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700),
@@ -761,7 +788,8 @@ class _AudioCallBackground extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 120, height: 120,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -771,30 +799,34 @@ class _AudioCallBackground extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.4),
-                    blurRadius: 40, spreadRadius: 10),
+                      color: AppColors.primary.withOpacity(0.4),
+                      blurRadius: 40,
+                      spreadRadius: 10),
                 ],
               ),
               child: callState.remotePhoto != null
-                  ? ClipOval(child: Image.network(
-                      callState.remotePhoto!, fit: BoxFit.cover))
+                  ? ClipOval(
+                      child: Image.network(callState.remotePhoto!,
+                          fit: BoxFit.cover))
                   : Center(
                       child: Text(
-                        (displayName.isNotEmpty ? displayName : '?')[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white, fontSize: 48,
+                      (displayName.isNotEmpty ? displayName : '?')[0]
+                          .toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 48,
                           fontWeight: FontWeight.w700),
-                      )),
+                    )),
             ),
             const SizedBox(height: 24),
             Text(displayName,
-              style: const TextStyle(
-                color: Colors.white, fontSize: 32,
-                fontWeight: FontWeight.w700)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text('Appel audio',
-              style: TextStyle(
-                  color: Colors.white54, fontSize: 16)),
+                style: TextStyle(color: Colors.white54, fontSize: 16)),
           ],
         ),
       ),
@@ -821,8 +853,7 @@ class _VideoWaiting extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_rounded,
-                color: Colors.white54, size: 64),
+            Icon(Icons.videocam_rounded, color: Colors.white54, size: 64),
             const SizedBox(height: 12),
             Text(
               callState.status == CallStatus.calling
@@ -861,17 +892,15 @@ class _CallButton extends StatelessWidget {
         GestureDetector(
           onTap: onPressed,
           child: Container(
-            width: size, height: size,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle, color: color),
-            child: Icon(icon, color: Colors.white,
-                size: size * 0.45),
+            width: size,
+            height: size,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+            child: Icon(icon, color: Colors.white, size: size * 0.45),
           ),
         ),
         const SizedBox(height: 8),
         Text(label,
-          style: const TextStyle(
-              color: Colors.white70, fontSize: 12)),
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
   }

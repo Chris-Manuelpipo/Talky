@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
+import '../../../core/services/ringback_service.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/call_providers.dart';
 import '../data/call_service.dart';
@@ -36,64 +37,71 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
 
 class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     with SingleTickerProviderStateMixin {
-
   late AnimationController _pulseCtrl;
   Timer? _autoRejectTimer;
 
   @override
   void initState() {
     super.initState();
+
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
 
+    // Jouer la sonnerie système dès que l'écran s'affiche
+    RingbackService.instance.playRingtone();
+
     // Auto-rejeter après 60s
     _autoRejectTimer = Timer(const Duration(seconds: 60), () {
       if (!mounted) return;
-      final isGroupCall =
-          ref.read(callProvider).incomingCall?.isGroup ?? widget.isGroup ?? false;
-      if (isGroupCall) {
-        ref.read(callProvider.notifier).rejectGroupCall();
-      } else {
-        ref.read(callProvider.notifier).rejectCall();
-      }
+      _stopRingtoneAndReject();
     });
-    
-    // Si des paramètres d'appel sont passés (via notification), mettre à jour le callProvider
+
+    // Si des paramètres d'appel sont passés (via notification)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.callerId != null) {
-        // Créer des données d'appel entrantes avec l'offre SDP
         final incomingData = IncomingCallData(
-          callerId: widget.callerId!,
+          callerId:   widget.callerId!,
           callerName: widget.callerName ?? 'Appel entrant',
           callerPhoto: null,
-          isVideo: widget.isVideo ?? false,
-          offer: widget.offer ?? const <String, dynamic>{},
-          isGroup: widget.isGroup ?? false,
-          roomId: widget.roomId,
+          isVideo:    widget.isVideo ?? false,
+          offer:      widget.offer ?? const <String, dynamic>{},
+          isGroup:    widget.isGroup ?? false,
+          roomId:     widget.roomId,
         );
-        // Mettre à jour le callProvider avec les données d'appel
         ref.read(callProvider.notifier).setIncomingCallData(incomingData);
       }
     });
+  }
+
+  void _stopRingtoneAndReject() {
+    RingbackService.instance.stop();
+    final isGroupCall =
+        ref.read(callProvider).incomingCall?.isGroup ?? widget.isGroup ?? false;
+    if (isGroupCall) {
+      ref.read(callProvider.notifier).rejectGroupCall();
+    } else {
+      ref.read(callProvider.notifier).rejectCall();
+    }
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
     _autoRejectTimer?.cancel();
+    // Sécurité : arrêter la sonnerie si l'écran est détruit sans action
+    RingbackService.instance.stop();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final callState = ref.watch(callProvider);
-    final callerId = callState.incomingCall?.callerId ?? widget.callerId;
-    final fallbackName =
-        callState.remoteName ?? widget.callerName ?? 'Appel entrant';
-    final isGroupCall =
-        callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
+    final callState    = ref.watch(callProvider);
+    final callerId     = callState.incomingCall?.callerId ?? widget.callerId;
+    final fallbackName = callState.remoteName ?? widget.callerName ?? 'Appel entrant';
+    final isGroupCall  = callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
+
     final contactsService = ref.read(phoneContactsServiceProvider);
     final user = (callerId != null && callerId.isNotEmpty)
         ? ref.watch(userProfileStreamProvider(callerId)).asData?.value
@@ -108,9 +116,10 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     );
     final displayPhoto = user?.photoUrl ?? callState.remotePhoto;
 
-    // Si l'appel disparaît → fermer
+    // Si l'appel disparaît (appelant raccroche) → arrêter sonnerie + fermer
     ref.listen(callProvider, (_, next) {
       if (next.status == CallStatus.idle && mounted) {
+        RingbackService.instance.stop();
         Navigator.pop(context);
       }
     });
@@ -129,7 +138,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     center: Alignment.center,
                     radius: 1.0 + _pulseCtrl.value * 0.2,
                     colors: [
-                      AppColors.primary.withOpacity(0.15 + _pulseCtrl.value * 0.05),
+                      AppColors.primary.withOpacity(
+                          0.15 + _pulseCtrl.value * 0.05),
                       Colors.transparent,
                     ],
                   ),
@@ -143,7 +153,6 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
               children: [
                 const Spacer(),
 
-                // Texte appel entrant
                 Text(
                   isGroupCall
                       ? (callState.isVideo
@@ -153,7 +162,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                           ? 'Appel vidéo entrant'
                           : 'Appel audio entrant'),
                   style: TextStyle(
-                      color: context.appThemeColors.textSecondary, fontSize: 16),
+                      color: context.appThemeColors.textSecondary,
+                      fontSize: 16),
                 ),
                 const SizedBox(height: 24),
 
@@ -161,7 +171,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                 AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (_, __) => Container(
-                    width: 130 + _pulseCtrl.value * 10,
+                    width:  130 + _pulseCtrl.value * 10,
                     height: 130 + _pulseCtrl.value * 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -172,20 +182,25 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(
-                              0.3 + _pulseCtrl.value * 0.2),
-                          blurRadius: 40, spreadRadius: 10),
+                          color: AppColors.primary
+                              .withOpacity(0.3 + _pulseCtrl.value * 0.2),
+                          blurRadius: 40,
+                          spreadRadius: 10),
                       ],
                     ),
                     child: displayPhoto != null
-                        ? ClipOval(child: Image.network(
-                            displayPhoto!, fit: BoxFit.cover))
+                        ? ClipOval(
+                            child: Image.network(displayPhoto!,
+                                fit: BoxFit.cover))
                         : Center(
                             child: Text(
-                              (displayName.isNotEmpty ? displayName : '?')[0]
+                              (displayName.isNotEmpty
+                                      ? displayName
+                                      : '?')[0]
                                   .toUpperCase(),
-                              style: TextStyle(
-                                color: Colors.white, fontSize: 52,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 52,
                                 fontWeight: FontWeight.w700),
                             )),
                   ),
@@ -193,32 +208,40 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                 const SizedBox(height: 24),
 
-                // Nom
                 Text(displayName,
-                  style: TextStyle(
-                    color: Colors.white, fontSize: 32,
-                    fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700)),
 
                 const SizedBox(height: 8),
-                Text(isGroupCall ? 'Groupe' : (callState.isVideo ? 'Vidéo' : 'Audio'),
+                Text(
+                  isGroupCall
+                      ? 'Groupe'
+                      : (callState.isVideo ? 'Vidéo' : 'Audio'),
                   style: TextStyle(
-                      color: context.appThemeColors.textSecondary, fontSize: 16)),
+                      color: context.appThemeColors.textSecondary,
+                      fontSize: 16),
+                ),
 
                 const Spacer(),
 
-                // Boutons répondre / rejeter
+                // Boutons Refuser / Répondre
                 Padding(
                   padding: const EdgeInsets.fromLTRB(40, 0, 40, 60),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // Rejeter
+                      // ── Refuser ──────────────────────────────────
                       Column(
                         children: [
                           GestureDetector(
                             onTap: () {
+                              RingbackService.instance.stop();
                               if (isGroupCall) {
-                                ref.read(callProvider.notifier).rejectGroupCall();
+                                ref
+                                    .read(callProvider.notifier)
+                                    .rejectGroupCall();
                               } else {
                                 ref.read(callProvider.notifier).rejectCall();
                               }
@@ -230,23 +253,27 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 shape: BoxShape.circle,
                                 color: Colors.red,
                               ),
-                              child: Icon(Icons.call_end_rounded,
+                              child: const Icon(Icons.call_end_rounded,
                                   color: Colors.white, size: 32),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Text('Refuser',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 14)),
+                          const Text('Refuser',
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 14)),
                         ],
                       ),
 
-                      // Accepter
+                      // ── Répondre ─────────────────────────────────
                       Column(
                         children: [
                           GestureDetector(
                             onTap: () async {
-                              final micStatus = await Permission.microphone.request();
+                              // Arrêter la sonnerie immédiatement au tap
+                              RingbackService.instance.stop();
+
+                              final micStatus =
+                                  await Permission.microphone.request();
                               if (!micStatus.isGranted) {
                                 if (micStatus.isPermanentlyDenied) {
                                   await openAppSettings();
@@ -254,7 +281,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Permission microphone refusée'),
+                                      content: Text(
+                                          'Permission microphone refusée'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -263,15 +291,18 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               }
 
                               if (callState.isVideo) {
-                                final camStatus = await Permission.camera.request();
+                                final camStatus =
+                                    await Permission.camera.request();
                                 if (!camStatus.isGranted) {
                                   if (camStatus.isPermanentlyDenied) {
                                     await openAppSettings();
                                   }
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
                                       const SnackBar(
-                                        content: Text('Permission caméra refusée'),
+                                        content:
+                                            Text('Permission caméra refusée'),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -281,10 +312,15 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               }
 
                               if (isGroupCall) {
-                                await ref.read(callProvider.notifier).answerGroupCall();
+                                await ref
+                                    .read(callProvider.notifier)
+                                    .answerGroupCall();
                               } else {
-                                await ref.read(callProvider.notifier).answerCall();
+                                await ref
+                                    .read(callProvider.notifier)
+                                    .answerCall();
                               }
+
                               if (mounted) {
                                 Navigator.pushReplacement(
                                   context,
@@ -303,13 +339,14 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 callState.isVideo
                                     ? Icons.videocam_rounded
                                     : Icons.call_rounded,
-                                color: Colors.white, size: 32),
+                                color: Colors.white,
+                                size: 32),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Text('Répondre',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 14)),
+                          const Text('Répondre',
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 14)),
                         ],
                       ),
                     ],
@@ -318,9 +355,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
               ],
             ),
           ),
-            ],
-          ),
-        );
+        ],
+      ),
+    );
   }
-
 }
