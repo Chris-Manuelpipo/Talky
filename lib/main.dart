@@ -106,11 +106,13 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
       ref.listenManual(callProvider, (prev, next) {
         if (next.status == CallStatus.ringing &&
             prev?.status != CallStatus.ringing) {
-          if (WidgetsBinding.instance.lifecycleState ==
-              AppLifecycleState.resumed) {
+          // Afficher l'écran quel que soit l'état du lifecycle.
+          // IncomingCallActivity (natif) gère le lock screen,
+          // mais Flutter doit toujours afficher son propre écran
+          // quand le socket arrive.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             _showIncomingCallScreen();
-          }
-          // Si app en background : IncomingCallActivity (natif) s'en charge
+          });
         }
       });
 
