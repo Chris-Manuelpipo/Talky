@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -47,6 +48,9 @@ class CallNotificationService(private val context: Context) {
     }
     
     fun showIncomingCallNotification(data: Map<String, Any?>) {
+        // 🔊 Initialiser l'audio sur l'écouteur AVANT de montrer la notification
+        initializeCallAudio()
+        
         val fullScreenIntent = IncomingCallActivity.createIntent(context, data)
         val fullScreenPendingIntent = PendingIntent.getActivity(
             context,
@@ -92,5 +96,28 @@ class CallNotificationService(private val context: Context) {
     fun cancelNotification() {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
+    }
+    
+    /**
+     * Initialise l'audio pour les appels avec écouteur interne par défaut.
+     * À appeler AVANT de montrer la notification de ringtone !
+     */
+    private fun initializeCallAudio() {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            // Mettre le mode d'appel EN PREMIER, avant de changer speakerphone
+            audioManager.mode = AudioManager.MODE_IN_CALL
+            // Désactiver speakerphone
+            audioManager.setSpeakerphoneOn(false)
+            // S'assurer que le volume du STREAM_VOICE_CALL n'est pas muet
+            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+            if (currentVol == 0) {
+                audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol / 2, 0)
+            }
+            android.util.Log.i("CallNotificationService", "Call audio initialized on earpiece")
+        } catch (e: Exception) {
+            android.util.Log.e("CallNotificationService", "Error initializing call audio: ${e.message}")
+        }
     }
 }

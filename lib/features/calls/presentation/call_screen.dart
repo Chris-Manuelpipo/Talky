@@ -450,8 +450,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               _CallButton(
                                 icon: Icons.volume_up_rounded,
                                 label: 'HP',
-                                color: Colors.white.withOpacity(0.18),
-                                onPressed: () {},
+                                color: callState.isSpeakerOn
+                                    ? AppColors.primary
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () =>
+                                    ref.read(callProvider.notifier).toggleSpeaker(),
                               ),
                           ],
                         ),
@@ -624,10 +627,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               )
                             else
                               _CallButton(
-                                icon: Icons.volume_up_rounded,
+                                icon:callState.isSpeakerOn
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_up_outlined,
                                 label: 'HP',
-                                color: Colors.white.withOpacity(0.18),
-                                onPressed: () {},
+                                color: callState.isSpeakerOn
+                                    ? AppColors.primary
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () =>
+                                    ref.read(callProvider.notifier).toggleSpeaker(),
                               ),
                           ],
                         ),

@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/services/fcm_sender.dart';
@@ -10,6 +11,9 @@ import '../../../core/services/ringback_service.dart';
 
 // serveur signaling
 const _signalingUrl = 'https://talky-signaling.onrender.com';
+
+// Platform channel pour l'audio
+const _audioChannel = MethodChannel('com.example.talky/audio');
 
 enum CallEvent {
   incomingCall,
@@ -378,7 +382,7 @@ class CallService {
 
     await _setupPeerConnection();
     await _getLocalStream(isVideo: isVideo);
-    await setSpeaker(true);
+    // Audio est déjà initialisé sur écouteur via initializeCallAudio() appelé avant
 
     final offer = await _peerConnection!.createOffer();
     await _peerConnection!.setLocalDescription(offer);
@@ -473,7 +477,7 @@ class CallService {
     await RingbackService.instance.stop();
 
     await _getLocalStream(isVideo: isVideo);
-    await setSpeaker(true);
+    // Audio est déjà initialisé sur écouteur via initializeCallAudio() appelé avant
 
     _socket!.emit('join_group_call', {
       'roomId':    roomId,
@@ -506,7 +510,7 @@ class CallService {
     _remoteUserId = incoming.callerId;  // ← DÉFINIR la source comme remote
     await _setupPeerConnection();
     await _getLocalStream(isVideo: incoming.isVideo);
-    await setSpeaker(true);
+    // Audio est déjà initialisé sur écouteur via initializeCallAudio() appelé avant
 
     final offer = RTCSessionDescription(incoming.offer['sdp'], incoming.offer['type']);
     await _peerConnection!.setRemoteDescription(offer);
@@ -575,8 +579,24 @@ class CallService {
 
   Future<void> setSpeaker(bool enabled) async {
     try {
-      await WebRTC.invokeMethod('setSpeakerphoneOn', {'enabled': enabled});
-    } catch (_) {}
+      debugPrint('[Audio] Setting speaker to: $enabled');
+      await _audioChannel.invokeMethod('setSpeaker', {'enabled': enabled});
+      debugPrint('[Audio] ✅ Speaker set successfully');
+    } catch (e) {
+      debugPrint('[Audio] ❌ Error setting speaker: $e');
+    }
+  }
+
+  /// Initialise l'audio pour les appels avec écouteur interne par défaut.
+  /// À appeler AVANT de jouer le ringtone ou le ringback !
+  Future<void> initializeCallAudio() async {
+    try {
+      debugPrint('[Audio] Initializing call audio on earpiece');
+      await _audioChannel.invokeMethod('initializeCallAudio');
+      debugPrint('[Audio] ✅ Call audio initialized');
+    } catch (e) {
+      debugPrint('[Audio] ❌ Error initializing call audio: $e');
+    }
   }
 
   Future<void> switchCamera() async {
@@ -828,6 +848,9 @@ class CallService {
 
   Future<void> _getLocalStream({required bool isVideo}) async {
     try {
+      // ✅ Initialiser en mode earpiece (haut-parleur désactivé) par défaut
+      await setSpeaker(false);
+      
       debugPrint('[Media] Requesting local media stream (audio + ${isVideo ? 'video' : 'no video'})');
       
       _localStream = await navigator.mediaDevices.getUserMedia({

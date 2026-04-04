@@ -49,22 +49,20 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
 
-    // Jouer la sonnerie système dès que l'écran s'affiche
-    RingbackService.instance.playRingtone();
-
-    // Auto-rejeter après 60s
-    _autoRejectTimer = Timer(const Duration(seconds: 60), () {
-      if (!mounted) return;
-      _stopRingtoneAndReject();
-    });
-
-    // Si des paramètres d'appel sont passés (via notification)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.callerId != null) {
+    // Initialiser l'audio et gérer le ringtone en un seul callback
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Initialiser l'audio sur écouteur (au cas où Android ne l'aurait pas fait)
+      final callService = CallService();
+      await callService.initializeCallAudio();
+      
+      // Jouer la sonnerie
+      await RingbackService.instance.playRingtone();
+      
+      // Traiter les paramètres d'appel si présents (via notification)
+      if (widget.callerId != null && mounted) {
         final incomingData = IncomingCallData(
           callerId:   widget.callerId!,
           callerName: widget.callerName ?? 'Appel entrant',
-          callerPhoto: null,
           isVideo:    widget.isVideo ?? false,
           offer:      widget.offer ?? const <String, dynamic>{},
           isGroup:    widget.isGroup ?? false,
@@ -72,6 +70,12 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
         );
         ref.read(callProvider.notifier).setIncomingCallData(incomingData);
       }
+    });
+
+    // Auto-rejeter après 60s
+    _autoRejectTimer = Timer(const Duration(seconds: 60), () {
+      if (!mounted) return;
+      _stopRingtoneAndReject();
     });
   }
 
