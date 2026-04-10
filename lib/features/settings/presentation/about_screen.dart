@@ -29,7 +29,7 @@ class AboutScreen extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
+                    gradient: AppColors.primaryGradient(AppColors.primary),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(
@@ -222,7 +222,8 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+              leading:
+                  const Icon(Icons.email_outlined, color: AppColors.primary),
               title: const Text(
                 'Email',
                 style: TextStyle(color: AppColors.textPrimary),
@@ -242,7 +243,8 @@ class AboutScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.language_rounded, color: AppColors.primary),
+              leading:
+                  const Icon(Icons.language_rounded, color: AppColors.primary),
               title: const Text(
                 'Site web',
                 style: TextStyle(color: AppColors.textPrimary),
@@ -262,7 +264,8 @@ class AboutScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+              leading: const Icon(Icons.help_outline_rounded,
+                  color: AppColors.primary),
               title: const Text(
                 'FAQ',
                 style: TextStyle(color: AppColors.textPrimary),

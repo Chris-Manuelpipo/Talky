@@ -210,12 +210,13 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
+    final accentColor = settings.accentColor;
 
     return MaterialApp.router(
       title: 'Talky',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: AppTheme.light(accentColor),
+      darkTheme: AppTheme.dark(accentColor),
       themeMode: settings.themeMode,
       routerConfig: ref.watch(routerProvider),
     );

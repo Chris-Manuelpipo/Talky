@@ -67,6 +67,7 @@ dependencies:
   record: ^6.2.0
   http: ^1.6.0
   flutter_ringtone_player: ^4.0.0+4
+  flutter_colorpicker: ^1.1.0
 
 dev_dependencies:
   flutter_test:
