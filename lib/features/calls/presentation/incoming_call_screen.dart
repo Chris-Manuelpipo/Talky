@@ -199,14 +199,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                             child:
                                 Image.network(displayPhoto!, fit: BoxFit.cover))
                         : Center(
-                            child: Text(
-                            (displayName.isNotEmpty ? displayName : '?')[0]
-                                .toUpperCase(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 52,
-                                fontWeight: FontWeight.w700),
-                          )),
+                            child: Icon(Icons.person_rounded,
+                                color: Colors.white, size: 52)),
                   ),
                 ),
 
