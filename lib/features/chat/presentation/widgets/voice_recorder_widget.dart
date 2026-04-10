@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_icons.dart';
+import '../../../../core/theme/app_colors_provider.dart';
 
 class VoiceRecorderWidget extends StatefulWidget {
   final void Function(String path, int durationSeconds) onRecordingComplete;
@@ -27,7 +28,7 @@ class VoiceRecorderWidget extends StatefulWidget {
 class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
     with SingleTickerProviderStateMixin {
   final _recorder = AudioRecorder();
-  int _seconds    = 0;
+  int _seconds = 0;
   Timer? _timer;
   late AnimationController _pulseCtrl;
   String? _filePath;
@@ -50,16 +51,17 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
       final hasPermission = await _recorder.hasPermission();
       if (!hasPermission) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission micro refusée'),
-                backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Permission micro refusée'),
+              backgroundColor: Colors.red));
           widget.onCancel();
         }
         return;
       }
 
-      final dir  = await getTemporaryDirectory();
-      _filePath  = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.aac';
+      final dir = await getTemporaryDirectory();
+      _filePath =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.aac';
 
       await _recorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000),
@@ -74,9 +76,8 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur micro: $e'),
-              backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erreur micro: $e'), backgroundColor: Colors.red));
         widget.onCancel();
       }
     }
@@ -133,7 +134,8 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
           // Annuler
           GestureDetector(
             onTap: _cancelRecording,
-            child: const Icon(Icons.delete_rounded, color: Colors.red, size: 28),
+            child:
+                const Icon(Icons.delete_rounded, color: Colors.red, size: 28),
           ),
           const SizedBox(width: 16),
 
@@ -144,21 +146,23 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
                 AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (_, __) => Container(
-                    width: 10, height: 10,
+                    width: 10,
+                    height: 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.red.withOpacity(0.5 + _pulseCtrl.value * 0.5),
+                      color:
+                          Colors.red.withOpacity(0.5 + _pulseCtrl.value * 0.5),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(_formattedTime,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  )),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    )),
                 const SizedBox(width: 12),
                 Expanded(child: _WaveformWidget(tick: _seconds)),
               ],
@@ -171,15 +175,18 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
           GestureDetector(
             onTap: _isRecording ? _stopRecording : null,
             child: Container(
-              width: 46, height: 46,
-              decoration: const BoxDecoration(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [context.primaryColor, context.accentColor],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              child:
+                  const Icon(Icons.send_rounded, color: Colors.white, size: 20),
             ),
           ),
         ],
@@ -195,20 +202,40 @@ class _WaveformWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heights = [8.0,16.0,24.0,12.0,20.0,8.0,18.0,14.0,
-                     22.0,10.0,16.0,24.0,8.0,20.0,12.0,18.0,
-                     24.0,10.0,16.0,8.0];
+    final heights = [
+      8.0,
+      16.0,
+      24.0,
+      12.0,
+      20.0,
+      8.0,
+      18.0,
+      14.0,
+      22.0,
+      10.0,
+      16.0,
+      24.0,
+      8.0,
+      20.0,
+      12.0,
+      18.0,
+      24.0,
+      10.0,
+      16.0,
+      8.0
+    ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(20, (i) {
         final active = (tick % 20) > i;
         return Container(
-          width: 3, height: heights[i],
+          width: 3,
+          height: heights[i],
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: active
-                ? AppColors.primary
-                : AppColors.primary.withOpacity(0.3),
+                ? context.primaryColor
+                : context.primaryColor.withOpacity(0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -333,25 +360,29 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
     final fallbackDuration = widget.durationSeconds != null
         ? Duration(seconds: widget.durationSeconds!)
         : Duration.zero;
-    final shownDuration = _duration.inSeconds > 0 ? _duration : fallbackDuration;
+    final shownDuration =
+        _duration.inSeconds > 0 ? _duration : fallbackDuration;
 
     return Align(
       alignment: widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
-          crossAxisAlignment: widget.isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              widget.isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             // Afficher le nom de l'expéditeur pour les messages de groupe
-            if (!widget.isMine && widget.isGroup && widget.senderName.isNotEmpty)
+            if (!widget.isMine &&
+                widget.isGroup &&
+                widget.senderName.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(left: 12, bottom: 4),
                 child: Text(
                   widget.senderName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                    color: context.primaryColor,
                   ),
                 ),
               ),
@@ -362,15 +393,18 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                 minWidth: 200,
               ),
               decoration: BoxDecoration(
-                gradient: widget.isMine ? const LinearGradient(
-                  colors: [AppColors.primary, Color(0xFF9B7DFF)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ) : null,
+                gradient: widget.isMine
+                    ? LinearGradient(
+                        colors: [context.primaryColor, const Color(0xFF9B7DFF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
                 color: widget.isMine ? null : AppColors.surface,
                 borderRadius: BorderRadius.only(
-                  topLeft:     const Radius.circular(18),
-                  topRight:    const Radius.circular(18),
-                  bottomLeft:  Radius.circular(widget.isMine ? 18 : 4),
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(widget.isMine ? 18 : 4),
                   bottomRight: Radius.circular(widget.isMine ? 4 : 18),
                 ),
               ),
@@ -379,7 +413,8 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   GestureDetector(
                     onTap: _togglePlay,
                     child: Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white.withOpacity(0.2),
@@ -388,8 +423,11 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                           ? const Icon(Icons.error_outline_rounded,
                               color: Colors.white, size: 22)
                           : Icon(
-                              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              color: Colors.white, size: 24),
+                              _isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 24),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -400,8 +438,10 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                         SliderTheme(
                           data: SliderThemeData(
                             trackHeight: 3,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6),
+                            overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12),
                             activeTrackColor: Colors.white,
                             inactiveTrackColor: Colors.white.withOpacity(0.3),
                             thumbColor: Colors.white,
@@ -416,13 +456,17 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Icon(AppIcons.mic, color: Colors.white.withOpacity(0.8), size: 10),
+                              Icon(AppIcons.mic,
+                                  color: Colors.white.withOpacity(0.8),
+                                  size: 10),
                               Text(
-                                shownDuration.inSeconds > 0
-                                    ? _formatDurationFromDuration(shownDuration)
-                                    : _formatDuration(widget.durationSeconds),
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                                  shownDuration.inSeconds > 0
+                                      ? _formatDurationFromDuration(
+                                          shownDuration)
+                                      : _formatDuration(widget.durationSeconds),
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 10)),
                             ],
                           ),
                         ),

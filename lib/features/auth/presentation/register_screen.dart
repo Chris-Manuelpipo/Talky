@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../shared/widgets/talky_text_field.dart';
 import '../../../shared/widgets/talky_button.dart';
 
@@ -17,8 +18,8 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController     = TextEditingController();
-  final _emailController    = TextEditingController();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -45,8 +46,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(
@@ -64,23 +66,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 16),
-
                 Text(
                   'Créer un compte',
                   style: Theme.of(context).textTheme.displaySmall,
                 ).animate().fadeIn().slideY(begin: 0.2, end: 0),
-
                 const SizedBox(height: 8),
-
                 Text(
                   'Rejoignez Talky et commencez à collaborer',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: colors.textSecondary,
+                      ),
                 ).animate(delay: 50.ms).fadeIn(),
-
                 const SizedBox(height: 40),
-
                 TalkyTextField(
                   controller: _nameController,
                   label: 'Nom complet',
@@ -92,9 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ).animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),
-
                 const SizedBox(height: 16),
-
                 TalkyTextField(
                   controller: _emailController,
                   label: 'Adresse email',
@@ -107,9 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ).animate(delay: 150.ms).fadeIn().slideY(begin: 0.2, end: 0),
-
                 const SizedBox(height: 16),
-
                 TalkyTextField(
                   controller: _passwordController,
                   label: 'Mot de passe',
@@ -118,10 +111,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: AppColors.textHint,
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: colors.textHint,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Mot de passe requis';
@@ -129,30 +125,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2, end: 0),
-
                 const SizedBox(height: 32),
-
                 TalkyButton(
                   label: 'Créer mon compte',
                   onPressed: _register,
                   isLoading: _isLoading,
                 ).animate(delay: 250.ms).fadeIn(),
-
                 const SizedBox(height: 24),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Déjà un compte ? ',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 14),
                     ),
                     GestureDetector(
                       //onTap: () => context.go(AppRoutes.login),
-                      child: const Text(
+                      child: Text(
                         'Se connecter',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: colors.primary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -160,7 +153,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ).animate(delay: 300.ms).fadeIn(),
-
                 const SizedBox(height: 40),
               ],
             ),

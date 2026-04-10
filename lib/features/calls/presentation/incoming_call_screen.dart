@@ -54,19 +54,19 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       // Initialiser l'audio sur écouteur (au cas où Android ne l'aurait pas fait)
       final callService = CallService();
       await callService.initializeCallAudio();
-      
+
       // Jouer la sonnerie
       await RingbackService.instance.playRingtone();
-      
+
       // Traiter les paramètres d'appel si présents (via notification)
       if (widget.callerId != null && mounted) {
         final incomingData = IncomingCallData(
-          callerId:   widget.callerId!,
+          callerId: widget.callerId!,
           callerName: widget.callerName ?? 'Appel entrant',
-          isVideo:    widget.isVideo ?? false,
-          offer:      widget.offer ?? const <String, dynamic>{},
-          isGroup:    widget.isGroup ?? false,
-          roomId:     widget.roomId,
+          isVideo: widget.isVideo ?? false,
+          offer: widget.offer ?? const <String, dynamic>{},
+          isGroup: widget.isGroup ?? false,
+          roomId: widget.roomId,
         );
         ref.read(callProvider.notifier).setIncomingCallData(incomingData);
       }
@@ -101,10 +101,12 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
   @override
   Widget build(BuildContext context) {
-    final callState    = ref.watch(callProvider);
-    final callerId     = callState.incomingCall?.callerId ?? widget.callerId;
-    final fallbackName = callState.remoteName ?? widget.callerName ?? 'Appel entrant';
-    final isGroupCall  = callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
+    final callState = ref.watch(callProvider);
+    final callerId = callState.incomingCall?.callerId ?? widget.callerId;
+    final fallbackName =
+        callState.remoteName ?? widget.callerName ?? 'Appel entrant';
+    final isGroupCall =
+        callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
 
     final contactsService = ref.read(phoneContactsServiceProvider);
     final user = (callerId != null && callerId.isNotEmpty)
@@ -142,8 +144,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     center: Alignment.center,
                     radius: 1.0 + _pulseCtrl.value * 0.2,
                     colors: [
-                      AppColors.primary.withOpacity(
-                          0.15 + _pulseCtrl.value * 0.05),
+                      context.primaryColor
+                          .withOpacity(0.15 + _pulseCtrl.value * 0.05),
                       Colors.transparent,
                     ],
                   ),
@@ -175,38 +177,36 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                 AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (_, __) => Container(
-                    width:  130 + _pulseCtrl.value * 10,
+                    width: 130 + _pulseCtrl.value * 10,
                     height: 130 + _pulseCtrl.value * 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.accent],
+                      gradient: LinearGradient(
+                        colors: [context.primaryColor, context.accentColor],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary
-                              .withOpacity(0.3 + _pulseCtrl.value * 0.2),
-                          blurRadius: 40,
-                          spreadRadius: 10),
+                            color: context.primaryColor
+                                .withOpacity(0.3 + _pulseCtrl.value * 0.2),
+                            blurRadius: 40,
+                            spreadRadius: 10),
                       ],
                     ),
                     child: displayPhoto != null
                         ? ClipOval(
-                            child: Image.network(displayPhoto!,
-                                fit: BoxFit.cover))
+                            child:
+                                Image.network(displayPhoto!, fit: BoxFit.cover))
                         : Center(
                             child: Text(
-                              (displayName.isNotEmpty
-                                      ? displayName
-                                      : '?')[0]
-                                  .toUpperCase(),
-                              style: const TextStyle(
+                            (displayName.isNotEmpty ? displayName : '?')[0]
+                                .toUpperCase(),
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 52,
                                 fontWeight: FontWeight.w700),
-                            )),
+                          )),
                   ),
                 ),
 
@@ -252,7 +252,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               Navigator.pop(context);
                             },
                             child: Container(
-                              width: 72, height: 72,
+                              width: 72,
+                              height: 72,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.red,
@@ -285,8 +286,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                          'Permission microphone refusée'),
+                                      content:
+                                          Text('Permission microphone refusée'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -302,8 +303,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                     await openAppSettings();
                                   }
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content:
                                             Text('Permission caméra refusée'),
@@ -334,17 +334,18 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               }
                             },
                             child: Container(
-                              width: 72, height: 72,
+                              width: 72,
+                              height: 72,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Color(0xFF00C851),
                               ),
                               child: Icon(
-                                callState.isVideo
-                                    ? Icons.videocam_rounded
-                                    : Icons.call_rounded,
-                                color: Colors.white,
-                                size: 32),
+                                  callState.isVideo
+                                      ? Icons.videocam_rounded
+                                      : Icons.call_rounded,
+                                  color: Colors.white,
+                                  size: 32),
                             ),
                           ),
                           const SizedBox(height: 12),

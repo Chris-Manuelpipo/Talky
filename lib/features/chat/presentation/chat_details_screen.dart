@@ -35,9 +35,10 @@ class ChatDetailsScreen extends ConsumerWidget {
     final messages = ref.watch(messagesProvider(conversationId));
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
     final contactsService = ref.read(phoneContactsServiceProvider);
-    final user = (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
-        ? ref.watch(userProfileStreamProvider(contactUserId!)).asData?.value
-        : null;
+    final user =
+        (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)
+            ? ref.watch(userProfileStreamProvider(contactUserId!)).asData?.value
+            : null;
     final resolvedName = user?.name.trim();
     final baseName = (resolvedName != null && resolvedName.isNotEmpty)
         ? resolvedName
@@ -48,14 +49,14 @@ class ChatDetailsScreen extends ConsumerWidget {
             fallbackName: baseName,
             phone: user?.phone,
           );
-    final displayPhoto = isGroup ? contactPhoto : (user?.photoUrl ?? contactPhoto);
+    final displayPhoto =
+        isGroup ? contactPhoto : (user?.photoUrl ?? contactPhoto);
 
     return Scaffold(
       backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
         backgroundColor: context.appThemeColors.background,
-        title: Text('Détails',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text('Détails', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -84,7 +85,7 @@ class ChatDetailsScreen extends ConsumerWidget {
                 icon: Icon(Icons.share_rounded),
                 label: Text('Partager le contact'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -141,19 +142,21 @@ class _HeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w700)),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 if (isGroup)
                   Text('Groupe',
                       style: TextStyle(
-                          fontSize: 12, color: context.appThemeColors.textSecondary))
+                          fontSize: 12,
+                          color: context.appThemeColors.textSecondary))
                 else if (presenceUserId != null && presenceUserId!.isNotEmpty)
                   _PresenceLine(userId: presenceUserId!)
                 else
                   Text('Hors ligne',
                       style: TextStyle(
-                          fontSize: 12, color: context.appThemeColors.textSecondary)),
+                          fontSize: 12,
+                          color: context.appThemeColors.textSecondary)),
               ],
             ),
           ),
@@ -195,8 +198,7 @@ class _ContactInfoCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Infos',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 13)),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 10),
           if (phone.isNotEmpty)
             _InfoRow(
@@ -229,9 +231,8 @@ class _GroupMembersCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final members = conversation.participantIds
-        .where((id) => id != currentUserId)
-        .toList();
+    final members =
+        conversation.participantIds.where((id) => id != currentUserId).toList();
     final contactsService = ref.read(phoneContactsServiceProvider);
 
     return Container(
@@ -244,16 +245,17 @@ class _GroupMembersCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Membres (${members.length})',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 13)),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 10),
           if (members.isEmpty)
             Text('Aucun membre',
                 style: TextStyle(color: context.appThemeColors.textSecondary))
           else
             ...members.map((id) {
-              final baseName = conversation.participantNames[id] ?? 'Utilisateur';
-              final user = ref.watch(userProfileStreamProvider(id)).asData?.value;
+              final baseName =
+                  conversation.participantNames[id] ?? 'Utilisateur';
+              final user =
+                  ref.watch(userProfileStreamProvider(id)).asData?.value;
               final resolvedName = user?.name.trim();
               final name = (resolvedName != null && resolvedName.isNotEmpty)
                   ? resolvedName
@@ -262,7 +264,8 @@ class _GroupMembersCard extends ConsumerWidget {
                 fallbackName: name,
                 phone: user?.phone,
               );
-              final photo = user?.photoUrl ?? conversation.participantPhotos[id];
+              final photo =
+                  user?.photoUrl ?? conversation.participantPhotos[id];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
@@ -270,8 +273,7 @@ class _GroupMembersCard extends ConsumerWidget {
                     _Avatar(name: displayName, photoUrl: photo, isGroup: false),
                     const SizedBox(width: 10),
                     Text(displayName,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600)),
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               );
@@ -302,18 +304,19 @@ class _MediaSection extends StatelessWidget {
           const SizedBox(height: 10),
           messages.when(
             loading: () => Center(
-                child: CircularProgressIndicator(color: AppColors.primary)),
+                child: CircularProgressIndicator(color: context.primaryColor)),
             error: (e, _) => Text('Erreur: $e'),
             data: (list) {
               final media = list.where((m) {
-                final isMedia = m.type == MessageType.image ||
-                    m.type == MessageType.video;
+                final isMedia =
+                    m.type == MessageType.image || m.type == MessageType.video;
                 return !m.isDeleted && isMedia && (m.mediaUrl ?? '').isNotEmpty;
               }).toList();
 
               if (media.isEmpty) {
                 return Text('Aucun média pour l’instant',
-                    style: TextStyle(color: context.appThemeColors.textSecondary));
+                    style:
+                        TextStyle(color: context.appThemeColors.textSecondary));
               }
 
               final items = media.reversed.take(12).toList();
@@ -349,13 +352,17 @@ class _MediaTile extends StatelessWidget {
       onTap: () {
         if (url.isEmpty) return;
         if (isVideo) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FullscreenVideo(url: url),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FullscreenVideo(url: url),
+              ));
         } else {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => FullscreenImage(url: url),
-          ));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FullscreenImage(url: url),
+              ));
         }
       },
       child: ClipRRect(
@@ -377,7 +384,7 @@ class _MediaTile extends StatelessWidget {
                   color: context.appThemeColors.background,
                   child: Center(
                     child: CircularProgressIndicator(
-                        color: AppColors.primary, strokeWidth: 2),
+                        color: context.primaryColor, strokeWidth: 2),
                   ),
                 ),
                 errorWidget: (_, __, ___) => Container(
@@ -422,11 +429,12 @@ class _InfoRow extends StatelessWidget {
               children: [
                 Text(label,
                     style: TextStyle(
-                        fontSize: 11, color: context.appThemeColors.textSecondary)),
+                        fontSize: 11,
+                        color: context.appThemeColors.textSecondary)),
                 const SizedBox(height: 2),
                 Text(value,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               ],
             ),
           ),
@@ -436,7 +444,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
+class _Avatar extends ConsumerWidget {
   final String name;
   final String? photoUrl;
   final bool isGroup;
@@ -448,14 +456,15 @@ class _Avatar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      width: 56, height: 56,
+      width: 56,
+      height: 56,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: photoUrl == null
-            ? const LinearGradient(
-                colors: [AppColors.primary, AppColors.accent])
+            ? LinearGradient(
+                colors: [context.primaryColor, context.accentColor])
             : null,
         image: photoUrl != null
             ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
@@ -506,7 +515,7 @@ class _PresenceLine extends ConsumerWidget {
 
     if (isOnline) {
       return Text('En ligne',
-          style: TextStyle(fontSize: 12, color: AppColors.accent));
+          style: TextStyle(fontSize: 12, color: context.accentColor));
     }
     if (lastSeen != null) {
       return Text(_formatLastSeen(lastSeen),
@@ -514,16 +523,17 @@ class _PresenceLine extends ConsumerWidget {
               fontSize: 12, color: context.appThemeColors.textSecondary));
     }
     return Text('Hors ligne',
-        style: TextStyle(fontSize: 12, color: context.appThemeColors.textSecondary));
+        style: TextStyle(
+            fontSize: 12, color: context.appThemeColors.textSecondary));
   }
 }
 
-class FullscreenImage extends StatelessWidget {
+class FullscreenImage extends ConsumerWidget {
   final String url;
   const FullscreenImage({super.key, required this.url});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -536,7 +546,7 @@ class FullscreenImage extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.contain,
             placeholder: (_, __) =>
-                CircularProgressIndicator(color: AppColors.primary),
+                CircularProgressIndicator(color: context.primaryColor),
           ),
         ),
       ),
@@ -593,7 +603,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> {
             ? Icon(Icons.broken_image_rounded,
                 color: context.appThemeColors.textHint, size: 48)
             : _controller == null
-                ? CircularProgressIndicator(color: AppColors.primary)
+                ? CircularProgressIndicator(color: context.primaryColor)
                 : AspectRatio(
                     aspectRatio: _controller!.value.aspectRatio,
                     child: Stack(
@@ -608,7 +618,7 @@ class _FullscreenVideoState extends State<FullscreenVideo> {
                             _controller!,
                             allowScrubbing: true,
                             colors: VideoProgressColors(
-                              playedColor: AppColors.primary,
+                              playedColor: context.primaryColor,
                               bufferedColor: Colors.white24,
                               backgroundColor: Colors.white12,
                             ),
@@ -624,7 +634,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> {
                             setState(() {});
                           },
                           child: Container(
-                            width: 64, height: 64,
+                            width: 64,
+                            height: 64,
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.4),
                               shape: BoxShape.circle,
@@ -633,7 +644,8 @@ class _FullscreenVideoState extends State<FullscreenVideo> {
                               _controller!.value.isPlaying
                                   ? Icons.pause_rounded
                                   : Icons.play_arrow_rounded,
-                              color: Colors.white, size: 36,
+                              color: Colors.white,
+                              size: 36,
                             ),
                           ),
                         ),

@@ -63,8 +63,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final backgroundColor =
         isDark ? AppColors.background : AppColors.backgroundLight;
     final gradient = isDark
-        ? AppColors.splashGradient(AppColors.primary)
-        : AppColors.splashGradientLight(AppColors.primary);
+        ? AppColors.splashGradient(colors.primary)
+        : AppColors.splashGradientLight(colors.primary);
     final primaryColor = colors.primary;
     final accentColor = colors.accent;
     final textSecondaryColor = colors.textSecondary;
@@ -199,25 +199,27 @@ class _TalkyLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+
     return Container(
       width: 110,
       height: 110,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
+        gradient: LinearGradient(
+          colors: [colors.primary, colors.accent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: isDark ? 0.5 : 0.3),
+            color: colors.primary.withValues(alpha: isDark ? 0.5 : 0.3),
             blurRadius: 40,
             spreadRadius: isDark ? 8 : 5,
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: isDark ? 0.2 : 0.1),
+            color: colors.accent.withValues(alpha: isDark ? 0.2 : 0.1),
             blurRadius: 60,
             spreadRadius: isDark ? 15 : 10,
           ),

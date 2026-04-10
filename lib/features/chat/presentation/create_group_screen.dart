@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_service.dart';
@@ -18,7 +19,7 @@ class CreateGroupScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
-  final _nameCtrl   = TextEditingController();
+  final _nameCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _query = '';
   final List<Map<String, dynamic>> _selected = [];
@@ -47,12 +48,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   Future<void> _createGroup() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Donnez un nom au groupe')));
+          const SnackBar(content: Text('Donnez un nom au groupe')));
       return;
     }
     if (_selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins un membre')));
+          const SnackBar(content: Text('Ajoutez au moins un membre')));
       return;
     }
 
@@ -61,12 +62,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       final user = ref.read(authStateProvider).value!;
       final myName = await ref.read(currentUserNameProvider.future);
       final convId = await ref.read(chatServiceProvider).createGroup(
-        creatorId:    user.uid,
-        creatorName:  myName,
-        creatorPhoto: user.photoURL,
-        groupName:    _nameCtrl.text.trim(),
-        members:      _selected,
-      );
+            creatorId: user.uid,
+            creatorName: myName,
+            creatorPhoto: user.photoURL,
+            groupName: _nameCtrl.text.trim(),
+            members: _selected,
+          );
 
       if (mounted) {
         context.push(
@@ -75,8 +76,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -97,10 +99,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             TextButton(
               onPressed: _loading ? null : _createGroup,
               child: _loading
-                  ? const SizedBox(width: 20, height: 20,
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Créer',
-                      style: TextStyle(color: AppColors.primary,
+                  : Text('Créer',
+                      style: TextStyle(
+                          color: context.primaryColor,
                           fontWeight: FontWeight.w700)),
             ),
         ],
@@ -114,13 +119,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               controller: _nameCtrl,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText:   'Nom du groupe',
-                hintStyle:  const TextStyle(color: AppColors.textHint),
-                prefixIcon: const Icon(Icons.group_rounded,
-                    color: AppColors.primary),
-                filled:     true,
-                fillColor:  AppColors.surface,
-                border:     OutlineInputBorder(
+                hintText: 'Nom du groupe',
+                hintStyle: const TextStyle(color: AppColors.textHint),
+                prefixIcon:
+                    Icon(Icons.group_rounded, color: context.primaryColor),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none),
               ),
@@ -138,8 +143,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 itemBuilder: (_, i) {
                   final m = _selected[i];
                   return _MemberChip(
-                    member:    m,
-                    onRemove:  () => setState(() => _selected.removeAt(i)),
+                    member: m,
+                    onRemove: () => setState(() => _selected.removeAt(i)),
                   ).animate(delay: (i * 30).ms).fadeIn().scale();
                 },
               ),
@@ -150,16 +155,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchCtrl,
-              onChanged:  (v) => setState(() => _query = v.toLowerCase()),
+              onChanged: (v) => setState(() => _query = v.toLowerCase()),
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText:   'Rechercher des membres...',
-                hintStyle:  const TextStyle(color: AppColors.textHint),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.textHint),
-                filled:     true,
-                fillColor:  AppColors.surface,
-                border:     OutlineInputBorder(
+                hintText: 'Rechercher des membres...',
+                hintStyle: const TextStyle(color: AppColors.textHint),
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: AppColors.textHint),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none),
               ),
@@ -171,30 +176,36 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text('Contacts',
-                style: TextStyle(color: AppColors.textHint,
-                    fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      color: AppColors.textHint,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
             ),
           ),
 
           // Liste utilisateurs
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: ref.read(chatServiceProvider)
+              stream: ref
+                  .read(chatServiceProvider)
                   .usersStream(currentUser?.uid ?? ''),
               builder: (_, snap) {
-                if (!snap.hasData) return const Center(
-                    child: CircularProgressIndicator());
+                if (!snap.hasData)
+                  return const Center(child: CircularProgressIndicator());
 
                 final all = snap.data!;
-                final filtered = _query.isEmpty ? all
-                    : all.where((u) =>
-                        (u['name'] as String? ?? '')
-                            .toLowerCase().contains(_query)).toList();
+                final filtered = _query.isEmpty
+                    ? all
+                    : all
+                        .where((u) => (u['name'] as String? ?? '')
+                            .toLowerCase()
+                            .contains(_query))
+                        .toList();
 
                 return ListView.builder(
                   itemCount: filtered.length,
                   itemBuilder: (_, i) {
-                    final user     = filtered[i];
+                    final user = filtered[i];
                     final selected = _isSelected(user['id']);
                     return ListTile(
                       onTap: () => _toggle(user),
@@ -203,12 +214,14 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                           _UserAvatar(user: user),
                           if (selected)
                             Positioned(
-                              right: 0, bottom: 0,
+                              right: 0,
+                              bottom: 0,
                               child: Container(
-                                width: 18, height: 18,
-                                decoration: const BoxDecoration(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppColors.primary,
+                                  color: context.primaryColor,
                                 ),
                                 child: const Icon(Icons.check_rounded,
                                     size: 12, color: Colors.white),
@@ -218,18 +231,18 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       ),
                       title: Text(user['name'] ?? 'Utilisateur',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: selected
-                                ? FontWeight.w700 : FontWeight.w500,
+                            color: context.appThemeColors.textPrimary,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
                           )),
                       subtitle: Text(user['phone'] ?? '',
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 12)),
                       trailing: selected
-                          ? const Icon(Icons.check_circle_rounded,
-                              color: AppColors.primary)
-                          : const Icon(Icons.circle_outlined,
-                              color: AppColors.textHint),
+                          ? Icon(Icons.check_circle_rounded,
+                              color: context.primaryColor)
+                          : Icon(Icons.circle_outlined,
+                              color: context.appThemeColors.textHint),
                     );
                   },
                 );
@@ -251,7 +264,7 @@ class _MemberChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name  = member['name'] as String? ?? '?';
+    final name = member['name'] as String? ?? '?';
     final photo = member['photoUrl'] as String?;
 
     return Padding(
@@ -261,31 +274,37 @@ class _MemberChip extends StatelessWidget {
           Stack(
             children: [
               Container(
-                width: 44, height: 44,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: photo == null
-                      ? const LinearGradient(
-                          colors: [AppColors.primary, AppColors.accent])
+                      ? LinearGradient(
+                          colors: [context.primaryColor, context.accentColor])
                       : null,
                   image: photo != null
                       ? DecorationImage(
                           image: NetworkImage(photo), fit: BoxFit.cover)
                       : null,
                 ),
-                child: photo == null ? Center(
-                  child: Text(name[0].toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700))) : null,
+                child: photo == null
+                    ? Center(
+                        child: Text(name[0].toUpperCase(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700)))
+                    : null,
               ),
               Positioned(
-                right: -2, top: -2,
+                right: -2,
+                top: -2,
                 child: GestureDetector(
                   onTap: onRemove,
                   child: Container(
-                    width: 18, height: 18,
+                    width: 18,
+                    height: 18,
                     decoration: const BoxDecoration(
-                      shape: BoxShape.circle, color: Colors.red),
+                        shape: BoxShape.circle, color: Colors.red),
                     child: const Icon(Icons.close_rounded,
                         size: 11, color: Colors.white),
                   ),
@@ -297,10 +316,10 @@ class _MemberChip extends StatelessWidget {
           SizedBox(
             width: 44,
             child: Text(name.split(' ')[0],
-              style: const TextStyle(fontSize: 10,
-                  color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis),
+                style: const TextStyle(
+                    fontSize: 10, color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -315,23 +334,27 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name  = user['name'] as String? ?? '?';
+    final name = user['name'] as String? ?? '?';
     final photo = user['photoUrl'] as String?;
     return Container(
-      width: 46, height: 46,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: photo == null
-            ? const LinearGradient(
-                colors: [AppColors.primary, AppColors.accent])
+            ? LinearGradient(
+                colors: [context.primaryColor, context.accentColor])
             : null,
-        image: photo != null ? DecorationImage(
-            image: NetworkImage(photo), fit: BoxFit.cover) : null,
+        image: photo != null
+            ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover)
+            : null,
       ),
-      child: photo == null ? Center(
-        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w700))) : null,
+      child: photo == null
+          ? Center(
+              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w700)))
+          : null,
     );
   }
 }

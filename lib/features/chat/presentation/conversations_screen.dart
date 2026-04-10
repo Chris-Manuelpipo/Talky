@@ -38,8 +38,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
   @override
   Widget build(BuildContext context) {
     final conversations = ref.watch(conversationsProvider);
-    final authState    = ref.watch(authStateProvider);
-    final currentUid   = authState.value?.uid ?? '';
+    final authState = ref.watch(authStateProvider);
+    final currentUid = authState.value?.uid ?? '';
 
     // Marquer comme délivré quand l'utilisateur reçoit des messages
     ref.listen(conversationsProvider, (_, next) {
@@ -51,9 +51,9 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
               c.lastMessageSenderId != uid &&
               c.lastMessageStatus == MessageStatus.sent) {
             ref.read(chatServiceProvider).markAsDelivered(
-              conversationId: c.id,
-              userId: uid,
-            );
+                  conversationId: c.id,
+                  userId: uid,
+                );
           }
         }
       });
@@ -76,7 +76,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     });
 
     final colors = context.appThemeColors;
-    
+
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
@@ -138,14 +138,17 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
               return _ConversationTile(
                 conversation: list[index],
                 currentUserId: currentUid,
-              ).animate(delay: (index * 40).ms).fadeIn().slideX(begin: 0.1, end: 0);
+              )
+                  .animate(delay: (index * 40).ms)
+                  .fadeIn()
+                  .slideX(begin: 0.1, end: 0);
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(AppRoutes.newChat),
-        backgroundColor: AppColors.primary,
+        backgroundColor: colors.primary,
         child: const Icon(Icons.chat_rounded, color: Colors.white),
       ),
     );
@@ -162,18 +165,19 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
     try {
       final myName = await ref.read(currentUserNameProvider.future);
-      final myProfile = await ref.read(authServiceProvider)
-          .getUserProfile(currentUser.uid);
+      final myProfile =
+          await ref.read(authServiceProvider).getUserProfile(currentUser.uid);
       final myPhoto = myProfile?.photoUrl;
 
-      final convId = await ref.read(chatServiceProvider).getOrCreateConversation(
-        currentUserId:    currentUser.uid,
-        currentUserName:  myName,
-        currentUserPhoto: myPhoto,
-        otherUserId:      otherUserId,
-        otherUserName:    otherUserName,
-        otherUserPhoto:   otherUserPhoto,
-      );
+      final convId =
+          await ref.read(chatServiceProvider).getOrCreateConversation(
+                currentUserId: currentUser.uid,
+                currentUserName: myName,
+                currentUserPhoto: myPhoto,
+                otherUserId: otherUserId,
+                otherUserName: otherUserName,
+                otherUserPhoto: otherUserPhoto,
+              );
 
       if (context.mounted) {
         context.push(
@@ -213,7 +217,9 @@ class _SearchResults extends ConsumerWidget {
             final name = c.getDisplayName(currentUserId).toLowerCase();
             final groupName = (c.groupName ?? '').toLowerCase();
             final last = (c.lastMessage ?? '').toLowerCase();
-            return name.contains(q) || groupName.contains(q) || last.contains(q);
+            return name.contains(q) ||
+                groupName.contains(q) ||
+                last.contains(q);
           }).toList();
 
     // Utiliser les contacts au lieu de tous les utilisateurs
@@ -232,7 +238,7 @@ class _SearchResults extends ConsumerWidget {
         if (convMatches.isEmpty && contactMatches.isEmpty) {
           return const Center(
             child: Text('Aucun résultat',
-              style: TextStyle(color: AppColors.textSecondary)),
+                style: TextStyle(color: AppColors.textSecondary)),
           );
         }
 
@@ -245,34 +251,34 @@ class _SearchResults extends ConsumerWidget {
             items.add(const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text('Discussions',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                )),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  )),
             ));
             items.addAll(directConvs.map((c) => _ConversationTile(
-              conversation: c,
-              currentUserId: currentUserId,
-            )));
+                  conversation: c,
+                  currentUserId: currentUserId,
+                )));
           }
 
           if (groupConvs.isNotEmpty) {
             items.add(const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text('Groupes',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                )),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  )),
             ));
             items.addAll(groupConvs.map((c) => _ConversationTile(
-              conversation: c,
-              currentUserId: currentUserId,
-            )));
+                  conversation: c,
+                  currentUserId: currentUserId,
+                )));
           }
         }
 
@@ -280,19 +286,19 @@ class _SearchResults extends ConsumerWidget {
           items.add(const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text('Contacts',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              )),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                )),
           ));
           items.addAll(contactMatches.map((c) {
             final name = c.contactName;
             final photo = c.contactPhoto;
             return ListTile(
               leading: CircleAvatar(
-                backgroundColor: AppColors.primary,
+                backgroundColor: context.primaryColor,
                 backgroundImage: photo != null ? NetworkImage(photo) : null,
                 child: photo == null
                     ? Text(name[0].toUpperCase(),
@@ -300,9 +306,9 @@ class _SearchResults extends ConsumerWidget {
                     : null,
               ),
               title: Text(name,
-                style: const TextStyle(color: AppColors.textPrimary)),
+                  style: const TextStyle(color: AppColors.textPrimary)),
               subtitle: Text(c.phoneNumber ?? '',
-                style: const TextStyle(color: AppColors.textSecondary)),
+                  style: const TextStyle(color: AppColors.textSecondary)),
               onTap: () => onOpenChat(
                 c.id,
                 name,
@@ -332,11 +338,11 @@ class _ConversationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final unread      = conversation.getUnreadCount(currentUserId);
+    final unread = conversation.getUnreadCount(currentUserId);
     final displayName = conversation.getDisplayName(currentUserId);
-    final photo       = conversation.getDisplayPhoto(currentUserId);
-    final isMe        = conversation.lastMessageSenderId == currentUserId;
-    final otherId     = conversation.participantIds
+    final photo = conversation.getDisplayPhoto(currentUserId);
+    final isMe = conversation.lastMessageSenderId == currentUserId;
+    final otherId = conversation.participantIds
         .firstWhere((id) => id != currentUserId, orElse: () => '');
     final contactsService = ref.read(phoneContactsServiceProvider);
     // Always resolve for non-group chats to get fresh profile photos from Firestore
@@ -386,7 +392,10 @@ class _ConversationTile extends ConsumerWidget {
             // Avatar
             Stack(
               children: [
-                _Avatar(name: displayName, photoUrl: photo, isGroup: conversation.isGroup),
+                _Avatar(
+                    name: displayName,
+                    photoUrl: photo,
+                    isGroup: conversation.isGroup),
                 if (conversation.isPinned)
                   Positioned(
                     right: 0,
@@ -397,10 +406,10 @@ class _ConversationTile extends ConsumerWidget {
                         color: context.appThemeColors.background,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.push_pin_rounded,
                         size: 14,
-                        color: AppColors.primary,
+                        color: context.primaryColor,
                       ),
                     ),
                   ),
@@ -416,14 +425,16 @@ class _ConversationTile extends ConsumerWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(displayName,
+                        child: Text(
+                          displayName,
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: unread > 0
-                                ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w700 : FontWeight.w500,
                             color: context.appThemeColors.textPrimary,
                           ),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (conversation.lastMessageAt != null)
@@ -435,9 +446,11 @@ class _ConversationTile extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: unread > 0
-                                    ? AppColors.primary : AppColors.textHint,
+                                    ? context.primaryColor
+                                    : AppColors.textHint,
                                 fontWeight: unread > 0
-                                    ? FontWeight.w600 : FontWeight.w400,
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
                               ),
                             ),
                             if (isMe && conversation.lastMessage != null)
@@ -457,8 +470,8 @@ class _ConversationTile extends ConsumerWidget {
                       // Indicateur "moi :"
                       if (isMe && conversation.lastMessage != null)
                         const Text('Vous : ',
-                          style: TextStyle(
-                            fontSize: 13, color: AppColors.textHint)),
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.textHint)),
 
                       // Dernier message
                       Expanded(
@@ -469,27 +482,29 @@ class _ConversationTile extends ConsumerWidget {
                             color: unread > 0
                                 ? Theme.of(context).textTheme.bodyLarge?.color
                                 : Theme.of(context).textTheme.bodySmall?.color,
-                            fontWeight: unread > 0
-                                ? FontWeight.w500 : FontWeight.w400,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w500 : FontWeight.w400,
                           ),
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
                       // Badge non-lus
                       if (unread > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primary,
+                            color: context.primaryColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text('$unread',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            )),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              )),
                         ),
                     ],
                   ),
@@ -508,7 +523,7 @@ class _ConversationTile extends ConsumerWidget {
     String displayName,
   ) {
     final chatService = ref.read(chatServiceProvider);
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: context.appThemeColors.background,
@@ -544,8 +559,8 @@ class _ConversationTile extends ConsumerWidget {
             // Marquer comme non lu
             _OptionTile(
               icon: Icons.mark_email_unread_rounded,
-              label: conversation.getUnreadCount(currentUserId) > 0 
-                  ? 'Marquer comme lu' 
+              label: conversation.getUnreadCount(currentUserId) > 0
+                  ? 'Marquer comme lu'
                   : 'Marquer comme non lu',
               onTap: () async {
                 Navigator.pop(context);
@@ -565,12 +580,10 @@ class _ConversationTile extends ConsumerWidget {
             ),
             // Épingler/Désépingler
             _OptionTile(
-              icon: conversation.isPinned 
-                  ? Icons.push_pin_outlined 
+              icon: conversation.isPinned
+                  ? Icons.push_pin_outlined
                   : Icons.push_pin_rounded,
-              label: conversation.isPinned 
-                  ? 'Désépingler' 
-                  : 'Épingler',
+              label: conversation.isPinned ? 'Désépingler' : 'Épingler',
               onTap: () async {
                 Navigator.pop(context);
                 await chatService.togglePinConversation(
@@ -581,12 +594,10 @@ class _ConversationTile extends ConsumerWidget {
             ),
             // Archiver/Désarchiver
             _OptionTile(
-              icon: conversation.isArchived 
-                  ? Icons.unarchive_outlined 
+              icon: conversation.isArchived
+                  ? Icons.unarchive_outlined
                   : Icons.archive_outlined,
-              label: conversation.isArchived 
-                  ? 'Désarchiver' 
-                  : 'Archiver',
+              label: conversation.isArchived ? 'Désarchiver' : 'Archiver',
               onTap: () async {
                 Navigator.pop(context);
                 await chatService.toggleArchiveConversation(
@@ -648,12 +659,18 @@ class _ConversationTile extends ConsumerWidget {
   String _getLastMessagePreview(ConversationModel conv) {
     if (conv.lastMessage == null) return 'Démarrez la conversation';
     switch (conv.lastMessageType) {
-      case MessageType.image:   return 'Photo';
-      case MessageType.video:   return 'Vidéo';
-      case MessageType.audio:   return 'Vocal';
-      case MessageType.file:    return 'Fichier';
-      case MessageType.deleted: return 'Message supprimé';
-      default:                  return conv.lastMessage!;
+      case MessageType.image:
+        return 'Photo';
+      case MessageType.video:
+        return 'Vidéo';
+      case MessageType.audio:
+        return 'Vocal';
+      case MessageType.file:
+        return 'Fichier';
+      case MessageType.deleted:
+        return 'Message supprimé';
+      default:
+        return conv.lastMessage!;
     }
   }
 }
@@ -692,7 +709,7 @@ class _OptionTile extends StatelessWidget {
 }
 
 // ── Avatar ─────────────────────────────────────────────────────────────
-class _Avatar extends StatelessWidget {
+class _Avatar extends ConsumerWidget {
   final String name;
   final String? photoUrl;
   final bool isGroup;
@@ -700,7 +717,7 @@ class _Avatar extends StatelessWidget {
   const _Avatar({required this.name, this.photoUrl, required this.isGroup});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
@@ -711,10 +728,10 @@ class _Avatar extends StatelessWidget {
           placeholder: (context, url) => Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
+                colors: [context.primaryColor, context.accentColor],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -729,16 +746,16 @@ class _Avatar extends StatelessWidget {
           errorWidget: (context, url, error) => Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
+                colors: [context.primaryColor, context.accentColor],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
             child: Center(
-              child: isGroup 
+              child: isGroup
                   ? const Icon(AppIcons.group, color: Colors.white, size: 24)
                   : Text(
                       name.isNotEmpty ? name[0].toUpperCase() : '?',
@@ -753,19 +770,20 @@ class _Avatar extends StatelessWidget {
         ),
       );
     }
-    
+
     return Container(
-      width: 52, height: 52,
-      decoration: const BoxDecoration(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
+          colors: [context.primaryColor, context.accentColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
       child: Center(
-        child: isGroup 
+        child: isGroup
             ? const Icon(AppIcons.group, color: Colors.white, size: 24)
             : Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
@@ -789,13 +807,17 @@ class _LastStatusIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textHint);
+        return const Icon(Icons.access_time_rounded,
+            size: 12, color: AppColors.textHint);
       case MessageStatus.sent:
-        return const Icon(Icons.check_rounded, size: 12, color: AppColors.textHint);
+        return const Icon(Icons.check_rounded,
+            size: 12, color: AppColors.textHint);
       case MessageStatus.delivered:
-        return const Icon(Icons.done_all_rounded, size: 12, color: AppColors.textHint);
+        return const Icon(Icons.done_all_rounded,
+            size: 12, color: AppColors.textHint);
       case MessageStatus.read:
-        return const Icon(Icons.done_all_rounded, size: 12, color: AppColors.accent);
+        return Icon(Icons.done_all_rounded,
+            size: 12, color: context.accentColor);
     }
   }
 }
@@ -810,15 +832,19 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(AppIcons.chat, size: 64, color: colors.textHint)
-              .animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+              .animate()
+              .scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 16),
           Text('Aucune discussion',
-            style: Theme.of(context).textTheme.titleLarge),
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          Text('Appuyez sur le bouton + pour démarrer\nune nouvelle conversation',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.textSecondary)),
+          Text(
+              'Appuyez sur le bouton + pour démarrer\nune nouvelle conversation',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: colors.textSecondary)),
         ],
       ),
     );
@@ -831,7 +857,7 @@ class _ArchivedLink extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final archivedConvos = ref.watch(archivedConversationsProvider);
     final colors = context.appThemeColors;
-    
+
     return InkWell(
       onTap: () => context.push(AppRoutes.archivedChats),
       child: Padding(
@@ -859,7 +885,8 @@ class _ArchivedLink extends ConsumerWidget {
               data: (list) {
                 if (list.isEmpty) return const SizedBox.shrink();
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: colors.surface,
                     borderRadius: BorderRadius.circular(12),

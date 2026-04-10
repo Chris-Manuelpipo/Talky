@@ -42,10 +42,10 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  final _controller  = TextEditingController();
-  final _scrollCtrl  = ScrollController();
+  final _controller = TextEditingController();
+  final _scrollCtrl = ScrollController();
   MessageModel? _replyTo;
-  bool _isTyping    = false;
+  bool _isTyping = false;
   bool _isRecording = false;
 
   @override
@@ -58,9 +58,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final uid = ref.read(authStateProvider).value?.uid;
     if (uid == null) return;
     ref.read(chatServiceProvider).markAsRead(
-      conversationId: widget.conversationId,
-      userId: uid,
-    );
+          conversationId: widget.conversationId,
+          userId: uid,
+        );
   }
 
   void _send() {
@@ -70,15 +70,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (user == null) return;
 
     ref.read(sendMessageProvider.notifier).send(
-      conversationId:  widget.conversationId,
-      senderId:        user.uid,
-      content:         text,
-      replyToId:       _replyTo?.id,
-      replyToContent:  _replyTo?.content,
-    );
+          conversationId: widget.conversationId,
+          senderId: user.uid,
+          content: text,
+          replyToId: _replyTo?.id,
+          replyToContent: _replyTo?.content,
+        );
 
     _controller.clear();
-    setState(() { _replyTo = null; _isTyping = false; });
+    setState(() {
+      _replyTo = null;
+      _isTyping = false;
+    });
     _scrollToBottom();
   }
 
@@ -119,8 +122,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => MediaPickerSheet(
         conversationId: widget.conversationId,
-        senderId:       user.uid,
-        senderName:     senderName,
+        senderId: user.uid,
+        senderName: senderName,
       ),
     );
   }
@@ -146,9 +149,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages   = ref.watch(messagesProvider(widget.conversationId));
+    final messages = ref.watch(messagesProvider(widget.conversationId));
     final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
-    final convos     = ref.watch(conversationsProvider);
+    final convos = ref.watch(conversationsProvider);
 
     ref.listen(messagesProvider(widget.conversationId), (_, next) {
       final uid = ref.read(authStateProvider).value?.uid;
@@ -162,10 +165,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         print('[ChatScreen] toRead=${toRead.length} uid=$uid');
         if (toRead.isNotEmpty) {
           ref.read(chatServiceProvider).markMessagesReadByIds(
-            conversationId: widget.conversationId,
-            userId: uid,
-            messageIds: toRead,
-          );
+                conversationId: widget.conversationId,
+                userId: uid,
+                messageIds: toRead,
+              );
         }
       });
     });
@@ -206,130 +209,138 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             fallbackName: baseName,
             phone: user?.phone,
           );
-    final displayPhoto = isGroup ? widget.contactPhoto : (user?.photoUrl ?? widget.contactPhoto);
+    final displayPhoto =
+        isGroup ? widget.contactPhoto : (user?.photoUrl ?? widget.contactPhoto);
 
     return Scaffold(
       backgroundColor: context.appThemeColors.background,
-      appBar: _buildAppBar(context, convo, currentUid, displayName, displayPhoto),
+      appBar:
+          _buildAppBar(context, convo, currentUid, displayName, displayPhoto),
       body: Column(
         children: [
-              // Liste messages
-              Expanded(
-                child: messages.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error:   (e, _) => Center(child: Text('Erreur: $e')),
-                  data:    (list) {
-                    // Filtrer les messages supprimés pour l'utilisateur courant
-                    final filteredList = list.where((m) {
-                      // Ne pas afficher si le message est supprimé pour cet utilisateur
-                      return !m.deletedFor.contains(currentUid);
-                    }).toList();
-                    
-                    if (filteredList.isEmpty) {
-                      return _EmptyChatState(name: displayName);
-                    }
-                    
-                    // Déterminer si c'est un groupe
-                    final isGroup = convo?.isGroup ?? false;
-                    
-                    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-                    return ListView.builder(
-                      controller:  _scrollCtrl,
-                      padding:     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      itemCount:   filteredList.length,
-                      itemBuilder: (_, i) {
-                        final msg    = filteredList[i];
-                        final isMine = msg.senderId == currentUid;
-                        final showDate = i == 0 ||
-                            !_isSameDay(filteredList[i - 1].sentAt, msg.sentAt);
-                        return Column(
-                          children: [
-                            if (showDate) _DateDivider(date: msg.sentAt),
-                            _buildMessageWidget(msg, isMine, isGroup, currentUid),
-                          ],
-                        );
-                      },
+          // Liste messages
+          Expanded(
+            child: messages.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Erreur: $e')),
+              data: (list) {
+                // Filtrer les messages supprimés pour l'utilisateur courant
+                final filteredList = list.where((m) {
+                  // Ne pas afficher si le message est supprimé pour cet utilisateur
+                  return !m.deletedFor.contains(currentUid);
+                }).toList();
+
+                if (filteredList.isEmpty) {
+                  return _EmptyChatState(name: displayName);
+                }
+
+                // Déterminer si c'est un groupe
+                final isGroup = convo?.isGroup ?? false;
+
+                WidgetsBinding.instance
+                    .addPostFrameCallback((_) => _scrollToBottom());
+                return ListView.builder(
+                  controller: _scrollCtrl,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  itemCount: filteredList.length,
+                  itemBuilder: (_, i) {
+                    final msg = filteredList[i];
+                    final isMine = msg.senderId == currentUid;
+                    final showDate = i == 0 ||
+                        !_isSameDay(filteredList[i - 1].sentAt, msg.sentAt);
+                    return Column(
+                      children: [
+                        if (showDate) _DateDivider(date: msg.sentAt),
+                        _buildMessageWidget(msg, isMine, isGroup, currentUid),
+                      ],
                     );
                   },
-                ),
-              ),
-
-              // Barre de réponse
-              if (_replyTo != null) _ReplyBar(
-                message:  _replyTo!,
-                onCancel: () => setState(() => _replyTo = null),
-              ),
-
-              // Enregistrement vocal OU barre de saisie
-              if (_isRecording)
-                VoiceRecorderWidget(
-                  onRecordingComplete: (path, duration) async {
-                    setState(() => _isRecording = false);
-                    // Upload + envoi
-                    final user = ref.read(authStateProvider).value;
-                    if (user == null) return;
-                    try {
-                      final file = File(path);
-                      final senderName =
-                          await ref.read(currentUserNameProvider.future);
-                      final url = await MediaService().uploadAudio(
-                        file: file,
-                        conversationId: widget.conversationId,
-                      );
-                      await ref.read(chatServiceProvider).sendMediaMessage(
-                        conversationId: widget.conversationId,
-                        senderId:       user.uid,
-                        senderName:     senderName,
-                        mediaUrl:       url,
-                        type:           MessageType.audio,
-                        mediaDuration:  duration,
-                      );
-                    } catch (_) {}
-                  },
-                  onCancel: () => setState(() => _isRecording = false),
-                )
-              else
-                _InputBar(
-                  controller: _controller,
-                  onSend:     _send,
-                  onAttach:   _openMediaPicker,
-                  onMicHold:  () => setState(() => _isRecording = true),
-                  onEmoji:    _openEmojiPicker,
-                  onChanged:  (v) => setState(() => _isTyping = v.isNotEmpty),
-                  isTyping:   _isTyping,
-                ),
-            ],
+                );
+              },
+            ),
           ),
-        );
+
+          // Barre de réponse
+          if (_replyTo != null)
+            _ReplyBar(
+              message: _replyTo!,
+              onCancel: () => setState(() => _replyTo = null),
+            ),
+
+          // Enregistrement vocal OU barre de saisie
+          if (_isRecording)
+            VoiceRecorderWidget(
+              onRecordingComplete: (path, duration) async {
+                setState(() => _isRecording = false);
+                // Upload + envoi
+                final user = ref.read(authStateProvider).value;
+                if (user == null) return;
+                try {
+                  final file = File(path);
+                  final senderName =
+                      await ref.read(currentUserNameProvider.future);
+                  final url = await MediaService().uploadAudio(
+                    file: file,
+                    conversationId: widget.conversationId,
+                  );
+                  await ref.read(chatServiceProvider).sendMediaMessage(
+                        conversationId: widget.conversationId,
+                        senderId: user.uid,
+                        senderName: senderName,
+                        mediaUrl: url,
+                        type: MessageType.audio,
+                        mediaDuration: duration,
+                      );
+                } catch (_) {}
+              },
+              onCancel: () => setState(() => _isRecording = false),
+            )
+          else
+            _InputBar(
+              controller: _controller,
+              onSend: _send,
+              onAttach: _openMediaPicker,
+              onMicHold: () => setState(() => _isRecording = true),
+              onEmoji: _openEmojiPicker,
+              onChanged: (v) => setState(() => _isTyping = v.isNotEmpty),
+              isTyping: _isTyping,
+            ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildMessageWidget(MessageModel msg, bool isMine, bool isGroup, String currentUid) {
+  Widget _buildMessageWidget(
+      MessageModel msg, bool isMine, bool isGroup, String currentUid) {
     if (msg.isDeleted) {
       return _DeletedBubble(isMine: isMine);
     }
 
     switch (msg.type) {
       case MessageType.image:
-        return MessageImageBubble(message: msg, isMine: isMine, isGroup: isGroup);
+        return MessageImageBubble(
+            message: msg, isMine: isMine, isGroup: isGroup);
       case MessageType.audio:
         return VoiceMessageBubble(
-          audioUrl:        msg.mediaUrl,
+          audioUrl: msg.mediaUrl,
           durationSeconds: msg.mediaDuration,
-          isMine:          isMine,
-          isGroup:         isGroup,
-          senderName:      msg.senderName,
-          sentAt:          msg.sentAt,
+          isMine: isMine,
+          isGroup: isGroup,
+          senderName: msg.senderName,
+          sentAt: msg.sentAt,
         );
       case MessageType.video:
-        return VideoMessageBubble(message: msg, isMine: isMine, isGroup: isGroup);
+        return VideoMessageBubble(
+            message: msg, isMine: isMine, isGroup: isGroup);
       default:
         return _MessageBubble(
-          message:  msg,
-          isMine:   isMine,
-          isGroup:  isGroup,
+          message: msg,
+          isMine: isMine,
+          isGroup: isGroup,
           currentUid: currentUid,
-          onReply:  () => setState(() => _replyTo = msg),
-          onEdit:   isMine ? () => _showEditDialog(msg) : null,
+          onReply: () => setState(() => _replyTo = msg),
+          onEdit: isMine ? () => _showEditDialog(msg) : null,
           onDeleteForAll: isMine ? () => _deleteMessage(msg) : null,
           onDeleteForMe: () => _deleteMessageForMe(msg),
         );
@@ -371,15 +382,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(displayName,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               if (isGroup)
                 Text('Groupe',
-                style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary))
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: context.appThemeColors.textSecondary))
               else if (otherUserId != null && otherUserId.isNotEmpty)
                 _PresenceText(userId: otherUserId)
               else
                 Text('Hors ligne',
-                style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: context.appThemeColors.textSecondary)),
             ],
           ),
         ],
@@ -446,9 +461,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showCallDisabled(BuildContext context, bool isGroup) {
-    final msg = isGroup
-        ? 'Appel de groupe non supporté'
-        : 'Contact indisponible';
+    final msg =
+        isGroup ? 'Appel de groupe non supporté' : 'Contact indisponible';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
@@ -466,9 +480,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     required bool isVideo,
   }) async {
     if (convo == null) return;
-    final participantIds = convo.participantIds
-        .where((id) => id != currentUid)
-        .toList();
+    final participantIds =
+        convo.participantIds.where((id) => id != currentUid).toList();
     if (participantIds.isEmpty) {
       _showCallDisabled(context, true);
       return;
@@ -553,11 +566,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     try {
       await ref.read(callProvider.notifier).startCall(
-        targetUserId: targetUserId,
-        targetName:   displayName,
-        targetPhoto:  widget.contactPhoto,
-        isVideo:      isVideo,
-      );
+            targetUserId: targetUserId,
+            targetName: displayName,
+            targetPhoto: widget.contactPhoto,
+            isVideo: isVideo,
+          );
 
       if (context.mounted) {
         Navigator.push(
@@ -586,19 +599,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: Text('Supprimer le message'),
         content: Text('Ce message sera supprimé pour tout le monde.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
               child: Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: Text('Supprimer',
-                  style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Supprimer', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
     if (confirmed == true && mounted) {
       await ref.read(chatServiceProvider).deleteMessageForAll(
-        conversationId: widget.conversationId,
-        messageId:      msg.id,
-      );
+            conversationId: widget.conversationId,
+            messageId: msg.id,
+          );
     }
   }
 
@@ -610,20 +624,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: Text('Supprimer le message'),
         content: Text('Ce message sera supprimé uniquement pour vous.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
               child: Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: Text('Supprimer',
-                  style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Supprimer', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
     if (confirmed == true && mounted) {
       await ref.read(chatServiceProvider).deleteMessageForMe(
-        conversationId: widget.conversationId,
-        messageId:      msg.id,
-        userId:         ref.read(authStateProvider).value?.uid ?? '',
-      );
+            conversationId: widget.conversationId,
+            messageId: msg.id,
+            userId: ref.read(authStateProvider).value?.uid ?? '',
+          );
     }
   }
 
@@ -648,12 +663,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary),
+              borderSide: BorderSide(color: context.primaryColor),
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
               child: Text('Annuler')),
           TextButton(
             onPressed: () {
@@ -662,7 +678,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               }
             },
             child: Text('Enregistrer',
-                style: TextStyle(color: AppColors.primary)),
+                style: TextStyle(color: context.primaryColor)),
           ),
         ],
       ),
@@ -671,10 +687,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final newContent = editController.text.trim();
       if (newContent.isNotEmpty && newContent != msg.content) {
         await ref.read(chatServiceProvider).editMessage(
-          conversationId: widget.conversationId,
-          messageId:      msg.id,
-          newContent:     newContent,
-        );
+              conversationId: widget.conversationId,
+              messageId: msg.id,
+              newContent: newContent,
+            );
       }
     }
     editController.dispose();
@@ -717,21 +733,27 @@ class _MessageBubble extends StatelessWidget {
           constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
-            gradient: isMine ? const LinearGradient(
-              colors: [AppColors.primary, Color(0xFF9B7DFF)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ) : null,
+            gradient: isMine
+                ? LinearGradient(
+                    colors: [context.primaryColor, const Color(0xFF9B7DFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
             color: isMine ? null : context.appThemeColors.surface,
             borderRadius: BorderRadius.only(
-              topLeft:     const Radius.circular(18),
-              topRight:    const Radius.circular(18),
-              bottomLeft:  Radius.circular(isMine ? 18 : 4),
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(isMine ? 18 : 4),
               bottomRight: Radius.circular(isMine ? 4 : 18),
             ),
-            boxShadow: [BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 4, offset: const Offset(0, 2),
-            )],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              )
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -747,7 +769,7 @@ class _MessageBubble extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        color: context.primaryColor,
                       ),
                     ),
                   ),
@@ -760,9 +782,9 @@ class _MessageBubble extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border(
                           left: BorderSide(
-                              color: message.isStatusReply 
-                                  ? AppColors.primary 
-                                  : AppColors.accent, 
+                              color: message.isStatusReply
+                                  ? context.primaryColor
+                                  : context.accentColor,
                               width: 3)),
                     ),
                     child: Column(
@@ -773,51 +795,57 @@ class _MessageBubble extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              message.isStatusReply 
-                                  ? Icons.auto_awesome 
+                              message.isStatusReply
+                                  ? Icons.auto_awesome
                                   : Icons.reply,
                               size: 12,
-                              color: message.isStatusReply 
-                                  ? AppColors.primary 
-                                  : AppColors.accent,
+                              color: message.isStatusReply
+                                  ? context.primaryColor
+                                  : context.accentColor,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              message.isStatusReply ? 'Réponse au Statut' : 'Réponse à:',
+                              message.isStatusReply
+                                  ? 'Réponse au Statut'
+                                  : 'Réponse à:',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: message.isStatusReply 
-                                    ? AppColors.primary // Violet pour statut
-                                    : AppColors.accent, // Bleu pour message
+                                color: message.isStatusReply
+                                    ? context.primaryColor
+                                    : context.accentColor,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 2),
                         Text(message.replyToContent!,
-                          style: TextStyle(
-                              fontSize: 12, color: context.appThemeColors.textSecondary),
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: context.appThemeColors.textSecondary),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
                 Text(message.content ?? '',
-                  style: TextStyle(
-                    color: isMine ? Colors.white : context.appThemeColors.textPrimary,
-                    fontSize: 15,
-                  )),
+                    style: TextStyle(
+                      color: isMine
+                          ? Colors.white
+                          : context.appThemeColors.textPrimary,
+                      fontSize: 15,
+                    )),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(DateFormat('HH:mm').format(message.sentAt),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isMine
-                            ? Colors.white.withOpacity(0.7)
-                            : context.appThemeColors.textHint,
-                      )),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMine
+                              ? Colors.white.withOpacity(0.7)
+                              : context.appThemeColors.textHint,
+                        )),
                     // Badge "modifié" si le message a été modifié
                     if (message.isEdited) ...[
                       const SizedBox(width: 4),
@@ -858,14 +886,20 @@ class _MessageBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: context.appThemeColors.divider,
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.appThemeColors.divider,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             ListTile(
-              leading: Icon(Icons.reply_rounded, color: AppColors.primary),
+              leading: Icon(Icons.reply_rounded, color: context.primaryColor),
               title: Text('Répondre'),
-              onTap: () { Navigator.pop(context); onReply(); },
+              onTap: () {
+                Navigator.pop(context);
+                onReply();
+              },
             ),
             ListTile(
               leading: Icon(Icons.copy_rounded),
@@ -873,16 +907,21 @@ class _MessageBubble extends StatelessWidget {
               onTap: () {
                 Clipboard.setData(ClipboardData(text: message.content ?? ''));
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copié !')));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Copié !')));
               },
             ),
             // Option Modifier (visible uniquement si: auteur ET message texte ET non supprimé)
-            if (onEdit != null && message.type == MessageType.text && !message.isDeleted)
+            if (onEdit != null &&
+                message.type == MessageType.text &&
+                !message.isDeleted)
               ListTile(
-                leading: Icon(Icons.edit_rounded, color: AppColors.primary),
+                leading: Icon(Icons.edit_rounded, color: context.primaryColor),
                 title: Text('Modifier'),
-                onTap: () { Navigator.pop(context); onEdit!(); },
+                onTap: () {
+                  Navigator.pop(context);
+                  onEdit!();
+                },
               ),
             // Option Supprimer pour tous (visible uniquement si auteur ET non supprimé)
             if (onDeleteForAll != null && !message.isDeleted)
@@ -890,7 +929,10 @@ class _MessageBubble extends StatelessWidget {
                 leading: Icon(Icons.delete_sweep_rounded, color: Colors.orange),
                 title: Text('Supprimer pour tous',
                     style: TextStyle(color: Colors.orange)),
-                onTap: () { Navigator.pop(context); onDeleteForAll!(); },
+                onTap: () {
+                  Navigator.pop(context);
+                  onDeleteForAll!();
+                },
               ),
             // Option Supprimer pour moi (toujours visible)
             if (onDeleteForMe != null)
@@ -898,7 +940,10 @@ class _MessageBubble extends StatelessWidget {
                 leading: Icon(Icons.delete_rounded, color: Colors.red),
                 title: Text('Supprimer pour moi',
                     style: TextStyle(color: Colors.red)),
-                onTap: () { Navigator.pop(context); onDeleteForMe!(); },
+                onTap: () {
+                  Navigator.pop(context);
+                  onDeleteForMe!();
+                },
               ),
             const SizedBox(height: 8),
           ],
@@ -932,8 +977,10 @@ class _DeletedBubble extends StatelessWidget {
             Icon(AppIcons.deleted, color: colors.textHint, size: 16),
             const SizedBox(width: 6),
             Text('Message supprimé',
-              style: TextStyle(color: colors.textHint,
-                  fontStyle: FontStyle.italic, fontSize: 13)),
+                style: TextStyle(
+                    color: colors.textHint,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13)),
           ],
         ),
       ),
@@ -956,7 +1003,8 @@ class _StatusIcon extends StatelessWidget {
       case MessageStatus.delivered:
         return Icon(Icons.done_all_rounded, size: 12, color: Colors.white70);
       case MessageStatus.read:
-        return Icon(Icons.done_all_rounded, size: 12, color: AppColors.accent);
+        return Icon(Icons.done_all_rounded,
+            size: 12, color: context.accentColor);
     }
   }
 }
@@ -975,8 +1023,11 @@ class _ReplyBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Container(width: 3, height: 36,
-              decoration: BoxDecoration(color: AppColors.primary,
+          Container(
+              width: 3,
+              height: 36,
+              decoration: BoxDecoration(
+                  color: context.primaryColor,
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 10),
           Expanded(
@@ -984,18 +1035,21 @@ class _ReplyBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(message.senderName,
-                  style: TextStyle(color: AppColors.primary,
-                      fontWeight: FontWeight.w600, fontSize: 12)),
+                    style: TextStyle(
+                        color: context.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12)),
                 Text(message.content ?? '',
-                  style: TextStyle(color: context.appThemeColors.textSecondary,
-                      fontSize: 12),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                    style: TextStyle(
+                        color: context.appThemeColors.textSecondary,
+                        fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           IconButton(
-              icon: Icon(Icons.close_rounded, size: 18),
-              onPressed: onCancel),
+              icon: Icon(Icons.close_rounded, size: 18), onPressed: onCancel),
         ],
       ),
     );
@@ -1048,14 +1102,17 @@ class _InputBar extends StatelessWidget {
                     Expanded(
                       child: TextField(
                         controller: controller,
-                        onChanged:  onChanged,
-                        maxLines:   5, minLines: 1,
-                        style: TextStyle(color: context.appThemeColors.textPrimary),
+                        onChanged: onChanged,
+                        maxLines: 5,
+                        minLines: 1,
+                        style: TextStyle(
+                            color: context.appThemeColors.textPrimary),
                         decoration: InputDecoration(
-                          hintText:  'Message...',
-                          hintStyle: TextStyle(color: context.appThemeColors.textHint),
-                          border:    InputBorder.none,
-                          isDense:   true,
+                          hintText: 'Message...',
+                          hintStyle:
+                              TextStyle(color: context.appThemeColors.textHint),
+                          border: InputBorder.none,
+                          isDense: true,
                         ),
                       ),
                     ),
@@ -1073,27 +1130,33 @@ class _InputBar extends StatelessWidget {
 
             // Bouton envoyer / micro
             GestureDetector(
-              onTap:      isTyping ? onSend : onMicHold,
+              onTap: isTyping ? onSend : onMicHold,
               onLongPress: isTyping ? null : onMicHold,
               child: Container(
-                width: 46, height: 46,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.accent],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  gradient: LinearGradient(
+                    colors: [context.primaryColor, context.accentColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  boxShadow: [BoxShadow(
-                    color: AppColors.primary.withOpacity(0.4),
-                    blurRadius: 8, offset: const Offset(0, 3),
-                  )],
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.primaryColor.withOpacity(0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ],
                 ),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
                     isTyping ? Icons.send_rounded : Icons.mic_rounded,
                     key: ValueKey(isTyping),
-                    color: Colors.white, size: 20,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
               ),
@@ -1106,13 +1169,13 @@ class _InputBar extends StatelessWidget {
 }
 
 // ── Avatar ─────────────────────────────────────────────────────────────
-class _AvatarWidget extends StatelessWidget {
+class _AvatarWidget extends ConsumerWidget {
   final String name;
   final String? photoUrl;
   const _AvatarWidget({required this.name, this.photoUrl});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
@@ -1123,20 +1186,20 @@ class _AvatarWidget extends StatelessWidget {
           placeholder: (context, url) => Container(
             width: 38,
             height: 38,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
+                colors: [context.primaryColor, context.accentColor],
               ),
             ),
           ),
           errorWidget: (context, url, error) => Container(
             width: 38,
             height: 38,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
+                colors: [context.primaryColor, context.accentColor],
               ),
             ),
             child: Center(
@@ -1152,13 +1215,14 @@ class _AvatarWidget extends StatelessWidget {
         ),
       );
     }
-    
+
     return Container(
-      width: 38, height: 38,
-      decoration: const BoxDecoration(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
+          colors: [context.primaryColor, context.accentColor],
         ),
       ),
       child: Center(
@@ -1180,182 +1244,218 @@ class _EmojiPicker extends StatelessWidget {
   const _EmojiPicker({required this.onSelect});
   //KILO don't touch these _emojis
   static const _emojis = [
-  // === Visages et émotions (ajouts récents et variantes) ===
-  '😀','😁','😂','🤣','😊','😍','😘','😎','🤩','🥳',
-  '😇','🙂','🙃','😉','😌','😜','🤪','😢','😭','😡',
-  '😤','😱','🥶','🥵','🤯','😴','🤔','🤫','🤐','😬',
-  '😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔',
-  '😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥴',
-  '🤠','🥱','😎','🤓','🧐','😕','😟','🙁','☹️','😮',
-  '😯','😲','😳','🥺','😦','😧','😨','😰','😥','😓',
-  '🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄',
-  '🥹','🫠','🫡','🫢','🫣','🫤','🥸','🤐','🫥','🫨',
+    // === Visages et émotions (ajouts récents et variantes) ===
+    '😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤩', '🥳',
+    '😇', '🙂', '🙃', '😉', '😌', '😜', '🤪', '😢', '😭', '😡',
+    '😤', '😱', '🥶', '🥵', '🤯', '😴', '🤔', '🤫', '🤐', '😬',
+    '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔',
+    '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥴',
+    '🤠', '🥱', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮',
+    '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😓',
+    '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄',
+    '🥹', '🫠', '🫡', '🫢', '🫣', '🫤', '🥸', '🤐', '🫥', '🫨',
 
-  // === Gestes et parties du corps (avec variantes récentes) ===
-  '👍','👎','👏','🙏','🤝','💪','✌️','🤟','🤘','👌',
-  '🤞','🤙','👈','👉','👆','👇','☝️','👊','👋','🤚',
-  '🖐️','✋','👌','🤏','🫶','🤲','🙌','👐','🤝','🙏',
-  '💅','👄','👅','👂','👃','👣','🧠','🫀','🫁','🦷',
-  '🦴','👀','👁️','🫵','🫱','🫲','🫳','🫴','🫸','🫹',
-  '🫷','🫸','🫲','🫱','🫳','🫴','🫶','🫰','🫱','🫲',
-  '🫳','🫴','🫵','🫶','🫷','🫸',
+    // === Gestes et parties du corps (avec variantes récentes) ===
+    '👍', '👎', '👏', '🙏', '🤝', '💪', '✌️', '🤟', '🤘', '👌',
+    '🤞', '🤙', '👈', '👉', '👆', '👇', '☝️', '👊', '👋', '🤚',
+    '🖐️', '✋', '👌', '🤏', '🫶', '🤲', '🙌', '👐', '🤝', '🙏',
+    '💅', '👄', '👅', '👂', '👃', '👣', '🧠', '🫀', '🫁', '🦷',
+    '🦴', '👀', '👁️', '🫵', '🫱', '🫲', '🫳', '🫴', '🫸', '🫹',
+    '🫷', '🫸', '🫲', '🫱', '🫳', '🫴', '🫶', '🫰', '🫱', '🫲',
+    '🫳', '🫴', '🫵', '🫶', '🫷', '🫸',
 
-  // === Animaux et nature (nouveaux + existants) ===
-  '🐶','🐱','🐻','🐼','🐨','🐯','🦁','🐸','🐵','🐧',
-  '🐦','🐤','🐣','🐥','🐺','🐗','🐴','🦄','🐝','🐛',
-  '🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🕸️','🦂','🐢',
-  '🐍','🦎','🐙','🦑','🦐','🦞','🐠','🐟','🐡','🐬',
-  '🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣',
-  '🐘','🦏','🐪','🐫','🦒','🦘','🐃','🐂','🐄','🐎',
-  '🐖','🐏','🐑','🐐','🦌','🐕','🐩','🐈','🐓','🦃',
-  '🦤','🦚','🦜','🦢','🦩','🐇','🦝','🦨','🦡','🦫',
-  '🦆','🦅','🦉','🦇','🐿️','🦔','🦊','🦦','🦥','🪿',
-  '🦫','🦡','🦨','🦝','🐁','🐀','🐿️','🦔','🦇','🐦‍⬛',
-  '🕊️','🦃','🦤','🦩','🦢','🦚','🦜','🦆','🦅','🦉',
-  '🪹','🪺','🌱','🌿','☘️','🍀','🍁','🍂','🍃','🌾',
-  '🌺','🌻','🌼','🌸','🌷','🌹','🥀','🪷','🌲','🌳',
-  '🌴','🌵','🎍','🎋','🪴','🌿','🍀','🌱','🌿','🍃',
+    // === Animaux et nature (nouveaux + existants) ===
+    '🐶', '🐱', '🐻', '🐼', '🐨', '🐯', '🦁', '🐸', '🐵', '🐧',
+    '🐦', '🐤', '🐣', '🐥', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛',
+    '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢',
+    '🐍', '🦎', '🐙', '🦑', '🦐', '🦞', '🐠', '🐟', '🐡', '🐬',
+    '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣',
+    '🐘', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎',
+    '🐖', '🐏', '🐑', '🐐', '🦌', '🐕', '🐩', '🐈', '🐓', '🦃',
+    '🦤', '🦚', '🦜', '🦢', '🦩', '🐇', '🦝', '🦨', '🦡', '🦫',
+    '🦆', '🦅', '🦉', '🦇', '🐿️', '🦔', '🦊', '🦦', '🦥', '🪿',
+    '🦫', '🦡', '🦨', '🦝', '🐁', '🐀', '🐿️', '🦔', '🦇', '🐦‍⬛',
+    '🕊️', '🦃', '🦤', '🦩', '🦢', '🦚', '🦜', '🦆', '🦅', '🦉',
+    '🪹', '🪺', '🌱', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🌾',
+    '🌺', '🌻', '🌼', '🌸', '🌷', '🌹', '🥀', '🪷', '🌲', '🌳',
+    '🌴', '🌵', '🎍', '🎋', '🪴', '🌿', '🍀', '🌱', '🌿', '🍃',
 
-  // === Nourriture et boissons (complément) ===
-  '🍕','🍔','🍟','🌭','🥗','🍣','🍩','🍪','🍫','🍰',
-  '🍎','🍏','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍒',
-  '🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬',
-  '🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠',
-  '🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞',
-  '🧇','🥓','🥩','🍗','🍖','🦴','🌮','🌯','🫔','🥙',
-  '🧆','🥚','🍲','🫕','🥣','🥗','🍿','🧈','🧂','🥤',
-  '🧃','🧉','🧊','🍺','🍻','🥂','🍷','🥃','🍸','🍹',
-  '🥮','🍡','🍢','🍥','🥟','🥠','🥡','🦪','🍲','🥘',
-  '🍛','🍜','🍝','🍠','🍯','🥛','☕','🍵','🍶','🍾',
-  '🍴','🥄','🔪','🏺','🍽️',
+    // === Nourriture et boissons (complément) ===
+    '🍕', '🍔', '🍟', '🌭', '🥗', '🍣', '🍩', '🍪', '🍫', '🍰',
+    '🍎', '🍏', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒',
+    '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬',
+    '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠',
+    '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞',
+    '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌮', '🌯', '🫔', '🥙',
+    '🧆', '🥚', '🍲', '🫕', '🥣', '🥗', '🍿', '🧈', '🧂', '🥤',
+    '🧃', '🧉', '🧊', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹',
+    '🥮', '🍡', '🍢', '🍥', '🥟', '🥠', '🥡', '🦪', '🍲', '🥘',
+    '🍛', '🍜', '🍝', '🍠', '🍯', '🥛', '☕', '🍵', '🍶', '🍾',
+    '🍴', '🥄', '🔪', '🏺', '🍽️',
 
-  // === Sports et activités (nouveaux) ===
-  '⚽','🏀','🏈','🎮','🎧','🎵','🎬','📷','✈️','🚗',
-  '🏀','⚾','🥎','🏐','🏉','🎾','🥏','🎳','🏏','🏑',
-  '🏒','🥍','🏓','🏸','🥊','🥋','🥅','⛳','🏹','🎣',
-  '🤿','🥌','🛹','🛼','🛷','⛸️','🥌','🎿','🏂','🪂',
-  '🏌️','🏌️‍♂️','🏌️‍♀️','🏄','🏄‍♂️','🏄‍♀️','🏊','🏊‍♂️','🏊‍♀️','⛹️',
-  '⛹️‍♂️','⛹️‍♀️','🏋️','🏋️‍♂️','🏋️‍♀️','🚴','🚴‍♂️','🚴‍♀️','🚵','🚵‍♂️',
-  '🚵‍♀️','🤸','🤸‍♂️','🤸‍♀️','🤼','🤼‍♂️','🤼‍♀️','🤽','🤽‍♂️','🤽‍♀️',
-  '🤾','🤾‍♂️','🤾‍♀️','🤹','🤹‍♂️','🤹‍♀️','🧘','🧘‍♂️','🧘‍♀️','🪁',
+    // === Sports et activités (nouveaux) ===
+    '⚽', '🏀', '🏈', '🎮', '🎧', '🎵', '🎬', '📷', '✈️', '🚗',
+    '🏀', '⚾', '🥎', '🏐', '🏉', '🎾', '🥏', '🎳', '🏏', '🏑',
+    '🏒', '🥍', '🏓', '🏸', '🥊', '🥋', '🥅', '⛳', '🏹', '🎣',
+    '🤿', '🥌', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '🏂', '🪂',
+    '🏌️', '🏌️‍♂️', '🏌️‍♀️', '🏄', '🏄‍♂️', '🏄‍♀️', '🏊', '🏊‍♂️', '🏊‍♀️',
+    '⛹️',
+    '⛹️‍♂️', '⛹️‍♀️', '🏋️', '🏋️‍♂️', '🏋️‍♀️', '🚴', '🚴‍♂️', '🚴‍♀️', '🚵',
+    '🚵‍♂️',
+    '🚵‍♀️', '🤸', '🤸‍♂️', '🤸‍♀️', '🤼', '🤼‍♂️', '🤼‍♀️', '🤽', '🤽‍♂️',
+    '🤽‍♀️',
+    '🤾', '🤾‍♂️', '🤾‍♀️', '🤹', '🤹‍♂️', '🤹‍♀️', '🧘', '🧘‍♂️', '🧘‍♀️',
+    '🪁',
 
-  // === Voyage et lieux (complément) ===
-  '🏡','🌍','✈️','🚗','🚲','🏍️','🚂','🚢','⛵','🛸',
-  '🚀','🛰️','🏖️','🏝️','🏜️','🏔️','⛰️','🌋','🏕️',
-  '🏞️','🏟️','🏛️','🏗️','🏘️','🏚️','🏠','🏡','🏢',
-  '🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭',
-  '🏮','🏯','🏰','💒','🗼','🗽','⛲','⛪','🕌','🕍',
-  '⛩️','🕋','⛺','🌁','🌃','🌄','🌅','🌆','🌇','🌉',
-  '🌌','🗿','🛕','🕍','⛩️',
+    // === Voyage et lieux (complément) ===
+    '🏡', '🌍', '✈️', '🚗', '🚲', '🏍️', '🚂', '🚢', '⛵', '🛸',
+    '🚀', '🛰️', '🏖️', '🏝️', '🏜️', '🏔️', '⛰️', '🌋', '🏕️',
+    '🏞️', '🏟️', '🏛️', '🏗️', '🏘️', '🏚️', '🏠', '🏡', '🏢',
+    '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭',
+    '🏮', '🏯', '🏰', '💒', '🗼', '🗽', '⛲', '⛪', '🕌', '🕍',
+    '⛩️', '🕋', '⛺', '🌁', '🌃', '🌄', '🌅', '🌆', '🌇', '🌉',
+    '🌌', '🗿', '🛕', '🕍', '⛩️',
 
-  // === Objets et symboles (très complet) ===
-  '🔥','✨','🎉','💯','💥','⭐','🌈','⚡','☀️','🌙',
-  '❤️','💔','💙','💚','💛','🧡','💜','🤍','🤎','🖤',
-  '💋','💌','💘','💝','💖','💗','💓','💞','💕','💟',
-  '💤','💢','💣','💥','💦','💨','💫','💬','🗨️','🗯️',
-  '🕳️','💭','💠','🔮','🧿','🪬','💈','⚗️','🔭','🔬',
-  '🕯️','💡','🔦','🏮','📔','📕','📗','📘','📙','📚',
-  '📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌',
-  '📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','📁','📂',
-  '🗂️','📅','📆','🗒️','🗓️','📇','📈','📉','📊','📋',
-  '📌','📍','📎','🖇️','📏','📐','✂️','🔒','🔓','🔏',
-  '🔐','🔑','🗝️','🔨','🪓','⛏️','⚒️','🛠️','🔧','🔩',
-  '⚙️','🗜️','⚖️','🦯','🔗','⛓️','🧰','🧲','⚗️','🧪',
-  '🧫','🧬','🔬','🔭','📡','💉','🩸','💊','🩹','🩺',
-  '📿','💎','⚜️','🔱','📛','🔰','⭕','✅','❌','❎',
-  '➕','➖','➗','✖️','♾️','‼️','⁉️','❓','❔','❕',
-  '❗','〰️','➰','➿','🔴','🟠','🟡','🟢','🔵','🟣',
-  '🟤','⚫','⚪','🟥','🟧','🟨','🟩','🟦','🟪','🟫',
-  '⬛','⬜','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘',
-  '🔲','🔳','⚪','⚫',
+    // === Objets et symboles (très complet) ===
+    '🔥', '✨', '🎉', '💯', '💥', '⭐', '🌈', '⚡', '☀️', '🌙',
+    '❤️', '💔', '💙', '💚', '💛', '🧡', '💜', '🤍', '🤎', '🖤',
+    '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟',
+    '💤', '💢', '💣', '💥', '💦', '💨', '💫', '💬', '🗨️', '🗯️',
+    '🕳️', '💭', '💠', '🔮', '🧿', '🪬', '💈', '⚗️', '🔭', '🔬',
+    '🕯️', '💡', '🔦', '🏮', '📔', '📕', '📗', '📘', '📙', '📚',
+    '📖', '🔖', '🧷', '🔗', '📎', '🖇️', '📐', '📏', '🧮', '📌',
+    '📍', '✂️', '🖊️', '🖋️', '✒️', '🖌️', '🖍️', '📝', '📁', '📂',
+    '🗂️', '📅', '📆', '🗒️', '🗓️', '📇', '📈', '📉', '📊', '📋',
+    '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🔒', '🔓', '🔏',
+    '🔐', '🔑', '🗝️', '🔨', '🪓', '⛏️', '⚒️', '🛠️', '🔧', '🔩',
+    '⚙️', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🧰', '🧲', '⚗️', '🧪',
+    '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺',
+    '📿', '💎', '⚜️', '🔱', '📛', '🔰', '⭕', '✅', '❌', '❎',
+    '➕', '➖', '➗', '✖️', '♾️', '‼️', '⁉️', '❓', '❔', '❕',
+    '❗', '〰️', '➰', '➿', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣',
+    '🟤', '⚫', '⚪', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫',
+    '⬛', '⬜', '🔶', '🔷', '🔸', '🔹', '🔺', '🔻', '💠', '🔘',
+    '🔲', '🔳', '⚪', '⚫',
 
-  // === Drapeaux (sélection étendue) ===
-  '🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🇫🇷','🇬🇧','🇺🇸',
-  '🇨🇳','🇯🇵','🇩🇪','🇮🇹','🇪🇸','🇵🇹','🇳🇱','🇧🇪','🇨🇦','🇧🇷',
-  '🇷🇺','🇮🇳','🇦🇺','🇳🇿','🇿🇦','🇪🇬','🇸🇦','🇦🇪','🇮🇱','🇹🇷',
-  '🇬🇷','🇸🇪','🇳🇴','🇩🇰','🇫🇮','🇮🇸','🇮🇪','🇨🇭','🇦🇹','🇵🇱',
-  '🇨🇿','🇭🇺','🇸🇰','🇸🇮','🇭🇷','🇷🇸','🇧🇬','🇷🇴','🇲🇩','🇺🇦',
-  '🇧🇾','🇱🇹','🇱🇻','🇪🇪','🇦🇲','🇬🇪','🇦🇿','🇰🇿','🇺🇿','🇹🇲',
-  '🇰🇬','🇹🇯','🇦🇫','🇵🇰','🇧🇩','🇱🇰','🇳🇵','🇧🇹','🇲🇲','🇹🇭',
-  '🇱🇦','🇻🇳','🇰🇭','🇲🇾','🇸🇬','🇵🇭','🇮🇩','🇹🇱','🇰🇷','🇰🇵',
-  '🇲🇳','🇯🇴','🇱🇧','🇸🇾','🇮🇶','🇮🇷','🇰🇼','🇧🇭','🇶🇦','🇴🇲',
-  '🇾🇪','🇩🇿','🇲🇦','🇹🇳','🇱🇾','🇸🇩','🇪🇷','🇩🇯','🇸🇴','🇪🇹',
-  '🇰🇪','🇹🇿','🇺🇬','🇷🇼','🇧🇮','🇲🇿','🇿🇲','🇲🇼','🇿🇼','🇧🇼',
-  '🇳🇦','🇿🇦','🇱🇸','🇸🇿','🇰🇲','🇲🇬','🇸🇨','🇲🇺','🇨🇻','🇸🇹',
-  '🇬🇼','🇬🇶','🇬🇦','🇨🇬','🇨🇩','🇦🇴','🇳🇬','🇬🇭','🇨🇮','🇱🇷',
-  '🇸🇱','🇬🇳','🇸🇳','🇬🇲','🇲🇱','🇧🇫','🇳🇪','🇹🇩','🇨🇲','🇨🇫',
-  '🇬🇶','🇬🇦','🇨🇬','🇨🇩','🇷🇼','🇧🇮','🇺🇬','🇰🇪','🇹🇿','🇲🇿',
-  '🇲🇼','🇿🇲','🇿🇼','🇧🇼','🇳🇦','🇿🇦','🇸🇿','🇱🇸','🇰🇲','🇲🇬',
-  '🇸🇨','🇲🇺','🇨🇻','🇸🇹','🇬🇼','🇬🇶','🇬🇦','🇨🇬','🇨🇩','🇦🇴',
-  '🇳🇬','🇬🇭','🇨🇮','🇱🇷','🇸🇱','🇬🇳','🇸🇳','🇬🇲','🇲🇱','🇧🇫',
-  '🇳🇪','🇹🇩','🇨🇲','🇨🇫','🇬🇶','🇬🇦','🇨🇬','🇨🇩','🇷🇼','🇧🇮',
-  '🇺🇬','🇰🇪','🇹🇿','🇲🇿','🇲🇼','🇿🇲','🇿🇼','🇧🇼','🇳🇦','🇿🇦',
-  '🇸🇿','🇱🇸','🇰🇲','🇲🇬','🇸🇨','🇲🇺','🇨🇻','🇸🇹','🇬🇼','🇬🇶',
-  '🇬🇦','🇨🇬','🇨🇩','🇦🇴',
+    // === Drapeaux (sélection étendue) ===
+    '🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', '🏳️‍⚧️', '🇫🇷', '🇬🇧', '🇺🇸',
+    '🇨🇳', '🇯🇵', '🇩🇪', '🇮🇹', '🇪🇸', '🇵🇹', '🇳🇱', '🇧🇪', '🇨🇦',
+    '🇧🇷',
+    '🇷🇺', '🇮🇳', '🇦🇺', '🇳🇿', '🇿🇦', '🇪🇬', '🇸🇦', '🇦🇪', '🇮🇱',
+    '🇹🇷',
+    '🇬🇷', '🇸🇪', '🇳🇴', '🇩🇰', '🇫🇮', '🇮🇸', '🇮🇪', '🇨🇭', '🇦🇹',
+    '🇵🇱',
+    '🇨🇿', '🇭🇺', '🇸🇰', '🇸🇮', '🇭🇷', '🇷🇸', '🇧🇬', '🇷🇴', '🇲🇩',
+    '🇺🇦',
+    '🇧🇾', '🇱🇹', '🇱🇻', '🇪🇪', '🇦🇲', '🇬🇪', '🇦🇿', '🇰🇿', '🇺🇿',
+    '🇹🇲',
+    '🇰🇬', '🇹🇯', '🇦🇫', '🇵🇰', '🇧🇩', '🇱🇰', '🇳🇵', '🇧🇹', '🇲🇲',
+    '🇹🇭',
+    '🇱🇦', '🇻🇳', '🇰🇭', '🇲🇾', '🇸🇬', '🇵🇭', '🇮🇩', '🇹🇱', '🇰🇷',
+    '🇰🇵',
+    '🇲🇳', '🇯🇴', '🇱🇧', '🇸🇾', '🇮🇶', '🇮🇷', '🇰🇼', '🇧🇭', '🇶🇦',
+    '🇴🇲',
+    '🇾🇪', '🇩🇿', '🇲🇦', '🇹🇳', '🇱🇾', '🇸🇩', '🇪🇷', '🇩🇯', '🇸🇴',
+    '🇪🇹',
+    '🇰🇪', '🇹🇿', '🇺🇬', '🇷🇼', '🇧🇮', '🇲🇿', '🇿🇲', '🇲🇼', '🇿🇼',
+    '🇧🇼',
+    '🇳🇦', '🇿🇦', '🇱🇸', '🇸🇿', '🇰🇲', '🇲🇬', '🇸🇨', '🇲🇺', '🇨🇻',
+    '🇸🇹',
+    '🇬🇼', '🇬🇶', '🇬🇦', '🇨🇬', '🇨🇩', '🇦🇴', '🇳🇬', '🇬🇭', '🇨🇮',
+    '🇱🇷',
+    '🇸🇱', '🇬🇳', '🇸🇳', '🇬🇲', '🇲🇱', '🇧🇫', '🇳🇪', '🇹🇩', '🇨🇲',
+    '🇨🇫',
+    '🇬🇶', '🇬🇦', '🇨🇬', '🇨🇩', '🇷🇼', '🇧🇮', '🇺🇬', '🇰🇪', '🇹🇿',
+    '🇲🇿',
+    '🇲🇼', '🇿🇲', '🇿🇼', '🇧🇼', '🇳🇦', '🇿🇦', '🇸🇿', '🇱🇸', '🇰🇲',
+    '🇲🇬',
+    '🇸🇨', '🇲🇺', '🇨🇻', '🇸🇹', '🇬🇼', '🇬🇶', '🇬🇦', '🇨🇬', '🇨🇩',
+    '🇦🇴',
+    '🇳🇬', '🇬🇭', '🇨🇮', '🇱🇷', '🇸🇱', '🇬🇳', '🇸🇳', '🇬🇲', '🇲🇱',
+    '🇧🇫',
+    '🇳🇪', '🇹🇩', '🇨🇲', '🇨🇫', '🇬🇶', '🇬🇦', '🇨🇬', '🇨🇩', '🇷🇼',
+    '🇧🇮',
+    '🇺🇬', '🇰🇪', '🇹🇿', '🇲🇿', '🇲🇼', '🇿🇲', '🇿🇼', '🇧🇼', '🇳🇦',
+    '🇿🇦',
+    '🇸🇿', '🇱🇸', '🇰🇲', '🇲🇬', '🇸🇨', '🇲🇺', '🇨🇻', '🇸🇹', '🇬🇼',
+    '🇬🇶',
+    '🇬🇦', '🇨🇬', '🇨🇩', '🇦🇴',
 
-  // === Personnes et rôles (famille, métiers, etc.) ===
-  '👶','🧒','👦','👧','🧑','👨','👩','🧓','👴','👵',
-  '👨‍⚕️','👩‍⚕️','👨‍🎓','👩‍🎓','👨‍🏫','👩‍🏫','👨‍⚖️','👩‍⚖️','👨‍🌾','👩‍🌾',
-  '👨‍🍳','👩‍🍳','👨‍🔧','👩‍🔧','👨‍🏭','👩‍🏭','👨‍💼','👩‍💼','👨‍🔬','👩‍🔬',
-  '👨‍💻','👩‍💻','👨‍🎤','👩‍🎤','👨‍🎨','👩‍🎨','👨‍✈️','👩‍✈️','👨‍🚀','👩‍🚀',
-  '👨‍🚒','👩‍🚒','👮','👮‍♂️','👮‍♀️','🕵️','🕵️‍♂️','🕵️‍♀️','💂','💂‍♂️',
-  '💂‍♀️','👷','👷‍♂️','👷‍♀️','🤴','👸','👳','👳‍♂️','👳‍♀️','👲',
-  '🧕','🤵','🤵‍♂️','🤵‍♀️','👰','👰‍♂️','👰‍♀️','🤰','🤱','👩‍🍼',
-  '👨‍🍼','🧑‍🍼','👼','🎅','🤶','🧑‍🎄','🦸','🦸‍♂️','🦸‍♀️','🦹',
-  '🦹‍♂️','🦹‍♀️','🧙','🧙‍♂️','🧙‍♀️','🧚','🧚‍♂️','🧚‍♀️','🧛','🧛‍♂️',
-  '🧛‍♀️','🧜','🧜‍♂️','🧜‍♀️','🧝','🧝‍♂️','🧝‍♀️','🧞','🧞‍♂️','🧞‍♀️',
-  '🧟','🧟‍♂️','🧟‍♀️','💆','💆‍♂️','💆‍♀️','💇','💇‍♂️','💇‍♀️','🚶',
-  '🚶‍♂️','🚶‍♀️','🧍','🧍‍♂️','🧍‍♀️','🧎','🧎‍♂️','🧎‍♀️','🏃','🏃‍♂️',
-  '🏃‍♀️','💃','🕺','👯','👯‍♂️','👯‍♀️','🧖','🧖‍♂️','🧖‍♀️','🧗',
-  '🧗‍♂️','🧗‍♀️','🤺','🏇','⛷️','🏂','🏌️','🏌️‍♂️','🏌️‍♀️','🏄',
-  '🏄‍♂️','🏄‍♀️','🚣','🚣‍♂️','🚣‍♀️','🏊','🏊‍♂️','🏊‍♀️','⛹️','⛹️‍♂️',
-  '⛹️‍♀️','🏋️','🏋️‍♂️','🏋️‍♀️','🚴','🚴‍♂️','🚴‍♀️','🚵','🚵‍♂️','🚵‍♀️',
-  '🤸','🤸‍♂️','🤸‍♀️','🤼','🤼‍♂️','🤼‍♀️','🤽','🤽‍♂️','🤽‍♀️','🤾',
-  '🤾‍♂️','🤾‍♀️','🤹','🤹‍♂️','🤹‍♀️','🧘','🧘‍♂️','🧘‍♀️','🛀','🛌',
+    // === Personnes et rôles (famille, métiers, etc.) ===
+    '👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🧓', '👴', '👵',
+    '👨‍⚕️', '👩‍⚕️', '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫', '👨‍⚖️', '👩‍⚖️',
+    '👨‍🌾', '👩‍🌾',
+    '👨‍🍳', '👩‍🍳', '👨‍🔧', '👩‍🔧', '👨‍🏭', '👩‍🏭', '👨‍💼', '👩‍💼',
+    '👨‍🔬', '👩‍🔬',
+    '👨‍💻', '👩‍💻', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '👨‍✈️', '👩‍✈️',
+    '👨‍🚀', '👩‍🚀',
+    '👨‍🚒', '👩‍🚒', '👮', '👮‍♂️', '👮‍♀️', '🕵️', '🕵️‍♂️', '🕵️‍♀️', '💂',
+    '💂‍♂️',
+    '💂‍♀️', '👷', '👷‍♂️', '👷‍♀️', '🤴', '👸', '👳', '👳‍♂️', '👳‍♀️', '👲',
+    '🧕', '🤵', '🤵‍♂️', '🤵‍♀️', '👰', '👰‍♂️', '👰‍♀️', '🤰', '🤱', '👩‍🍼',
+    '👨‍🍼', '🧑‍🍼', '👼', '🎅', '🤶', '🧑‍🎄', '🦸', '🦸‍♂️', '🦸‍♀️', '🦹',
+    '🦹‍♂️', '🦹‍♀️', '🧙', '🧙‍♂️', '🧙‍♀️', '🧚', '🧚‍♂️', '🧚‍♀️', '🧛',
+    '🧛‍♂️',
+    '🧛‍♀️', '🧜', '🧜‍♂️', '🧜‍♀️', '🧝', '🧝‍♂️', '🧝‍♀️', '🧞', '🧞‍♂️',
+    '🧞‍♀️',
+    '🧟', '🧟‍♂️', '🧟‍♀️', '💆', '💆‍♂️', '💆‍♀️', '💇', '💇‍♂️', '💇‍♀️',
+    '🚶',
+    '🚶‍♂️', '🚶‍♀️', '🧍', '🧍‍♂️', '🧍‍♀️', '🧎', '🧎‍♂️', '🧎‍♀️', '🏃',
+    '🏃‍♂️',
+    '🏃‍♀️', '💃', '🕺', '👯', '👯‍♂️', '👯‍♀️', '🧖', '🧖‍♂️', '🧖‍♀️', '🧗',
+    '🧗‍♂️', '🧗‍♀️', '🤺', '🏇', '⛷️', '🏂', '🏌️', '🏌️‍♂️', '🏌️‍♀️', '🏄',
+    '🏄‍♂️', '🏄‍♀️', '🚣', '🚣‍♂️', '🚣‍♀️', '🏊', '🏊‍♂️', '🏊‍♀️', '⛹️',
+    '⛹️‍♂️',
+    '⛹️‍♀️', '🏋️', '🏋️‍♂️', '🏋️‍♀️', '🚴', '🚴‍♂️', '🚴‍♀️', '🚵', '🚵‍♂️',
+    '🚵‍♀️',
+    '🤸', '🤸‍♂️', '🤸‍♀️', '🤼', '🤼‍♂️', '🤼‍♀️', '🤽', '🤽‍♂️', '🤽‍♀️',
+    '🤾',
+    '🤾‍♂️', '🤾‍♀️', '🤹', '🤹‍♂️', '🤹‍♀️', '🧘', '🧘‍♂️', '🧘‍♀️', '🛀',
+    '🛌',
 
-  // === Vêtements et accessoires ===
-  '🧥','🧦','🧤','🧣','👚','👕','👖','👔','👗','👘',
-  '🥻','🩳','👙','🩱','🩲','🩳','👠','👡','👢','👞',
-  '👟','🥾','🥿','🧦','🧢','🎩','🎓','🧳','👝','👛',
-  '👜','💼','🎒','👓','🕶️','🥽','🥼','🦺','👔','👕',
+    // === Vêtements et accessoires ===
+    '🧥', '🧦', '🧤', '🧣', '👚', '👕', '👖', '👔', '👗', '👘',
+    '🥻', '🩳', '👙', '🩱', '🩲', '🩳', '👠', '👡', '👢', '👞',
+    '👟', '🥾', '🥿', '🧦', '🧢', '🎩', '🎓', '🧳', '👝', '👛',
+    '👜', '💼', '🎒', '👓', '🕶️', '🥽', '🥼', '🦺', '👔', '👕',
 
-  // === Musique, arts, technologie ===
-  '🎵','🎶','🎼','🎤','🎧','🎷','🎺','🎸','🎻','🪕',
-  '🥁','🎹','📻','📺','📱','📲','☎️','📞','📟','📠',
-  '🔋','🔌','💻','🖥️','🖨️','⌨️','🖱️','🖲️','💽','💾',
-  '💿','📀','🎥','🎞️','📽️','🎬','📷','📸','📹','📼',
-  '🔍','🔎','🕯️','💡','🔦','🏮','📔','📕','📗','📘',
-  '📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏',
-  '🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝',
+    // === Musique, arts, technologie ===
+    '🎵', '🎶', '🎼', '🎤', '🎧', '🎷', '🎺', '🎸', '🎻', '🪕',
+    '🥁', '🎹', '📻', '📺', '📱', '📲', '☎️', '📞', '📟', '📠',
+    '🔋', '🔌', '💻', '🖥️', '🖨️', '⌨️', '🖱️', '🖲️', '💽', '💾',
+    '💿', '📀', '🎥', '🎞️', '📽️', '🎬', '📷', '📸', '📹', '📼',
+    '🔍', '🔎', '🕯️', '💡', '🔦', '🏮', '📔', '📕', '📗', '📘',
+    '📙', '📚', '📖', '🔖', '🧷', '🔗', '📎', '🖇️', '📐', '📏',
+    '🧮', '📌', '📍', '✂️', '🖊️', '🖋️', '✒️', '🖌️', '🖍️', '📝',
 
-  // === Nature, météo, astres (complément) ===
-  '🌞','🌝','🌚','🌛','🌜','🌙','🌖','🌗','🌘','🌑',
-  '🌒','🌓','🌔','🌕','🌖','🌗','🌘','🌙','🌚','🌛',
-  '🌜','☀️','🌤️','⛅','🌥️','🌦️','🌧️','🌨️','🌩️','🌪️',
-  '🌫️','🌬️','🌀','🌈','🌂','☂️','☔','⛱️','⚡','❄️',
-  '☃️','⛄','🔥','💧','🌊','🌫️','🌬️','☀️','🌤️','⛅',
+    // === Nature, météo, astres (complément) ===
+    '🌞', '🌝', '🌚', '🌛', '🌜', '🌙', '🌖', '🌗', '🌘', '🌑',
+    '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘', '🌙', '🌚', '🌛',
+    '🌜', '☀️', '🌤️', '⛅', '🌥️', '🌦️', '🌧️', '🌨️', '🌩️', '🌪️',
+    '🌫️', '🌬️', '🌀', '🌈', '🌂', '☂️', '☔', '⛱️', '⚡', '❄️',
+    '☃️', '⛄', '🔥', '💧', '🌊', '🌫️', '🌬️', '☀️', '🌤️', '⛅',
 
-  // === Horloges et temps ===
-  '🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙',
-  '🕚','🕛','🕜','🕝','🕞','🕟','🕠','🕡','🕢','🕣',
-  '🕤','🕥','🕦','🕧','⌚','⏰','⏱️','⏲️','🕰️','⌛',
-  '⏳',
+    // === Horloges et temps ===
+    '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙',
+    '🕚', '🕛', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣',
+    '🕤', '🕥', '🕦', '🕧', '⌚', '⏰', '⏱️', '⏲️', '🕰️', '⌛',
+    '⏳',
 
-  // === Divers (objets du quotidien) ===
-  '🛒','🛍️','🎁','🎈','🎉','🎊','🎄','🎃','🎆','🎇',
-  '🧨','✨','💥','💫','💦','💨','🕳️','💬','🗯️','💭',
-  '💤','💢','💣','💥','💧','💨','🕳️','🪑','🛏️','🛋️',
-  '🪜','🧰','🧲','🧪','🧫','🧬','🔬','🔭','📡','💉',
-  '🩸','💊','🩹','🩺','🚽','🚿','🛁','🧴','🧷','🧹',
-  '🧺','🧻','🧼','🧽','🧯','🛒','🛍️','🎁','🎈','🎉',
-  '🎊','🎄','🎃','🎆','🎇','🧨','✨','💥','💫','💦',
-  '💨','🕳️','💬','🗯️','💭','💤','💢','💣','💥','💧',
-  '💨','🕳️','🪑','🛏️','🛋️','🪜','🧰','🧲','🧪','🧫',
-  '🧬','🔬','🔭','📡','💉','🩸','💊','🩹','🩺','🚽',
-  '🚿','🛁','🧴','🧷','🧹','🧺','🧻','🧼','🧽','🧯',
-  '🪔','🪙','🪣','🪤','🪥','🪦','🪧','🪨','🪩','🪪',
-  '🪫','🪬','🪭','🪮','🪯'
-];
+    // === Divers (objets du quotidien) ===
+    '🛒', '🛍️', '🎁', '🎈', '🎉', '🎊', '🎄', '🎃', '🎆', '🎇',
+    '🧨', '✨', '💥', '💫', '💦', '💨', '🕳️', '💬', '🗯️', '💭',
+    '💤', '💢', '💣', '💥', '💧', '💨', '🕳️', '🪑', '🛏️', '🛋️',
+    '🪜', '🧰', '🧲', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉',
+    '🩸', '💊', '🩹', '🩺', '🚽', '🚿', '🛁', '🧴', '🧷', '🧹',
+    '🧺', '🧻', '🧼', '🧽', '🧯', '🛒', '🛍️', '🎁', '🎈', '🎉',
+    '🎊', '🎄', '🎃', '🎆', '🎇', '🧨', '✨', '💥', '💫', '💦',
+    '💨', '🕳️', '💬', '🗯️', '💭', '💤', '💢', '💣', '💥', '💧',
+    '💨', '🕳️', '🪑', '🛏️', '🛋️', '🪜', '🧰', '🧲', '🧪', '🧫',
+    '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚽',
+    '🚿', '🛁', '🧴', '🧷', '🧹', '🧺', '🧻', '🧼', '🧽', '🧯',
+    '🪔', '🪙', '🪣', '🪤', '🪥', '🪦', '🪧', '🪨', '🪩', '🪪',
+    '🪫', '🪬', '🪭', '🪮', '🪯'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1384,15 +1484,16 @@ class _EmojiPicker extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text('Stickers (emojis)',
-                    style: TextStyle(
-                      color: context.appThemeColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    )),
+                      style: TextStyle(
+                        color: context.appThemeColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      )),
                   const SizedBox(height: 16),
                   Expanded(
                     child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 8,
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
@@ -1450,16 +1551,18 @@ class _PresenceText extends ConsumerWidget {
 
     if (isOnline) {
       return Text('En ligne',
-        style: TextStyle(fontSize: 11, color: AppColors.accent));
+          style: TextStyle(fontSize: 11, color: context.accentColor));
     }
 
     if (lastSeen != null) {
       return Text(_formatLastSeen(lastSeen),
-        style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
+          style: TextStyle(
+              fontSize: 11, color: context.appThemeColors.textSecondary));
     }
 
     return Text('Hors ligne',
-      style: TextStyle(fontSize: 11, color: context.appThemeColors.textSecondary));
+        style: TextStyle(
+            fontSize: 11, color: context.appThemeColors.textSecondary));
   }
 }
 
@@ -1473,9 +1576,12 @@ class _DateDivider extends StatelessWidget {
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
     String text;
-    if (DateUtils.isSameDay(date, now)) text = "Aujourd'hui";
-    else if (DateUtils.isSameDay(date, yesterday)) text = 'Hier';
-    else text = DateFormat('d MMMM yyyy', 'fr').format(date);
+    if (DateUtils.isSameDay(date, now))
+      text = "Aujourd'hui";
+    else if (DateUtils.isSameDay(date, yesterday))
+      text = 'Hier';
+    else
+      text = DateFormat('d MMMM yyyy', 'fr').format(date);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1484,9 +1590,11 @@ class _DateDivider extends StatelessWidget {
           Expanded(child: Divider(color: context.appThemeColors.divider)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(text, style: TextStyle(
-                color: context.appThemeColors.textHint, fontSize: 11,
-                fontWeight: FontWeight.w500)),
+            child: Text(text,
+                style: TextStyle(
+                    color: context.appThemeColors.textHint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500)),
           ),
           Expanded(child: Divider(color: context.appThemeColors.divider)),
         ],

@@ -3,19 +3,25 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_colors_provider.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text(
+        backgroundColor: colors.background,
+        title: Text(
           'À propos',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+          style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: colors.textPrimary),
         ),
       ),
       body: ListView(
@@ -29,7 +35,7 @@ class AboutScreen extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient(AppColors.primary),
+                    gradient: AppColors.primaryGradient(colors.primary),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(
@@ -39,28 +45,28 @@ class AboutScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   AppConstants.appName,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Version ${AppConstants.appVersion}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   AppConstants.appTagline,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textHint,
+                    color: colors.textHint,
                   ),
                 ),
               ],
@@ -103,25 +109,25 @@ class AboutScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: colors.surfaceVariant,
               borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: colors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(
                       Icons.star_rounded,
-                      color: AppColors.accent,
+                      color: colors.accent,
                       size: 20,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       'Fonctionnalités',
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: colors.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -160,21 +166,21 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Copyright
-          const Center(
+          Center(
             child: Column(
               children: [
                 Text(
                   '© 2026 Talky',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Tous droits réservés',
                   style: TextStyle(
-                    color: AppColors.textHint,
+                    color: colors.textHint,
                     fontSize: 11,
                   ),
                 ),
@@ -189,9 +195,10 @@ class AboutScreen extends StatelessWidget {
   }
 
   void _showContactOptions(BuildContext context) {
+    final colors = context.appThemeColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -204,82 +211,79 @@ class AboutScreen extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textHint,
+                color: colors.textHint,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 'Contactez-nous',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading:
-                  const Icon(Icons.email_outlined, color: AppColors.primary),
-              title: const Text(
+              leading: Icon(Icons.email_outlined, color: colors.primary),
+              title: Text(
                 'Email',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'support@talky.app',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: colors.textSecondary),
               ),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Email: support@talky.app'),
-                    backgroundColor: AppColors.surfaceHigh,
+                  SnackBar(
+                    content: const Text('Email: support@talky.app'),
+                    backgroundColor: colors.surfaceHigh,
                   ),
                 );
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.language_rounded, color: AppColors.primary),
-              title: const Text(
+              leading: Icon(Icons.language_rounded, color: colors.primary),
+              title: Text(
                 'Site web',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'www.talky.app',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: colors.textSecondary),
               ),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Site: www.talky.app'),
-                    backgroundColor: AppColors.surfaceHigh,
+                  SnackBar(
+                    content: const Text('Site: www.talky.app'),
+                    backgroundColor: colors.surfaceHigh,
                   ),
                 );
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help_outline_rounded,
-                  color: AppColors.primary),
-              title: const Text(
+              leading: Icon(Icons.help_outline_rounded, color: colors.primary),
+              title: Text(
                 'FAQ',
-                style: TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Questions fréquentes',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: colors.textSecondary),
               ),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('FAQ bientôt disponible'),
-                    backgroundColor: AppColors.surfaceHigh,
+                  SnackBar(
+                    content: const Text('FAQ bientôt disponible'),
+                    backgroundColor: colors.surfaceHigh,
                   ),
                 );
               },
@@ -292,9 +296,10 @@ class AboutScreen extends StatelessWidget {
   }
 
   void _showTerms(BuildContext context) {
+    final colors = context.appThemeColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: colors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -311,18 +316,18 @@ class AboutScreen extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textHint,
+                color: colors.textHint,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Text(
                 'Conditions d\'utilisation',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
@@ -370,9 +375,10 @@ class AboutScreen extends StatelessWidget {
   }
 
   void _showPrivacyPolicy(BuildContext context) {
+    final colors = context.appThemeColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: colors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -389,18 +395,18 @@ class AboutScreen extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textHint,
+                color: colors.textHint,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Text(
                 'Politique de confidentialité',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
@@ -458,8 +464,9 @@ class _ContactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Material(
-      color: AppColors.surfaceVariant,
+      color: colors.surfaceVariant,
       borderRadius: BorderRadius.circular(AppConstants.borderRadius),
       child: InkWell(
         onTap: onTap,
@@ -472,10 +479,10 @@ class _ContactCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: colors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.primary, size: 22),
+                child: Icon(icon, color: colors.primary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -484,26 +491,26 @@ class _ContactCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
+                color: colors.textSecondary,
               ),
             ],
           ),
@@ -524,18 +531,19 @@ class _FeatureItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 18),
+          Icon(icon, color: colors.primary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
           ),
@@ -556,6 +564,7 @@ class _TermsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -563,18 +572,18 @@ class _TermsSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: colors.textSecondary,
               height: 1.5,
             ),
           ),

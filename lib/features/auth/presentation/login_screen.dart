@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../shared/widgets/talky_text_field.dart';
 import '../../../shared/widgets/talky_button.dart';
 
@@ -17,7 +18,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -43,8 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -62,45 +64,50 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primary, AppColors.accent],
+                        gradient: LinearGradient(
+                          colors: [context.primaryColor, context.accentColor],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
-                        child: Text('T', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
+                        child: Text('T',
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       'Talky',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                     ),
                   ],
                 )
-                .animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0),
+                    .animate()
+                    .fadeIn(duration: 400.ms)
+                    .slideY(begin: -0.2, end: 0),
 
                 const SizedBox(height: 48),
 
                 Text(
                   'Bon retour',
                   style: Theme.of(context).textTheme.displaySmall,
-                )
-                .animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),
+                ).animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
                 const SizedBox(height: 8),
 
                 Text(
                   'Connectez-vous pour reprendre vos conversations',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                )
-                .animate(delay: 150.ms).fadeIn(),
+                        color: colors.textSecondary,
+                      ),
+                ).animate(delay: 150.ms).fadeIn(),
 
                 const SizedBox(height: 40),
 
@@ -128,10 +135,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: AppColors.textHint,
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: colors.textHint,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Mot de passe requis';
@@ -166,16 +176,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Pas encore de compte ? ',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 14),
                     ),
                     GestureDetector(
                       //onTap: () => context.go(AppRoutes.register),
-                      child: const Text(
+                      child: Text(
                         'S\'inscrire',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: colors.primary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),

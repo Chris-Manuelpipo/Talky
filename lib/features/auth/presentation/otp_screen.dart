@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../../shared/widgets/talky_button.dart';
 import '../data/auth_providers.dart';
 //import '../data/auth_service.dart';
@@ -24,8 +25,7 @@ class OtpScreen extends ConsumerStatefulWidget {
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes =
-      List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   int _remainingSeconds = 60;
   Timer? _timer;
@@ -57,8 +57,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   void dispose() {
-    for (final c in _controllers) { c.dispose(); }
-    for (final f in _focusNodes) { f.dispose(); }
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     _timer?.cancel();
     super.dispose();
   }
@@ -80,7 +84,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       // Vérifier si le profil est complet
       final uid = ref.read(authServiceProvider).currentUser?.uid;
       if (uid != null) {
-        final isComplete = await ref.read(authServiceProvider).isProfileComplete(uid);
+        final isComplete =
+            await ref.read(authServiceProvider).isProfileComplete(uid);
         if (mounted) {
           context.go(isComplete ? AppRoutes.home : AppRoutes.profileSetup);
         }
@@ -94,7 +99,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         ),
       );
       // Vider les champs
-      for (final c in _controllers) { c.clear(); }
+      for (final c in _controllers) {
+        c.clear();
+      }
       _focusNodes[0].requestFocus();
     }
   }
@@ -108,9 +115,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final otpState = ref.watch(otpProvider);
+    final colors = context.appThemeColors;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(
@@ -128,20 +136,24 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
               // ── Icône ──────────────────────────────────────────
               Container(
-                width: 64, height: 64,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
+                  color: context.accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: context.accentColor.withValues(alpha: 0.3)),
                 ),
                 child: Center(
-                  child: Icon(AppIcons.verify, color: AppColors.accent, size: 30),
+                  child: Icon(AppIcons.verify,
+                      color: context.accentColor, size: 30),
                 ),
               ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
 
               const SizedBox(height: 24),
 
-              Text('Code de vérification',
+              Text(
+                'Code de vérification',
                 style: Theme.of(context).textTheme.displaySmall,
               ).animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
@@ -150,8 +162,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               RichText(
                 text: TextSpan(
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary, height: 1.5,
-                  ),
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
                   children: [
                     const TextSpan(text: 'Code envoyé au '),
                     TextSpan(
@@ -170,20 +183,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               // ── 6 champs OTP ───────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (index) => _OtpBox(
-                  controller: _controllers[index],
-                  focusNode: _focusNodes[index],
-                  onChanged: (value) {
-                    if (value.isNotEmpty && index < 5) {
-                      _focusNodes[index + 1].requestFocus();
-                    }
-                    if (value.isEmpty && index > 0) {
-                      _focusNodes[index - 1].requestFocus();
-                    }
-                    // Auto-vérifier quand les 6 chiffres sont saisis
-                    if (_otpCode.length == 6) _verify();
-                  },
-                )),
+                children: List.generate(
+                    6,
+                    (index) => _OtpBox(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          onChanged: (value) {
+                            if (value.isNotEmpty && index < 5) {
+                              _focusNodes[index + 1].requestFocus();
+                            }
+                            if (value.isEmpty && index > 0) {
+                              _focusNodes[index - 1].requestFocus();
+                            }
+                            // Auto-vérifier quand les 6 chiffres sont saisis
+                            if (_otpCode.length == 6) _verify();
+                          },
+                        )),
               ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
               const SizedBox(height: 32),
@@ -198,7 +213,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       )
                     : Text(
                         'Renvoyer dans $_remainingSeconds s',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14),
                       ),
               ).animate(delay: 250.ms).fadeIn(),
 
@@ -222,7 +238,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 }
 
 // ── Widget champ OTP individuel ────────────────────────────────────────
-class _OtpBox extends StatelessWidget {
+class _OtpBox extends ConsumerWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final Function(String) onChanged;
@@ -234,7 +250,8 @@ class _OtpBox extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.appThemeColors;
     return SizedBox(
       width: 48,
       height: 58,
@@ -245,26 +262,26 @@ class _OtpBox extends StatelessWidget {
         textAlign: TextAlign.center,
         maxLength: 1,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
+          color: colors.textPrimary,
         ),
         decoration: InputDecoration(
           counterText: '',
           filled: true,
-          fillColor: AppColors.surfaceVariant,
+          fillColor: colors.surfaceVariant,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: colors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: colors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            borderSide: BorderSide(color: colors.primary, width: 2),
           ),
           contentPadding: EdgeInsets.zero,
         ),

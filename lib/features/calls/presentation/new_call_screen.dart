@@ -20,7 +20,8 @@ class _ContactWithPhoto {
   final String? photoUrl;
   final String userId;
 
-  _ContactWithPhoto({required this.contact, this.photoUrl, required this.userId});
+  _ContactWithPhoto(
+      {required this.contact, this.photoUrl, required this.userId});
   String get displayName => contact.displayName;
 }
 
@@ -136,43 +137,43 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
           in chatService.findUsersByPhonesProgressive(allPhones)) {
         if (!mounted) break;
 
-      final phoneToUser = <String, Map<String, dynamic>>{};
-      for (final user in talkyUsers) {
-        final phone = user['phone'] as String?;
-        if (phone != null) {
-          phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
-          _phoneToTalkyUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
+        final phoneToUser = <String, Map<String, dynamic>>{};
+        for (final user in talkyUsers) {
+          final phone = user['phone'] as String?;
+          if (phone != null) {
+            phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
+            _phoneToTalkyUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
+          }
         }
-      }
 
         final onTalky = <_ContactWithPhoto>[];
         final notOnTalky = <PhoneContact>[];
 
-      for (final contact in phoneContacts) {
-        String? photoUrl;
-        bool isOnTalky = false;
-        String? userId;
-        
-        for (final phone in contact.phones) {
-          final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-          if (phoneToUser.containsKey(normalized)) {
-            isOnTalky = true;
-            photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
-            userId = phoneToUser[normalized]?['id'] as String?;
-            break;
+        for (final contact in phoneContacts) {
+          String? photoUrl;
+          bool isOnTalky = false;
+          String? userId;
+
+          for (final phone in contact.phones) {
+            final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+            if (phoneToUser.containsKey(normalized)) {
+              isOnTalky = true;
+              photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
+              userId = phoneToUser[normalized]?['id'] as String?;
+              break;
+            }
+          }
+
+          if (isOnTalky && userId != null) {
+            onTalky.add(_ContactWithPhoto(
+              contact: contact,
+              photoUrl: photoUrl,
+              userId: userId,
+            ));
+          } else {
+            notOnTalky.add(contact);
           }
         }
-
-        if (isOnTalky && userId != null) {
-          onTalky.add(_ContactWithPhoto(
-            contact: contact,
-            photoUrl: photoUrl,
-            userId: userId,
-          ));
-        } else {
-          notOnTalky.add(contact);
-        }
-      }
 
         setState(() {
           _onTalkyContacts = onTalky;
@@ -258,7 +259,8 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
   void _startCall(String userId, String name, String? photo, bool isVideo) {
     // Navigate back to calls screen and start the call
     Navigator.of(context).pop();
-    CallsScreen.startCallFromContact(context, ref, userId, name, photo, isVideo);
+    CallsScreen.startCallFromContact(
+        context, ref, userId, name, photo, isVideo);
   }
 
   void _startGroupCall() {
@@ -285,12 +287,13 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.call_rounded, color: AppColors.primary),
+                leading: Icon(Icons.call_rounded, color: context.primaryColor),
                 title: const Text('Appel audio de groupe'),
                 onTap: () => _startGroupCallWithMode(false),
               ),
               ListTile(
-                leading: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+                leading:
+                    Icon(Icons.videocam_rounded, color: context.accentColor),
                 title: const Text('Appel vidéo de groupe'),
                 onTap: () => _startGroupCallWithMode(true),
               ),
@@ -315,11 +318,11 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
         .toList();
 
     await ref.read(callProvider.notifier).startGroupCall(
-      targetUserIds: _selectedContacts.toList(),
-      isVideo: isVideo,
-      initialParticipants: participants,
-      groupName: 'Appel de groupe',
-    );
+          targetUserIds: _selectedContacts.toList(),
+          isVideo: isVideo,
+          initialParticipants: participants,
+          groupName: 'Appel de groupe',
+        );
 
     // Utiliser le root navigator global car l'écran courant est déjà pop
     final nav = rootNavigatorKey.currentState;
@@ -364,19 +367,19 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
                 if (_selectedContacts.length >= 2)
                   TextButton.icon(
                     onPressed: _startGroupCall,
-                    icon: const Icon(Icons.group, color: AppColors.primary),
-                    label: const Text(
+                    icon: Icon(Icons.group, color: context.primaryColor),
+                    label: Text(
                       'Appeler le groupe',
-                      style: TextStyle(color: AppColors.primary),
+                      style: TextStyle(color: context.primaryColor),
                     ),
                   ),
               ]
             : null,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
+          labelColor: context.primaryColor,
           unselectedLabelColor: context.appThemeColors.textSecondary,
-          indicatorColor: AppColors.primary,
+          indicatorColor: context.primaryColor,
           tabs: const [
             Tab(text: 'Contacts'),
             Tab(text: 'Rechercher'),
@@ -401,7 +404,8 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.contacts, size: 64, color: context.appThemeColors.textHint),
+              Icon(Icons.contacts,
+                  size: 64, color: context.appThemeColors.textHint),
               const SizedBox(height: 16),
               Text('Permission requise',
                   style: TextStyle(
@@ -426,7 +430,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.primaryColor,
                 ),
                 child: Text(
                   _permissionDeniedPermanently
@@ -453,8 +457,8 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
             decoration: InputDecoration(
               hintText: 'Rechercher un contact...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: context.appThemeColors.textHint),
               filled: true,
               fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
@@ -515,7 +519,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
             child: Text(
               'CONTACTS SUR TALKY',
               style: TextStyle(
-                color: AppColors.primary,
+                color: context.primaryColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -599,8 +603,8 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
             decoration: InputDecoration(
               hintText: 'Rechercher par numéro ou nom...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: context.appThemeColors.textHint),
               filled: true,
               fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
@@ -609,7 +613,6 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
             ),
           ),
         ),
-
         Expanded(
           child: _isSearching
               ? const Center(child: CircularProgressIndicator())
@@ -699,7 +702,7 @@ class _PhoneContactTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary,
+            backgroundColor: context.primaryColor,
             backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
             child: photoUrl == null
                 ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
@@ -715,7 +718,7 @@ class _PhoneContactTile extends StatelessWidget {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : Colors.grey[400],
+                  color: isSelected ? context.primaryColor : Colors.grey[400],
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
@@ -744,11 +747,12 @@ class _PhoneContactTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.call_rounded, color: AppColors.primary),
+                  icon: Icon(Icons.call_rounded, color: context.primaryColor),
                   onPressed: onCallAudio,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+                  icon:
+                      Icon(Icons.videocam_rounded, color: context.accentColor),
                   onPressed: onCallVideo,
                 ),
               ],
@@ -758,9 +762,9 @@ class _PhoneContactTile extends StatelessWidget {
                   onPressed: () {
                     // Inviter sur Talky - à implémenter
                   },
-                  child: const Text(
+                  child: Text(
                     'Inviter',
-                    style: TextStyle(color: AppColors.primary),
+                    style: TextStyle(color: context.primaryColor),
                   ),
                 )
               : null,
@@ -783,13 +787,14 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
+    final name =
+        displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
     final photo = user['photoUrl'] as String?;
 
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: AppColors.primary,
+        backgroundColor: context.primaryColor,
         backgroundImage: photo != null ? NetworkImage(photo) : null,
         child: photo == null
             ? Text(name[0].toUpperCase(),
@@ -814,11 +819,11 @@ class _UserTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            icon: const Icon(Icons.call_rounded, color: AppColors.primary),
+            icon: Icon(Icons.call_rounded, color: context.primaryColor),
             onPressed: onCallAudio,
           ),
           IconButton(
-            icon: const Icon(Icons.videocam_rounded, color: AppColors.accent),
+            icon: Icon(Icons.videocam_rounded, color: context.accentColor),
             onPressed: onCallVideo,
           ),
         ],
