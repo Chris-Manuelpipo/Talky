@@ -133,13 +133,9 @@ class _GroupTile extends StatelessWidget {
             Container(
               width: 52,
               height: 52,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF7C5CFC), Color(0xFF4FC3F7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: context.primaryColor,
               ),
               child: Center(
                 child: Icon(AppIcons.group, color: Colors.white, size: 24),

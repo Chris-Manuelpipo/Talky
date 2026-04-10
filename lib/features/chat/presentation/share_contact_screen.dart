@@ -191,10 +191,7 @@ class _UserTile extends ConsumerWidget {
         height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: photo == null
-              ? LinearGradient(
-                  colors: [context.primaryColor, context.accentColor])
-              : null,
+          color: photo == null ? context.primaryColor : null,
           image: photo != null
               ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover)
               : null,

@@ -278,10 +278,7 @@ class _MemberChip extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: photo == null
-                      ? LinearGradient(
-                          colors: [context.primaryColor, context.accentColor])
-                      : null,
+                  color: photo == null ? context.primaryColor : null,
                   image: photo != null
                       ? DecorationImage(
                           image: NetworkImage(photo), fit: BoxFit.cover)
@@ -341,10 +338,7 @@ class _UserAvatar extends StatelessWidget {
       height: 46,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photo == null
-            ? LinearGradient(
-                colors: [context.primaryColor, context.accentColor])
-            : null,
+        color: photo == null ? context.primaryColor : null,
         image: photo != null
             ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover)
             : null,

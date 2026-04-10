@@ -462,10 +462,7 @@ class _Avatar extends ConsumerWidget {
       height: 56,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photoUrl == null
-            ? LinearGradient(
-                colors: [context.primaryColor, context.accentColor])
-            : null,
+        color: photoUrl == null ? context.primaryColor : null,
         image: photoUrl != null
             ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
             : null,
