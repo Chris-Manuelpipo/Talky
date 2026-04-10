@@ -288,10 +288,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                           ? NetworkImage(widget.group.userPhoto!)
                           : null,
                       child: widget.group.userPhoto == null
-                          ? Text(widget.group.userName[0].toUpperCase(),
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700))
+                          ? const Icon(Icons.person_rounded,
+                              color: Colors.white, size: 24)
                           : null,
                     ),
                     const SizedBox(width: 10),
@@ -614,8 +612,8 @@ class _ViewerTile extends ConsumerWidget {
             backgroundColor: context.primaryColor,
             backgroundImage: photo != null ? NetworkImage(photo) : null,
             child: photo == null
-                ? Text(name[0].toUpperCase(),
-                    style: TextStyle(color: Colors.white))
+                ? const Icon(Icons.person_rounded,
+                    color: Colors.white, size: 24)
                 : null,
           ),
           // Subtle heart indicator for those who liked

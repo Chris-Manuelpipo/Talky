@@ -603,9 +603,7 @@ class _CallTile extends ConsumerWidget {
         backgroundImage:
             displayPhoto != null ? NetworkImage(displayPhoto) : null,
         child: displayPhoto == null
-            ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700))
+            ? const Icon(Icons.person_rounded, color: Colors.white, size: 24)
             : null,
       ),
       title: Text(
@@ -619,7 +617,7 @@ class _CallTile extends ConsumerWidget {
         children: [
           _CallTypeIndicator(callType: call.type, isOutgoing: isOutgoing),
           const SizedBox(width: 4),
-          Text( 
+          Text(
             _formatTime(call.timestamp),
             style: TextStyle(
               color: context.appThemeColors.textSecondary,

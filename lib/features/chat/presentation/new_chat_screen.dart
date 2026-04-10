@@ -742,15 +742,9 @@ class _PhoneContactTile extends StatelessWidget {
               : null,
         ),
         child: photoUrl == null
-            ? Center(
-                child: Text(
-                  contact.displayName.isNotEmpty
-                      ? contact.displayName[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-              )
+            ? const Center(
+                child:
+                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
             : null,
       ),
       title: Text(contact.displayName,
@@ -814,10 +808,9 @@ class _UserTile extends StatelessWidget {
               : null,
         ),
         child: photo == null
-            ? Center(
-                child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)))
+            ? const Center(
+                child:
+                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
             : null,
       ),
       title: Text(name,

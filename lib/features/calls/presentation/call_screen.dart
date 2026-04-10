@@ -808,12 +808,8 @@ class _GroupAudioList extends ConsumerWidget {
                       backgroundImage:
                           p.photo != null ? NetworkImage(p.photo!) : null,
                       child: p.photo == null
-                          ? Text(
-                              p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700),
-                            )
+                          ? const Icon(Icons.person_rounded,
+                              color: Colors.white, size: 24)
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -880,15 +876,9 @@ class _AudioCallBackground extends StatelessWidget {
                   ? ClipOval(
                       child: Image.network(callState.remotePhoto!,
                           fit: BoxFit.cover))
-                  : Center(
-                      child: Text(
-                      (displayName.isNotEmpty ? displayName : '?')[0]
-                          .toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.w700),
-                    )),
+                  : const Center(
+                      child: Icon(Icons.person_rounded,
+                          color: Colors.white, size: 48)),
             ),
             const SizedBox(height: 24),
             Text(displayName,

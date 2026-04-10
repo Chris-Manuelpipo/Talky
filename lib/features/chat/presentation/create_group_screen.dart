@@ -89,9 +89,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     final currentUser = ref.watch(authStateProvider).value;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appThemeColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: context.appThemeColors.background,
         title: const Text('Nouveau groupe',
             style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
@@ -285,11 +285,9 @@ class _MemberChip extends StatelessWidget {
                       : null,
                 ),
                 child: photo == null
-                    ? Center(
-                        child: Text(name[0].toUpperCase(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700)))
+                    ? const Center(
+                        child: Icon(Icons.person_rounded,
+                            color: Colors.white, size: 24))
                     : null,
               ),
               Positioned(
@@ -344,10 +342,8 @@ class _UserAvatar extends StatelessWidget {
             : null,
       ),
       child: photo == null
-          ? Center(
-              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700)))
+          ? const Center(
+              child: Icon(Icons.person_rounded, color: Colors.white, size: 24))
           : null,
     );
   }

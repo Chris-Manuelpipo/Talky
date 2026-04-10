@@ -321,13 +321,8 @@ class _Avatar extends StatelessWidget {
             : null,
       ),
       child: photoUrl == null
-          ? Center(
-              child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700)),
-            )
+          ? const Center(
+              child: Icon(Icons.person_rounded, color: Colors.white, size: 24))
           : null,
     );
   }

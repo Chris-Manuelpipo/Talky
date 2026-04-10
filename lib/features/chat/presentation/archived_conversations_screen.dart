@@ -395,14 +395,8 @@ class _Avatar extends StatelessWidget {
             child: Center(
               child: isGroup
                   ? Icon(AppIcons.group, color: Colors.white, size: 24)
-                  : Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
+                  : const Icon(Icons.person_rounded,
+                      color: Colors.white, size: 24),
             ),
           ),
         ),
@@ -423,14 +417,7 @@ class _Avatar extends StatelessWidget {
       child: Center(
         child: isGroup
             ? Icon(AppIcons.group, color: Colors.white, size: 24)
-            : Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20,
-                ),
-              ),
+            : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
       ),
     );
   }

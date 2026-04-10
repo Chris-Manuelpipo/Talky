@@ -469,13 +469,16 @@ class _Avatar extends ConsumerWidget {
       ),
       child: photoUrl == null
           ? Center(
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : (isGroup ? 'G' : '?'),
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 22),
-              ),
+              child: isGroup
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'G',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 22),
+                    )
+                  : const Icon(Icons.person_rounded,
+                      color: Colors.white, size: 24),
             )
           : null,
     );

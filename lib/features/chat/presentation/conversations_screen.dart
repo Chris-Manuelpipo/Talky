@@ -301,8 +301,8 @@ class _SearchResults extends ConsumerWidget {
                 backgroundColor: context.primaryColor,
                 backgroundImage: photo != null ? NetworkImage(photo) : null,
                 child: photo == null
-                    ? Text(name[0].toUpperCase(),
-                        style: const TextStyle(color: Colors.white))
+                    ? const Icon(Icons.person_rounded,
+                        color: Colors.white, size: 24)
                     : null,
               ),
               title: Text(name,
@@ -749,14 +749,8 @@ class _Avatar extends ConsumerWidget {
             child: Center(
               child: isGroup
                   ? const Icon(AppIcons.group, color: Colors.white, size: 24)
-                  : Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
+                  : const Icon(Icons.person_rounded,
+                      color: Colors.white, size: 24),
             ),
           ),
         ),
@@ -773,14 +767,7 @@ class _Avatar extends ConsumerWidget {
       child: Center(
         child: isGroup
             ? const Icon(AppIcons.group, color: Colors.white, size: 24)
-            : Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20,
-                ),
-              ),
+            : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
       ),
     );
   }

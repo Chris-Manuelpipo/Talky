@@ -705,9 +705,8 @@ class _PhoneContactTile extends StatelessWidget {
             backgroundColor: context.primaryColor,
             backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
             child: photoUrl == null
-                ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700))
+                ? const Icon(Icons.person_rounded,
+                    color: Colors.white, size: 24)
                 : null,
           ),
           if (isSelectionMode && isOnTalky)
@@ -797,9 +796,7 @@ class _UserTile extends StatelessWidget {
         backgroundColor: context.primaryColor,
         backgroundImage: photo != null ? NetworkImage(photo) : null,
         child: photo == null
-            ? Text(name[0].toUpperCase(),
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700))
+            ? const Icon(Icons.person_rounded, color: Colors.white, size: 24)
             : null,
       ),
       title: Text(
