@@ -1,5 +1,4 @@
 // lib/features/chat/presentation/chat_screen.dart
-// Version Phase 3b — avec images, vocal, réponse, suppression
 
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -733,14 +732,8 @@ class _MessageBubble extends StatelessWidget {
           constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
-            gradient: isMine
-                ? LinearGradient(
-                    colors: [context.primaryColor, const Color(0xFF9B7DFF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: isMine ? null : context.appThemeColors.surface,
+            color:
+                isMine ? context.primaryColor : context.appThemeColors.surface,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(18),
               topRight: const Radius.circular(18),
@@ -1137,11 +1130,7 @@ class _InputBar extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [context.primaryColor, context.accentColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color:context.primaryColor,
                   boxShadow: [
                     BoxShadow(
                       color: context.primaryColor.withOpacity(0.4),
@@ -1188,9 +1177,7 @@ class _AvatarWidget extends ConsumerWidget {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [context.primaryColor, context.accentColor],
-              ),
+              color: context.primaryColor, 
             ),
           ),
           errorWidget: (context, url, error) => Container(
@@ -1198,9 +1185,7 @@ class _AvatarWidget extends ConsumerWidget {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [context.primaryColor, context.accentColor],
-              ),
+              color: context.primaryColor, 
             ),
             child: const Center(
               child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
@@ -1215,9 +1200,7 @@ class _AvatarWidget extends ConsumerWidget {
       height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [context.primaryColor, context.accentColor],
-        ),
+        color: context.primaryColor,
       ),
       child: const Center(
         child: Icon(Icons.person_rounded, color: Colors.white, size: 24),

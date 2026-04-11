@@ -58,26 +58,25 @@ class AppColors {
   // ═══════════════════════════════════════════════════════════════════════
 
   // Backgrounds
-  static const Color background = Color(0xFF0A0A0F); // Noir profond
-  static const Color surface = Color(0xFF12121A);
-  static const Color surfaceVariant = Color(0xFF1C1C28);
-  static const Color surfaceHigh = Color(0xFF252535);
+  static const Color background = Color(0xFF0D0D0D); // Gris foncé neutre
+  static const Color surface = Color(0xFF1E1E1E);
+  static const Color surfaceVariant = Color(0xFF2D2D2D);
+  static const Color surfaceHigh = Color(0xFF3D3D3D);
   static const Color inputFill = surfaceVariant;
 
   // Text
-  static const Color textPrimary = Color(0xFFF0EEFF);
-  static const Color textSecondary = Color(0xFF9B96B8);
-  static const Color textHint = Color(0xFF5A5570);
+  static const Color textPrimary = Color(0xFFE8E8E8);
+  static const Color textSecondary = Color(0xFFB0B0B0);
+  static const Color textHint = Color(0xFF707070);
 
   // Messages
-  static const Color bubbleSent = Color(0xFF7C5CFC);
-  static const Color bubbleReceived = Color(0xFF1C1C28);
+  static const Color bubbleReceived = Color(0xFF1E1E1E);
   static const Color bubbleSentText = Color(0xFFFFFFFF);
-  static const Color bubbleReceivedText = Color(0xFFF0EEFF);
+  static const Color bubbleReceivedText = Color(0xFFE8E8E8);
 
   // Dividers & Borders
-  static const Color divider = Color(0xFF1C1C28);
-  static const Color border = Color(0xFF2A2A3C);
+  static const Color divider = Color(0xFF3D3D3D);
+  static const Color border = Color(0xFF4D4D4D);
 
   // Status colors
   static const Color success = Color(0xFF4CAF82);
@@ -87,8 +86,8 @@ class AppColors {
   static const Color offline = Color(0xFF5A5570);
 
   // Overlay
-  static const Color overlay = Color(0x807C5CFC);
-  static const Color shadow = Color(0x997C5CFC);
+  static const Color overlay = Color(0x80000000);
+  static const Color shadow = Color(0x99000000);
 
   // ═══════════════════════════════════════════════════════════════════════
   // ── LIGHT THEME COLORS - Amélioré pour une meilleure harmonie ─────────
@@ -135,25 +134,25 @@ class AppColors {
       );
 
   static const LinearGradient backgroundGradient = LinearGradient(
-    colors: [Color(0xFF0A0A0F), Color(0xFF0D0D1A)],
+    colors: [Color(0xFF0D0D0D), Color(0xFF111111)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static const LinearGradient backgroundGradientLight = LinearGradient(
-    colors: [Color(0xFFFFFFFF), Color(0xFFF5F5F5)],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF8F8F8)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static LinearGradient splashGradient(Color accent) => LinearGradient(
-        colors: [Color(0xFF0A0A0F), Color(0xFF1A0F2E), Color(0xFF0A0A0F)],
+        colors: [Color(0xFF0D0D0D), Color(0xFF1A1A1A), Color(0xFF0D0D0D)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
 
   static LinearGradient splashGradientLight(Color accent) => LinearGradient(
-        colors: [Color(0xFFF8F9FC), Color(0xFFE8E4F8), Color(0xFFF8F9FC)],
+        colors: [Color(0xFFF8F9FC), Color(0xFFF0F0F0), Color(0xFFF8F9FC)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );

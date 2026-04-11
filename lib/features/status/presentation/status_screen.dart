@@ -309,12 +309,8 @@ class _Avatar extends StatelessWidget {
       height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photoUrl == null
-            ? LinearGradient(
-                colors: [context.primaryColor, context.accentColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
+        color: photoUrl == null
+            ? context.primaryColor
             : null,
         image: photoUrl != null
             ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)

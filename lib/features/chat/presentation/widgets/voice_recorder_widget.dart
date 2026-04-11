@@ -127,7 +127,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.surface,
+      color:context.surfaceColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
@@ -157,8 +157,8 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
                 ),
                 const SizedBox(width: 10),
                 Text(_formattedTime,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
+                    style: TextStyle(
+                      color: context.textPrimaryColor,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       fontFeatures: [FontFeature.tabularFigures()],
@@ -179,11 +179,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget>
               height: 46,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [context.primaryColor, context.accentColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: context.primaryColor,
               ),
               child:
                   const Icon(Icons.send_rounded, color: Colors.white, size: 20),
@@ -393,14 +389,8 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                 minWidth: 200,
               ),
               decoration: BoxDecoration(
-                gradient: widget.isMine
-                    ? LinearGradient(
-                        colors: [context.primaryColor, const Color(0xFF9B7DFF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: widget.isMine ? null : AppColors.surface,
+                 
+                color: widget.isMine ? context.primaryColor : context.appThemeColors.surface,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -417,16 +407,18 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                       height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.2),
+                        color: widget.isMine 
+                          ? Colors.white.withValues(alpha : 0.4) 
+                          : context.primaryColor.withValues(alpha : 0.4),
                       ),
                       child: _hasError
-                          ? const Icon(Icons.error_outline_rounded,
-                              color: Colors.white, size: 22)
+                          ? Icon(Icons.error_outline_rounded,
+                              color: widget.isMine ? Colors.white :  context.primaryColor , size: 22)
                           : Icon(
                               _isPlaying
                                   ? Icons.pause_rounded
                                   : Icons.play_arrow_rounded,
-                              color: Colors.white,
+                              color: widget.isMine ? Colors.white :  context.primaryColor ,
                               size: 24),
                     ),
                   ),
@@ -442,8 +434,8 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                                 enabledThumbRadius: 6),
                             overlayShape: const RoundSliderOverlayShape(
                                 overlayRadius: 12),
-                            activeTrackColor: Colors.white,
-                            inactiveTrackColor: Colors.white.withOpacity(0.3),
+                            activeTrackColor: widget.isMine ? Colors.white :  context.primaryColor ,
+                            inactiveTrackColor:widget.isMine ? Colors.white.withValues(alpha: 0.4) :  context.primaryColor ,
                             thumbColor: Colors.white,
                           ),
                           child: Slider(
@@ -457,7 +449,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Icon(AppIcons.mic,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: widget.isMine ? Colors.white.withValues(alpha :0.4) :  context.primaryColor ,
                                   size: 10),
                               Text(
                                   shownDuration.inSeconds > 0
@@ -465,7 +457,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                                           shownDuration)
                                       : _formatDuration(widget.durationSeconds),
                                   style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
+                                      color: widget.isMine ? Colors.white.withValues(alpha :0.4) :  context.primaryColor ,
                                       fontSize: 10)),
                             ],
                           ),
