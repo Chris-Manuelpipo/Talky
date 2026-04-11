@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../shared/widgets/talky_button.dart';
@@ -14,6 +15,7 @@ import '../../../shared/widgets/talky_text_field.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/domain/user_model.dart';
 import '../../chat/data/media_service.dart';
+import '../../settings/data/settings_providers.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -23,22 +25,26 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
-  final _nameController   = TextEditingController();
+  final _nameController = TextEditingController();
   final _statusController = TextEditingController();
-  final _phoneController  = TextEditingController();
+  final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String _selectedLanguage = 'fr';
   String? _localImagePath;
   bool _isLoading = false;
   bool _phoneReadOnly = false;
 
+  // Couleur et thème sélectionnés
+  Color _selectedColor = const Color(0xFF7C5CFC);
+  ThemeMode _selectedThemeMode = ThemeMode.system;
+
   final _languages = [
-    {'code': 'fr', 'name': 'Français',  'flag': '🇫🇷'},
-    {'code': 'en', 'name': 'English',   'flag': '🇬🇧'},
-    {'code': 'es', 'name': 'Español',   'flag': '🇪🇸'},
-    {'code': 'de', 'name': 'Deutsch',   'flag': '🇩🇪'},
-    {'code': 'ar', 'name': 'العربية',   'flag': '🇸🇦'},
-    {'code': 'zh', 'name': '中文',       'flag': '🇨🇳'},
+    {'code': 'fr', 'name': 'Français', 'flag': '🇫🇷'},
+    {'code': 'en', 'name': 'English', 'flag': '🇬🇧'},
+    {'code': 'es', 'name': 'Español', 'flag': '🇪🇸'},
+    {'code': 'de', 'name': 'Deutsch', 'flag': '🇩🇪'},
+    {'code': 'ar', 'name': 'العربية', 'flag': '🇸🇦'},
+    {'code': 'zh', 'name': '中文', 'flag': '🇨🇳'},
   ];
 
   @override
@@ -62,7 +68,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (picked != null) setState(() => _localImagePath = picked.path);
   }
 
@@ -83,7 +90,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         try {
           photoUrl = await MediaService().uploadProfilePhoto(
             filePath: _localImagePath!,
-            userId:   uid,
+            userId: uid,
           );
         } catch (_) {
           // Photo non critique — continuer sans photo
@@ -91,23 +98,29 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       }
 
       final user = UserModel(
-        uid:               uid,
-        name:              _nameController.text.trim(),
-        phone:             phone,
-        email:             authService.currentUser?.email,
-        photoUrl:          photoUrl,
-        status:            _statusController.text.trim().isEmpty
-                               ? 'Disponible sur Talky'
-                               : _statusController.text.trim(),
+        uid: uid,
+        name: _nameController.text.trim(),
+        phone: phone,
+        email: authService.currentUser?.email,
+        photoUrl: photoUrl,
+        status: _statusController.text.trim().isEmpty
+            ? 'Disponible sur Talky'
+            : _statusController.text.trim(),
         preferredLanguage: _selectedLanguage,
-        isOnline:          true,
+        isOnline: true,
       );
 
       await authService.saveUserProfile(user);
       await authService.saveFcmToken(uid);
 
+      // Sauvegarder la couleur d'accentuation et le thème via SettingsNotifier
+      final settingsNotifier = ref.read(settingsProvider.notifier);
+      await settingsNotifier.setAccentColor(_selectedColor);
+      await settingsNotifier.setThemeMode(_selectedThemeMode);
+
       // Mettre à jour nom + photo dans toutes les conversations existantes
-      await _updateNameInConversations(uid, _nameController.text.trim(), photoUrl);
+      await _updateNameInConversations(
+          uid, _nameController.text.trim(), photoUrl);
 
       // Invalider le cache → router détecte profil complet
       ref.invalidate(profileCompleteProvider);
@@ -115,7 +128,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } finally {
@@ -127,7 +142,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
@@ -140,7 +155,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               children: [
                 const SizedBox(height: 40),
 
-                Text('Votre profil',
+                Text(
+                  'Votre profil',
                   style: theme.textTheme.displaySmall,
                 ).animate().fadeIn().slideY(begin: 0.2, end: 0),
 
@@ -149,7 +165,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 Text(
                   'Complétez votre profil pour que vos connaissances puissent vous reconnaître.',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant, height: 1.5,
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
                   ),
                 ).animate(delay: 50.ms).fadeIn(),
 
@@ -162,11 +179,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     child: Stack(
                       children: [
                         Container(
-                          width: 100, height: 100,
+                          width: 100,
+                          height: 100,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: colorScheme.surfaceContainerHighest,
-                            border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4), width: 2),
+                            border: Border.all(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.4),
+                                width: 2),
                             image: _localImagePath != null
                                 ? DecorationImage(
                                     image: NetworkImage(_localImagePath!),
@@ -175,25 +196,32 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                 : null,
                           ),
                           child: _localImagePath == null
-                              ? Icon(AppIcons.person, size: 42, color: colorScheme.primary)
+                              ? Icon(AppIcons.person,
+                                  size: 42, color: colorScheme.primary)
                               : null,
                         ),
                         Positioned(
-                          bottom: 0, right: 0,
+                          bottom: 0,
+                          right: 0,
                           child: Container(
-                            width: 32, height: 32,
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
                               color: colorScheme.primary,
                               shape: BoxShape.circle,
-                              border: Border.all(color: colorScheme.surface, width: 2),
+                              border: Border.all(
+                                  color: colorScheme.surface, width: 2),
                             ),
-                            child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                            child: const Icon(Icons.camera_alt_rounded,
+                                size: 16, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ).animate(delay: 100.ms).scale(duration: 500.ms, curve: Curves.easeOutBack),
+                )
+                    .animate(delay: 100.ms)
+                    .scale(duration: 500.ms, curve: Curves.easeOutBack),
 
                 const SizedBox(height: 8),
 
@@ -210,7 +238,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 TalkyTextField(
                   controller: _nameController,
                   label: 'Nom complet *',
-                  hint: 'Jean Dupont',
+                  hint: 'Chris ETCHOME',
                   prefixIcon: Icons.person_outline,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Nom requis';
@@ -258,7 +286,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 const SizedBox(height: 24),
 
                 // ── Langue préférée ───────────────────────────────
-                Text('Langue préférée',
+                Text(
+                  'Langue préférée',
                   style: Theme.of(context).textTheme.titleMedium,
                 ).animate(delay: 250.ms).fadeIn(),
 
@@ -266,42 +295,156 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
                 Text(
                   'Les messages reçus seront traduits dans cette langue.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
                 ).animate(delay: 260.ms).fadeIn(),
 
                 const SizedBox(height: 12),
 
                 Wrap(
-                  spacing: 8, runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: _languages.map((lang) {
                     final isSelected = lang['code'] == _selectedLanguage;
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedLanguage = lang['code']!),
+                      onTap: () =>
+                          setState(() => _selectedLanguage = lang['code']!),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? colorScheme.primary.withValues(alpha: 0.15)
                               : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.outlineVariant,
                             width: isSelected ? 1.5 : 0.5,
                           ),
                         ),
                         child: Text(
                           '${lang['flag']} ${lang['name']}',
                           style: TextStyle(
-                            color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
                             fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
                     );
                   }).toList(),
                 ).animate(delay: 280.ms).fadeIn(),
+
+                const SizedBox(height: 32),
+
+                // ── Couleur d'accentuation ───────────────────────────
+                Text(
+                  'Couleur d\'accentuation',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ).animate(delay: 300.ms).fadeIn(),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Choisissez la couleur principale de l\'application.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                ).animate(delay: 310.ms).fadeIn(),
+
+                const SizedBox(height: 12),
+
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: AppConstants.predefinedAccentColors.map((color) {
+                    final isSelected = _selectedColor == color;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedColor = color),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color:
+                                isSelected ? Colors.white : Colors.transparent,
+                            width: 2,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: color.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 20)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ).animate(delay: 320.ms).fadeIn(),
+
+                const SizedBox(height: 32),
+
+                // ── Mode thème ────────────────────────────────────────
+                Text(
+                  'Mode d\'affichage',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ).animate(delay: 340.ms).fadeIn(),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Choisissez entre le mode clair, sombre ou automatique.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                ).animate(delay: 350.ms).fadeIn(),
+
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    _ThemeModeOption(
+                      icon: Icons.brightness_5_rounded,
+                      label: 'Clair',
+                      isSelected: _selectedThemeMode == ThemeMode.light,
+                      onTap: () =>
+                          setState(() => _selectedThemeMode = ThemeMode.light),
+                    ),
+                    const SizedBox(width: 12),
+                    _ThemeModeOption(
+                      icon: Icons.brightness_2_rounded,
+                      label: 'Sombre',
+                      isSelected: _selectedThemeMode == ThemeMode.dark,
+                      onTap: () =>
+                          setState(() => _selectedThemeMode = ThemeMode.dark),
+                    ),
+                    const SizedBox(width: 12),
+                    _ThemeModeOption(
+                      icon: Icons.brightness_auto_rounded,
+                      label: 'Auto',
+                      isSelected: _selectedThemeMode == ThemeMode.system,
+                      onTap: () =>
+                          setState(() => _selectedThemeMode = ThemeMode.system),
+                    ),
+                  ],
+                ).animate(delay: 360.ms).fadeIn(),
 
                 const SizedBox(height: 40),
 
@@ -323,7 +466,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   // Met à jour participantNames + participantPhotos dans toutes les conversations
-  Future<void> _updateNameInConversations(String uid, String name, String? photoUrl) async {
+  Future<void> _updateNameInConversations(
+      String uid, String name, String? photoUrl) async {
     try {
       final db = FirebaseFirestore.instance;
       final convs = await db
@@ -344,5 +488,65 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       if (convs.docs.isNotEmpty) await batch.commit();
     } catch (_) {}
   }
+}
 
+class _ThemeModeOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ThemeModeOption({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.15)
+                : colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color:
+                  isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+              width: isSelected ? 1.5 : 0.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

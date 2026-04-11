@@ -1,5 +1,7 @@
 // lib/core/constants/app_constants.dart
 
+import 'package:flutter/material.dart';
+
 class AppConstants {
   AppConstants._();
 
@@ -7,6 +9,20 @@ class AppConstants {
   static const String appName = 'Talky';
   static const String appTagline = 'Parlez sans frontières';
   static const String appVersion = '1.0.0';
+
+  // ── Couleurs prédéfinies ─────────────────────────────────────────────
+  static const List<Color> predefinedAccentColors = [
+    Color(0xFF7C5CFC), // Violet (défaut Talky)
+    Color(0xFF2196F3), // Bleu
+    Color(0xFF00BCD4), // Cyan
+    Color(0xFF4CAF50), // Vert
+    Color(0xFFFF9800), // Orange
+    Color(0xFFF44336), // Rouge
+    Color(0xFFE91E63), // Rose
+    Color(0xFF9C27B0), // Violet foncé
+    Color(0xFF607D8B), // Bleu gris
+    Color(0xFF795548), // Marron
+  ];
 
   // ── Firestore collections ──────────────────────────────────────────
   static const String usersCollection = 'users';

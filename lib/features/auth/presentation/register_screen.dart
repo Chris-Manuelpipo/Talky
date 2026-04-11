@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TalkyTextField(
                   controller: _nameController,
                   label: 'Nom complet',
-                  hint: 'Jean Dupont',
+                  hint: 'Chris ETCHOME',
                   prefixIcon: Icons.person_outline,
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Nom requis';
