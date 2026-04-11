@@ -7,11 +7,11 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../features/auth/data/auth_providers.dart';
 import '../../../features/auth/data/auth_service.dart';
-import '../data/settings_providers.dart';
+import '../../../core/providers/settings_providers.dart';
 import 'profile_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'language_settings_screen.dart';
-import 'about_screen.dart'; 
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -59,7 +59,9 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Activer/désactiver les notifications',
             value: settings.notificationsEnabled,
             onChanged: (value) {
-              ref.read(settingsProvider.notifier).setNotificationsEnabled(value);
+              ref
+                  .read(settingsProvider.notifier)
+                  .setNotificationsEnabled(value);
             },
           ),
           _SettingsTileSwitch(
@@ -69,7 +71,9 @@ class SettingsScreen extends ConsumerWidget {
             value: settings.notificationSound,
             onChanged: settings.notificationsEnabled
                 ? (value) {
-                    ref.read(settingsProvider.notifier).setNotificationSound(value);
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setNotificationSound(value);
                   }
                 : null,
           ),
@@ -80,7 +84,9 @@ class SettingsScreen extends ConsumerWidget {
             value: settings.callNotifications,
             onChanged: settings.notificationsEnabled
                 ? (value) {
-                    ref.read(settingsProvider.notifier).setCallNotifications(value);
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setCallNotifications(value);
                   }
                 : null,
           ),
@@ -106,7 +112,8 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'Mode sombre, couleur d\'accent',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AppearanceSettingsScreen()),
+              MaterialPageRoute(
+                  builder: (_) => const AppearanceSettingsScreen()),
             ),
           ),
 
@@ -131,7 +138,8 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.visibility_outlined,
             title: 'Qui peut voir mon statut en ligne',
-            subtitle: visibilityOptions[settings.onlineVisibility] ?? 'Tout le monde',
+            subtitle:
+                visibilityOptions[settings.onlineVisibility] ?? 'Tout le monde',
             onTap: () => _showVisibilityPicker(context, ref, true),
             trailing: Icon(
               Icons.chevron_right_rounded,
@@ -141,7 +149,8 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.photo_library_outlined,
             title: 'Qui peut voir ma photo de profil',
-            subtitle: visibilityOptions[settings.profileVisibility] ?? 'Tout le monde',
+            subtitle: visibilityOptions[settings.profileVisibility] ??
+                'Tout le monde',
             onTap: () => _showVisibilityPicker(context, ref, false),
             trailing: Icon(
               Icons.chevron_right_rounded,
@@ -242,7 +251,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-    void _showTerms(BuildContext context) {
+  void _showTerms(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -320,7 +329,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showVisibilityPicker(BuildContext context, WidgetRef ref, bool isOnline) {
+  void _showVisibilityPicker(
+      BuildContext context, WidgetRef ref, bool isOnline) {
     final colors = context.appThemeColors;
     showModalBottomSheet(
       context: context,
@@ -628,7 +638,8 @@ class _LogoutButton extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref, AppThemeColors colors) {
+  void _showLogoutDialog(
+      BuildContext context, WidgetRef ref, AppThemeColors colors) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -647,7 +658,8 @@ class _LogoutButton extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Annuler', style: TextStyle(color: colors.textSecondary)),
+            child:
+                Text('Annuler', style: TextStyle(color: colors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -667,7 +679,6 @@ class _LogoutButton extends ConsumerWidget {
     );
   }
 }
-
 
 class _TermsSection extends StatelessWidget {
   final String title;

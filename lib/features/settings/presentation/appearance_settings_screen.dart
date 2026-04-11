@@ -6,7 +6,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_constants.dart';
-import '../data/settings_providers.dart';
+import '../../../core/providers/settings_providers.dart';
 
 const List<Color> predefinedColors = AppConstants.predefinedAccentColors;
 

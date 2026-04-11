@@ -15,7 +15,7 @@ import 'core/constants/app_colors.dart';
 import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
 import 'core/services/notification_service.dart';
-import 'features/settings/data/settings_providers.dart';
+import 'core/providers/settings_providers.dart';
 import 'features/calls/data/call_providers.dart';
 import 'features/calls/presentation/incoming_call_screen.dart';
 

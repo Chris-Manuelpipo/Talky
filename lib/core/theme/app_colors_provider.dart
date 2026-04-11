@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
-import '../../features/settings/data/settings_providers.dart';
+import '../providers/settings_providers.dart';
 
 class AppThemeColors {
   final Color background;

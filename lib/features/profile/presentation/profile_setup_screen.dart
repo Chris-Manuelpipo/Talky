@@ -10,12 +10,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
-import '../../../shared/widgets/talky_button.dart';
-import '../../../shared/widgets/talky_text_field.dart';
+import '../../../core/widgets/talky_button.dart';
+import '../../../core/widgets/talky_text_field.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/domain/user_model.dart';
 import '../../chat/data/media_service.dart';
-import '../../settings/data/settings_providers.dart';
+import '../../../core/providers/settings_providers.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});

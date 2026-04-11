@@ -10,7 +10,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../../shared/widgets/talky_button.dart';
+import '../../../core/widgets/talky_button.dart';
 import '../data/auth_providers.dart';
 //import '../data/auth_service.dart';
 

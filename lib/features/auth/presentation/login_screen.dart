@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../../shared/widgets/talky_text_field.dart';
-import '../../../shared/widgets/talky_button.dart';
+import '../../../core/widgets/talky_text_field.dart';
+import '../../../core/widgets/talky_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
