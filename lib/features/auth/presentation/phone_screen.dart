@@ -10,6 +10,7 @@ import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/widgets/talky_button.dart';
+import '../../../core/widgets/country_picker.dart';
 import '../data/auth_providers.dart';
 
 class PhoneScreen extends ConsumerStatefulWidget {
@@ -27,20 +28,6 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _googleLoading = false;
   _AuthMethod _method = _AuthMethod.phone;
-
-  final _countryCodes = [
-    {'code': '+237', 'flag': '🇨🇲', 'name': 'Cameroun'},
-    {'code': '+33', 'flag': '🇫🇷', 'name': 'France'},
-    {'code': '+1', 'flag': '🇺🇸', 'name': 'États-Unis'},
-    {'code': '+44', 'flag': '🇬🇧', 'name': 'Royaume-Uni'},
-    {'code': '+49', 'flag': '🇩🇪', 'name': 'Allemagne'},
-    {'code': '+34', 'flag': '🇪🇸', 'name': 'Espagne'},
-    {'code': '+39', 'flag': '🇮🇹', 'name': 'Italie'},
-    {'code': '+212', 'flag': '🇲🇦', 'name': 'Maroc'},
-    {'code': '+221', 'flag': '🇸🇳', 'name': 'Sénégal'},
-    {'code': '+225', 'flag': '🇨🇮', 'name': 'Côte d\'Ivoire'},
-    {'code': '+243', 'flag': '🇨🇩', 'name': 'RD Congo'},
-  ];
 
   @override
   void dispose() {
@@ -236,11 +223,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                                           child: Row(
                                             children: [
                                               Text(
-                                                _countryCodes.firstWhere(
-                                                  (c) =>
-                                                      c['code'] ==
-                                                      _selectedCountryCode,
-                                                )['flag']!,
+                                                CountryPicker.getCountryByCode(
+                                                        _selectedCountryCode)[
+                                                    'flag']!,
                                                 style: const TextStyle(
                                                     fontSize: 22),
                                               ),
@@ -440,9 +425,9 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
-              itemCount: _countryCodes.length,
+              itemCount: CountryPicker.countryCodes.length,
               itemBuilder: (context, index) {
-                final country = _countryCodes[index];
+                final country = CountryPicker.countryCodes[index];
                 final isSelected = country['code'] == _selectedCountryCode;
                 return ListTile(
                   leading: Text(country['flag']!,

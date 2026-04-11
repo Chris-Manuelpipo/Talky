@@ -6,12 +6,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/talky_button.dart';
 import '../../../core/widgets/talky_text_field.dart';
+import '../../../core/widgets/country_picker.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/domain/user_model.dart';
 import '../../chat/data/media_service.dart';
@@ -33,6 +33,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   String? _localImagePath;
   bool _isLoading = false;
   bool _phoneReadOnly = false;
+
+  // Code pays
+  String _selectedCountryCode = '+237';
 
   // Couleur et thème sélectionnés
   Color _selectedColor = const Color(0xFF7C5CFC);
@@ -260,27 +263,41 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 const SizedBox(height: 24),
 
                 // ── Téléphone ─────────────────────────────────────
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  readOnly: _phoneReadOnly,
-                  validator: (v) {
-                    final value = v?.trim() ?? '';
-                    if (value.isEmpty) return 'Numéro requis';
-                    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
-                    if (digits.length < 8) return 'Numéro invalide';
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Numéro de téléphone *',
-                    hintText: '+237 6XX XXX XXX',
-                    prefixIcon: const Icon(Icons.phone_android_rounded,
-                        color: AppColors.textHint, size: 20),
-                    suffixIcon: _phoneReadOnly
-                        ? const Icon(Icons.lock_outline_rounded,
-                            color: AppColors.textHint, size: 18)
-                        : null,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Sélecteur de pays
+                    CountryPicker(
+                      selectedCountryCode: _selectedCountryCode,
+                      onCountrySelected: (code) =>
+                          setState(() => _selectedCountryCode = code),
+                      isReadOnly: _phoneReadOnly,
+                      readOnlyCountryCode:
+                          _phoneReadOnly ? _selectedCountryCode : null,
+                    ),
+                    const SizedBox(width: 12),
+                    // Champ téléphone
+                    Expanded(
+                      child: TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        readOnly: _phoneReadOnly,
+                        validator: (v) {
+                          final value = v?.trim() ?? '';
+                          if (value.isEmpty) return 'Numéro requis';
+                          final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                          if (digits.length < 8) return 'Numéro invalide';
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Numéro de téléphone *',
+                          hintText: '6XX XXX XXX',
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                    ),
+                  ],
                 ).animate(delay: 220.ms).fadeIn().slideY(begin: 0.2, end: 0),
 
                 const SizedBox(height: 24),
