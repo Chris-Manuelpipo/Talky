@@ -131,7 +131,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
+      backgroundColor: context.appThemeColors.background, 
       body: Stack(
         children: [
           // Fond animé

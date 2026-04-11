@@ -377,24 +377,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           _AvatarWidget(name: displayName, photoUrl: displayPhoto),
           const SizedBox(width: 5),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(displayName,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              if (isGroup)
-                Text('Groupe',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: context.appThemeColors.textSecondary))
-              else if (otherUserId != null && otherUserId.isNotEmpty)
-                _PresenceText(userId: otherUserId)
-              else
-                Text('Hors ligne',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: context.appThemeColors.textSecondary)),
-            ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(displayName,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis),
+                if (isGroup)
+                  Text('Groupe',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: context.appThemeColors.textSecondary))
+                else if (otherUserId != null && otherUserId.isNotEmpty)
+                  _PresenceText(userId: otherUserId)
+                else
+                  Text('Hors ligne',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: context.appThemeColors.textSecondary)),
+              ],
+            ),
           ),
         ],
       ),
@@ -1130,7 +1134,7 @@ class _InputBar extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color:context.primaryColor,
+                  color: context.primaryColor,
                   boxShadow: [
                     BoxShadow(
                       color: context.primaryColor.withOpacity(0.4),
@@ -1177,7 +1181,7 @@ class _AvatarWidget extends ConsumerWidget {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: context.primaryColor, 
+              color: context.primaryColor,
             ),
           ),
           errorWidget: (context, url, error) => Container(
@@ -1185,7 +1189,7 @@ class _AvatarWidget extends ConsumerWidget {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: context.primaryColor, 
+              color: context.primaryColor,
             ),
             child: const Center(
               child: Icon(Icons.person_rounded, color: Colors.white, size: 24),

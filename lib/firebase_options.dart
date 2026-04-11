@@ -29,10 +29,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return linux;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -64,8 +61,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '778851391746',
     projectId: 'talky-2026',
     storageBucket: 'talky-2026.firebasestorage.app',
-    androidClientId: '778851391746-bbu44ab95l6nnskjcih3b2th14ie9mbp.apps.googleusercontent.com',
-    iosClientId: '778851391746-vnt844dgmhl1ud7lenvsfb7rvbrhd1ek.apps.googleusercontent.com',
+    androidClientId:
+        '778851391746-bbu44ab95l6nnskjcih3b2th14ie9mbp.apps.googleusercontent.com',
+    iosClientId:
+        '778851391746-vnt844dgmhl1ud7lenvsfb7rvbrhd1ek.apps.googleusercontent.com',
     iosBundleId: 'com.example.talky',
   );
 
@@ -75,8 +74,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '778851391746',
     projectId: 'talky-2026',
     storageBucket: 'talky-2026.firebasestorage.app',
-    androidClientId: '778851391746-bbu44ab95l6nnskjcih3b2th14ie9mbp.apps.googleusercontent.com',
-    iosClientId: '778851391746-vnt844dgmhl1ud7lenvsfb7rvbrhd1ek.apps.googleusercontent.com',
+    androidClientId:
+        '778851391746-bbu44ab95l6nnskjcih3b2th14ie9mbp.apps.googleusercontent.com',
+    iosClientId:
+        '778851391746-vnt844dgmhl1ud7lenvsfb7rvbrhd1ek.apps.googleusercontent.com',
     iosBundleId: 'com.example.talky',
   );
 
@@ -90,4 +91,12 @@ class DefaultFirebaseOptions {
     measurementId: 'G-DZ0Y3LJJXJ',
   );
 
+  static const FirebaseOptions linux = FirebaseOptions(
+    apiKey: 'AIzaSyCXkmcbAl8nY3T4PRaj2Am9AQNSO-jAjP4',
+    appId: '1:778851391746:web:476fc08a445b652a014a1b',
+    messagingSenderId: '778851391746',
+    projectId: 'talky-2026',
+    authDomain: 'talky-2026.firebaseapp.com',
+    storageBucket: 'talky-2026.firebasestorage.app',
+  );
 }

@@ -247,7 +247,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.appThemeColors.background,
       body: GestureDetector(
         onTap: _onTap,
         child: Stack(
@@ -844,12 +844,8 @@ class _AudioCallBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A0A3B), Color(0xFF0A1628)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+      decoration: BoxDecoration(
+        color: context.appThemeColors.background,
       ),
       child: Center(
         child: Column(
@@ -860,11 +856,7 @@ class _AudioCallBackground extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [context.primaryColor, context.accentColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: context.primaryColor, 
                 boxShadow: [
                   BoxShadow(
                       color: context.primaryColor.withOpacity(0.4),
