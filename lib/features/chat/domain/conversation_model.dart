@@ -19,6 +19,9 @@ class ConversationModel {
   final String? groupPhoto;
   final bool isPinned;
   final bool isArchived;
+  final List<String> adminIds;
+  final DateTime? createdAt;
+  final String? createdBy;
 
   const ConversationModel({
     required this.id,
@@ -36,6 +39,9 @@ class ConversationModel {
     this.groupPhoto,
     this.isPinned = false,
     this.isArchived = false,
+    this.adminIds = const [],
+    this.createdAt,
+    this.createdBy,
   });
 
   factory ConversationModel.fromMap(Map<String, dynamic> map, String id) {
@@ -59,6 +65,9 @@ class ConversationModel {
       groupPhoto:           map['groupPhoto'],
       isPinned:             map['isPinned'] ?? false,
       isArchived:           map['isArchived'] ?? false,
+      adminIds:             List<String>.from(map['adminIds'] ?? []),
+      createdAt:            (map['createdAt'] as Timestamp?)?.toDate(),
+      createdBy:            map['createdBy'],
     );
   }
 
@@ -77,6 +86,9 @@ class ConversationModel {
     'groupPhoto':          groupPhoto,
     'isPinned':            isPinned,
     'isArchived':          isArchived,
+    'adminIds':            adminIds,
+    'createdAt':           createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+    'createdBy':           createdBy,
   };
 
   // Obtenir le nom affiché pour un utilisateur donné (l'autre participant)

@@ -108,20 +108,24 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 }
 
-class _GroupTile extends StatelessWidget {
+class _GroupTile extends ConsumerWidget {
   final ConversationModel group;
   final String currentUserId;
   const _GroupTile({required this.group, required this.currentUserId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final unread = group.getUnreadCount(currentUserId);
+    final isAdmin = group.adminIds.contains(currentUserId);
 
     return InkWell(
       onTap: () => context.push(
-        AppRoutes.chat.replaceAll(':conversationId', group.id),
+        '${AppRoutes.groupDetails}?conversationId=${group.id}',
         extra: {'name': group.groupName ?? 'Groupe', 'photo': group.groupPhoto},
       ),
+      onLongPress: isAdmin
+          ? () => _showGroupOptions(context, ref, isAdmin)
+          : () => _showGroupOptions(context, ref, isAdmin),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -195,6 +199,108 @@ class _GroupTile extends StatelessWidget {
     );
   }
 
+  void _showGroupOptions(BuildContext context, WidgetRef ref, bool isAdmin) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appThemeColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: AppColors.textHint,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                group.groupName ?? 'Groupe',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(),
+            // View details
+            _OptionTile(
+              icon: Icons.info_outline_rounded,
+              label: 'Détails du groupe',
+              onTap: () {
+                Navigator.pop(context);
+                context.push(
+                  '${AppRoutes.groupDetails}?conversationId=${group.id}',
+                  extra: {'name': group.groupName ?? 'Groupe', 'photo': group.groupPhoto},
+                );
+              },
+            ),
+            // Leave group (for non-admins)
+            if (!isAdmin)
+              _OptionTile(
+                icon: Icons.exit_to_app_rounded,
+                label: 'Quitter le groupe',
+                isDestructive: true,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Quitter le groupe'),
+                      content: const Text('Êtes-vous sûr de vouloir quitter ce groupe ?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Annuler'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Quitter'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    try {
+                      await ref.read(chatServiceProvider).leaveGroup(
+                        conversationId: group.id,
+                        userId: currentUserId,
+                      );
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Vous avez quitté le groupe')),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Erreur: $e')),
+                        );
+                      }
+                    }
+                  }
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getMembersPreview() {
     final names = group.participantNames.values.take(3).join(', ');
     final total = group.participantIds.length;
@@ -240,6 +346,39 @@ class _EmptyGroupsState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Option Tile ─────────────────────────────────────────────────────────
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _OptionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDestructive ? Colors.red : colors.textPrimary,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isDestructive ? Colors.red : colors.textPrimary,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

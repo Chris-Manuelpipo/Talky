@@ -450,10 +450,144 @@ class ChatService {
       unreadCount:      {for (final id in allIds) id: 0},
       isGroup:          true,
       groupName:        groupName,
+      adminIds:         [creatorId],  // Creator is admin
+      createdAt:        DateTime.now(),
+      createdBy:        creatorId,
     );
 
     final ref = await _conversations.add(conv.toMap());
     return ref.id;
+  }
+
+  /// Add members to an existing group (admin-only operation)
+  /// Note: Firestore security rules should verify adminId is actually an admin
+  Future<void> addMembersToGroup({
+    required String conversationId,
+    required String adminId,
+    required List<Map<String, dynamic>> newMembers,
+  }) async {
+    final convSnap = await _conversations.doc(conversationId).get();
+    if (!convSnap.exists) throw Exception('Conversation not found');
+
+    final convData = convSnap.data() as Map<String, dynamic>;
+    final currentParticipantIds = List<String>.from(convData['participantIds'] ?? []);
+    final currentNames = Map<String, String>.from(convData['participantNames'] ?? {});
+    final currentPhotos = Map<String, String?>.from(convData['participantPhotos'] ?? {});
+    final currentUnread = Map<String, int>.from(convData['unreadCount'] ?? {});
+
+    // Add new members (skip if already in group)
+    for (final m in newMembers) {
+      final memberId = m['id'] as String;
+      if (!currentParticipantIds.contains(memberId)) {
+        currentParticipantIds.add(memberId);
+        currentNames[memberId] = m['name'] ?? 'Membre';
+        currentPhotos[memberId] = m['photoUrl'];
+        currentUnread[memberId] = 0;
+      }
+    }
+
+    await _conversations.doc(conversationId).update({
+      'participantIds': currentParticipantIds,
+      'participantNames': currentNames,
+      'participantPhotos': currentPhotos,
+      'unreadCount': currentUnread,
+    });
+  }
+
+  /// Remove a member from a group (admin-only operation)
+  Future<void> removeMemberFromGroup({
+    required String conversationId,
+    required String adminId,
+    required String memberId,
+  }) async {
+    final convSnap = await _conversations.doc(conversationId).get();
+    if (!convSnap.exists) throw Exception('Conversation not found');
+
+    final convData = convSnap.data() as Map<String, dynamic>;
+    final participantIds = List<String>.from(convData['participantIds'] ?? []);
+    final names = Map<String, String>.from(convData['participantNames'] ?? {});
+    final photos = Map<String, String?>.from(convData['participantPhotos'] ?? {});
+    final unread = Map<String, int>.from(convData['unreadCount'] ?? {});
+
+    // Remove the member
+    participantIds.remove(memberId);
+    names.remove(memberId);
+    photos.remove(memberId);
+    unread.remove(memberId);
+
+    await _conversations.doc(conversationId).update({
+      'participantIds': participantIds,
+      'participantNames': names,
+      'participantPhotos': photos,
+      'unreadCount': unread,
+    });
+  }
+
+  /// Member leaves the group (member removes themselves)
+  Future<void> leaveGroup({
+    required String conversationId,
+    required String userId,
+  }) async {
+    await removeMemberFromGroup(
+      conversationId: conversationId,
+      adminId: userId,
+      memberId: userId,
+    );
+  }
+
+  /// Promote a member to admin (admin-only operation)
+  Future<void> promoteToAdmin({
+    required String conversationId,
+    required String adminId,
+    required String memberId,
+  }) async {
+    final convSnap = await _conversations.doc(conversationId).get();
+    if (!convSnap.exists) throw Exception('Conversation not found');
+
+    final convData = convSnap.data() as Map<String, dynamic>;
+    final adminIds = List<String>.from(convData['adminIds'] ?? []);
+
+    // Add to admins if not already there
+    if (!adminIds.contains(memberId)) {
+      adminIds.add(memberId);
+      await _conversations.doc(conversationId).update({
+        'adminIds': adminIds,
+      });
+    }
+  }
+
+  /// Update group information (admin-only operation)
+  Future<void> updateGroupInfo({
+    required String conversationId,
+    required String adminId,
+    String? groupName,
+    String? groupPhoto,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (groupName != null) updates['groupName'] = groupName;
+    if (groupPhoto != null) updates['groupPhoto'] = groupPhoto;
+
+    if (updates.isNotEmpty) {
+      await _conversations.doc(conversationId).update(updates);
+    }
+  }
+
+  /// Delete a group entirely (admin-only operation)
+  /// Deletes all messages and the conversation document
+  Future<void> deleteGroup({
+    required String conversationId,
+    required String adminId,
+  }) async {
+    // Delete all messages
+    final messages = await _messages(conversationId).get();
+    final batch = _db.batch();
+    for (final doc in messages.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    // Delete the conversation
+    await _conversations.doc(conversationId).delete();
   }
 
   // ── UTILISATEURS ──────────────────────────────────────────────────

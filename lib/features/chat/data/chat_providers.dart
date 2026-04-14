@@ -129,12 +129,34 @@ final phoneContactsServiceProvider = Provider<PhoneContactsService>((ref) {
 
 final phoneContactsProvider = FutureProvider<List<PhoneContact>>((ref) async {
   final service = ref.read(phoneContactsServiceProvider);
-  
+
   // Demander la permission
   final hasPermission = await service.requestPermission();
   if (!hasPermission) {
     return [];
   }
-  
+
   return service.getContacts();
 });
+
+// ── Check if user is admin of a group ───────────────────────────────
+final isGroupAdminProvider = FutureProvider.family<bool, String>((ref, conversationId) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return false;
+
+  final conversations = await ref.watch(conversationsProvider.future);
+  final conversation = conversations.firstWhere(
+    (c) => c.id == conversationId,
+    orElse: () => ConversationModel(
+      id: '',
+      participantIds: [],
+      participantNames: {},
+      participantPhotos: {},
+      unreadCount: {},
+    ),
+  );
+
+  return conversation.adminIds.contains(user.uid);
+});
+

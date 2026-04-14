@@ -15,6 +15,7 @@ import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_setup_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/calls/presentation/incoming_call_screen.dart';
+import '../../features/groups/presentation/group_details_screen.dart';
 
 abstract class AppRoutes {
   static const splash       = '/';
@@ -27,6 +28,7 @@ abstract class AppRoutes {
   static const createGroup  = '/create-group';
   static const chat         = '/chat/:conversationId';
   static const archivedChats = '/archived-chats';
+  static const groupDetails = '/group-details';
   static const incomingCall = '/incoming-call';
   static const addStatus = '/add-status';
 }
@@ -108,6 +110,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const CreateGroupScreen()),
       GoRoute(path: AppRoutes.archivedChats,
           builder: (_, __) => const ArchivedConversationsScreen()),
+      GoRoute(
+        path: AppRoutes.groupDetails,
+        builder: (_, state) {
+          final conversationId = state.uri.queryParameters['conversationId'] ?? '';
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return GroupDetailsScreen(
+            conversationId: conversationId,
+            groupName: extra['name'],
+            groupPhoto: extra['photo'],
+          );
+        },
+      ),
       GoRoute(
         path: AppRoutes.chat,
         builder: (_, state) {
