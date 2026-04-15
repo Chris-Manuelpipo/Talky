@@ -32,7 +32,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final groupsAsync   = ref.watch(statusGroupsProvider);
+    final groupsAsync = ref.watch(statusGroupsProvider);
     final currentUserId = ref.watch(authStateProvider).value?.uid ?? '';
 
     return Scaffold(
@@ -53,8 +53,8 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
               )
             : Text('Statuts',
                 style: TextStyle(
-                  color:      context.appThemeColors.textPrimary,
-                  fontSize:   22,
+                  color: context.appThemeColors.textPrimary,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
                 )),
         actions: [
@@ -74,28 +74,31 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const AddStatusScreen())),
+                MaterialPageRoute(builder: (_) => const AddStatusScreen())),
           ),
         ],
       ),
 
       body: groupsAsync.when(
         loading: () => Center(
-          child: CircularProgressIndicator(color: AppColors.primary)),
+            child: CircularProgressIndicator(color: context.primaryColor)),
         error: (e, _) => Center(
-          child: Text('Erreur: $e',
-              style: TextStyle(color: context.appThemeColors.textSecondary))),
+            child: Text('Erreur: $e',
+                style: TextStyle(color: context.appThemeColors.textSecondary))),
         data: (groups) {
           final myGroup = groups.where((g) => g.isMyStatus).firstOrNull;
-          final others  = groups.where((g) => !g.isMyStatus).toList();
+          final others = groups.where((g) => !g.isMyStatus).toList();
 
           final filtered = _query.trim().isEmpty
               ? others
-              : others.where((g) =>
-                  g.userName.toLowerCase().contains(_query)).toList();
+              : others
+                  .where((g) => g.userName.toLowerCase().contains(_query))
+                  .toList();
 
-          final unread  = filtered.where((g) => g.hasUnviewed(currentUserId)).toList();
-          final read    = filtered.where((g) => !g.hasUnviewed(currentUserId)).toList();
+          final unread =
+              filtered.where((g) => g.hasUnviewed(currentUserId)).toList();
+          final read =
+              filtered.where((g) => !g.hasUnviewed(currentUserId)).toList();
 
           return CustomScrollView(
             slivers: [
@@ -107,27 +110,27 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                     Padding(
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text('Mon statut',
-                        style: TextStyle(
-                          color:      context.appThemeColors.textSecondary,
-                          fontSize:   13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        )),
+                          style: TextStyle(
+                            color: context.appThemeColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          )),
                     ),
                     _MyStatusTile(
-                      myGroup:        myGroup,
-                      currentUserId:  currentUserId,
+                      myGroup: myGroup,
+                      currentUserId: currentUserId,
                     ),
                     if (unread.isNotEmpty) ...[
                       Padding(
                         padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                         child: Text('Récents',
-                          style: TextStyle(
-                            color:      context.appThemeColors.textSecondary,
-                            fontSize:   13,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          )),
+                            style: TextStyle(
+                              color: context.appThemeColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            )),
                       ),
                     ],
                   ],
@@ -138,7 +141,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _StatusTile(
-                    group:         unread[i],
+                    group: unread[i],
                     currentUserId: currentUserId,
                   ),
                   childCount: unread.length,
@@ -150,19 +153,19 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                     child: Text('Déjà vus',
-                      style: TextStyle(
-                        color:      context.appThemeColors.textSecondary,
-                        fontSize:   13,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      )),
+                        style: TextStyle(
+                          color: context.appThemeColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        )),
                   ),
                 ),
 
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _StatusTile(
-                    group:         read[i],
+                    group: read[i],
                     currentUserId: currentUserId,
                   ),
                   childCount: read.length,
@@ -170,8 +173,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
               ),
 
               if (others.isEmpty && myGroup == null)
-                const SliverFillRemaining(
-                  child: _EmptyState()),
+                const SliverFillRemaining(child: _EmptyState()),
             ],
           );
         },
@@ -180,8 +182,8 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
       // ── FAB publier ────────────────────────────────────────────────
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const AddStatusScreen())),
-        backgroundColor: AppColors.primary,
+            MaterialPageRoute(builder: (_) => const AddStatusScreen())),
+        backgroundColor: context.primaryColor,
         child: Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
@@ -204,45 +206,50 @@ class _MyStatusTile extends ConsumerWidget {
       leading: Stack(
         children: [
           StatusRing(
-            hasStatus:   myGroup != null,
-            allViewed:   false,
-            isMyStatus:  true,
+            hasStatus: myGroup != null,
+            allViewed: false,
+            isMyStatus: true,
             child: _Avatar(name: myName, photoUrl: null),
           ),
           if (myGroup == null)
             Positioned(
-              right: 0, bottom: 0,
+              right: 0,
+              bottom: 0,
               child: Container(
-                width: 22, height: 22,
-                decoration: const BoxDecoration(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary,
+                  color: context.primaryColor,
                 ),
-                child: Icon(Icons.add_rounded,
-                    color: Colors.white, size: 14),
+                child: Icon(Icons.add_rounded, color: Colors.white, size: 14),
               ),
             ),
         ],
       ),
       title: Text('Mon statut',
-        style: TextStyle(
-            color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              color: context.appThemeColors.textPrimary,
+              fontWeight: FontWeight.w600)),
       subtitle: Text(
         myGroup == null
             ? 'Appuyer pour ajouter un statut'
             : '${myGroup!.statuses.length} statut${myGroup!.statuses.length > 1 ? 's' : ''} · ${_timeAgo(myGroup!.latest.createdAt)}',
-        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 13),
+        style: TextStyle(
+            color: context.appThemeColors.textSecondary, fontSize: 13),
       ),
       onTap: () {
         if (myGroup != null) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => StatusViewerScreen(
-              group:         myGroup!,
-              currentUserId: currentUserId,
-            )));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => StatusViewerScreen(
+                        group: myGroup!,
+                        currentUserId: currentUserId,
+                      )));
         } else {
           Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AddStatusScreen()));
+              MaterialPageRoute(builder: (_) => const AddStatusScreen()));
         }
       },
     );
@@ -263,24 +270,27 @@ class _StatusTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: StatusRing(
-        hasStatus:  true,
-        allViewed:  allViewed,
+        hasStatus: true,
+        allViewed: allViewed,
         isMyStatus: false,
-        child: _Avatar(
-            name: group.userName, photoUrl: group.userPhoto),
+        child: _Avatar(name: group.userName, photoUrl: group.userPhoto),
       ),
       title: Text(group.userName,
-        style: TextStyle(
-            color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w600)),
+          style: TextStyle(
+              color: context.appThemeColors.textPrimary,
+              fontWeight: FontWeight.w600)),
       subtitle: Text(
         _timeAgo(group.latest.createdAt),
-        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 13),
+        style: TextStyle(
+            color: context.appThemeColors.textSecondary, fontSize: 13),
       ),
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => StatusViewerScreen(
-          group:         group,
-          currentUserId: currentUserId,
-        ))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => StatusViewerScreen(
+                    group: group,
+                    currentUserId: currentUserId,
+                  ))),
     );
   }
 }
@@ -295,21 +305,21 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 52, height: 52,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: photoUrl == null ? const LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ) : null,
-        image: photoUrl != null ? DecorationImage(
-            image: NetworkImage(photoUrl!), fit: BoxFit.cover) : null,
+        color: photoUrl == null
+            ? context.primaryColor
+            : null,
+        image: photoUrl != null
+            ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
+            : null,
       ),
-      child: photoUrl == null ? Center(
-        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: TextStyle(
-              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-      ) : null,
+      child: photoUrl == null
+          ? const Center(
+              child: Icon(Icons.person_rounded, color: Colors.white, size: 24))
+          : null,
     );
   }
 }
@@ -325,22 +335,25 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100, height: 100,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withOpacity(0.1),
+              color: context.primaryColor.withOpacity(0.1),
             ),
             child: Icon(Icons.circle_outlined,
-                color: AppColors.primary, size: 48),
+                color: context.primaryColor, size: 48),
           ),
           const SizedBox(height: 20),
           Text('Aucun statut pour le moment',
-            style: TextStyle(
-                color: context.appThemeColors.textPrimary,
-                fontSize: 18, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: context.appThemeColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text('Publiez votre premier statut !',
-            style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 14)),
+              style: TextStyle(
+                  color: context.appThemeColors.textSecondary, fontSize: 14)),
         ],
       ),
     );
@@ -349,8 +362,8 @@ class _EmptyState extends StatelessWidget {
 
 String _timeAgo(DateTime dt) {
   final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1)  return 'À l\'instant';
+  if (diff.inMinutes < 1) return 'À l\'instant';
   if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-  if (diff.inHours   < 24) return 'Il y a ${diff.inHours}h';
+  if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
   return 'Il y a ${diff.inDays}j';
 }

@@ -1,5 +1,4 @@
 // lib/features/onboarding/presentation/onboarding_screen.dart
-// Même fichier que Phase 1 — seule modification : bouton "Commencer" → AppRoutes.phone
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,26 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/router/app_router.dart';
-
-class _OnboardingPage {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color accentColor;
-  const _OnboardingPage({required this.icon, required this.title, required this.subtitle, required this.accentColor});
-}
-
-const _pages = [
-  _OnboardingPage(icon: Icons.chat_outlined, title: 'Messagerie\ninstantanée',
-      subtitle: 'Échangez en temps réel avec vos collègues. Messages, médias, vocaux — tout en un.',
-      accentColor: AppColors.primary),
-  _OnboardingPage(icon: Icons.language_outlined, title: 'Traduction\ninstantanée',
-      subtitle: 'Parlez votre langue, soyez compris dans la leur. La barrière linguistique n\'existe plus.',
-      accentColor: AppColors.accent),
-  _OnboardingPage(icon: Icons.lock_outline_rounded, title: 'Mode\nconfidentiel',
-      subtitle: 'Messages éphémères, verrouillage biométrique et chiffrement de bout en bout.',
-      accentColor: Color(0xFFAD7BFF)),
-];
+import '../../../core/theme/app_colors_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -40,20 +20,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   @override
-  void dispose() { _pageController.dispose(); super.dispose(); }
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
-      _pageController.nextPage(duration: AppConstants.animNormal, curve: Curves.easeInOutCubic);
+    if (_currentPage < 2) {
+      _pageController.nextPage(
+          duration: AppConstants.animNormal, curve: Curves.easeInOutCubic);
     } else {
-      context.go(AppRoutes.phone); // ← Vers PhoneScreen
+      context.go(AppRoutes.phone);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -63,8 +49,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.all(16),
                 child: TextButton(
                   onPressed: () => context.go(AppRoutes.phone),
-                  child: const Text('Passer',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                  child: Text('Passer',
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 14)),
                 ),
               ),
             ),
@@ -72,8 +59,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                itemCount: _pages.length,
-                itemBuilder: (context, index) => _OnboardingPageWidget(page: _pages[index]),
+                itemCount: 3,
+                itemBuilder: (context, index) =>
+                    _buildPage(context, index, colors),
               ),
             ),
             Padding(
@@ -82,39 +70,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(_pages.length, (i) => AnimatedContainer(
-                      duration: AppConstants.animFast,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: _currentPage == i ? 24 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: _currentPage == i ? _pages[_currentPage].accentColor : AppColors.border,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    )),
+                    children: List.generate(
+                        3,
+                        (i) => AnimatedContainer(
+                              duration: AppConstants.animFast,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: _currentPage == i ? 24 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _currentPage == i
+                                    ? colors.primary
+                                    : colors.border,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            )),
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _nextPage,
-                      style: ElevatedButton.styleFrom(backgroundColor: _pages[_currentPage].accentColor),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary),
                       child: Text(
-                        _currentPage == _pages.length - 1 ? 'Commencer' : 'Suivant',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        _currentPage == 2 ? 'Commencer' : 'Suivant',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Déjà un compte ? ',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      Text('Déjà un compte ? ',
+                          style: TextStyle(
+                              color: colors.textSecondary, fontSize: 14)),
                       GestureDetector(
                         onTap: () => context.go(AppRoutes.phone),
-                        child: const Text('Se connecter',
-                          style: TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.w600)),
+                        child: Text('Se connecter',
+                            style: TextStyle(
+                                color: colors.primary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -126,36 +124,65 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
-}
 
-class _OnboardingPageWidget extends StatelessWidget {
-  final _OnboardingPage page;
-  const _OnboardingPageWidget({required this.page});
+  Widget _buildPage(BuildContext context, int index, AppThemeColors colors) {
+    final pages = [
+      (
+        icon: Icons.chat_outlined,
+        title: 'Messagerie\ninstantanée',
+        subtitle:
+            'Échangez en temps réel avec vos collègues. Messages, médias, vocaux — tout en un.'
+      ),
+      (
+        icon: Icons.language_outlined,
+        title: 'Traduction\ninstantanée',
+        subtitle:
+            'Parlez votre langue, soyez compris dans la leur. La barrière linguistique n\'existe plus.'
+      ),
+      (
+        icon: Icons.lock_outline_rounded,
+        title: 'Mode\nconfidentiel',
+        subtitle:
+            'Messages éphémères, verrouillage biométrique et chiffrement de bout en bout.'
+      ),
+    ];
 
-  @override
-  Widget build(BuildContext context) {
+    final page = pages[index];
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.fromLTRB(32, 40, 32, 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const SizedBox(height: 60),
           Container(
-            width: 160, height: 160,
+            width: 140,
+            height: 140,
             decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              color: page.accentColor.withValues(alpha: 0.08),
-              border: Border.all(color: page.accentColor.withValues(alpha: 0.2), width: 1),
             ),
-            child: Center(child: Icon(page.icon, size: 72, color: page.accentColor)),
-          ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack).fadeIn(duration: 400.ms),
+            child: Icon(page.icon, size: 60, color: colors.primary),
+          )
+              .animate()
+              .fadeIn(delay: 200.ms)
+              .scale(begin: const Offset(0.8, 0.8)),
           const SizedBox(height: 48),
-          Text(page.title, textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700, height: 1.2),
-          ).animate(delay: 100.ms).fadeIn().slideY(begin: 0.2, end: 0),
+          Text(page.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                      height: 1.2))
+              .animate()
+              .fadeIn(delay: 400.ms),
           const SizedBox(height: 16),
-          Text(page.subtitle, textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary, height: 1.6),
-          ).animate(delay: 200.ms).fadeIn(),
+          Text(page.subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 15, color: colors.textSecondary, height: 1.5))
+              .animate()
+              .fadeIn(delay: 600.ms),
         ],
       ),
     );

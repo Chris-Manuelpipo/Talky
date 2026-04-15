@@ -3,6 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_colors_provider.dart';
 import '../../domain/message_model.dart';
 import 'package:intl/intl.dart';
 
@@ -20,6 +21,7 @@ class MessageImageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -31,21 +33,24 @@ class MessageImageBubble extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.only(
-              topLeft:     const Radius.circular(18),
-              topRight:    const Radius.circular(18),
-              bottomLeft:  Radius.circular(isMine ? 18 : 4),
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(isMine ? 18 : 4),
               bottomRight: Radius.circular(isMine ? 4 : 18),
             ),
-            boxShadow: [BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 6, offset: const Offset(0, 3),
-            )],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              )
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.only(
-              topLeft:     const Radius.circular(18),
-              topRight:    const Radius.circular(18),
-              bottomLeft:  Radius.circular(isMine ? 18 : 4),
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(isMine ? 18 : 4),
               bottomRight: Radius.circular(isMine ? 4 : 18),
             ),
             child: Stack(
@@ -56,7 +61,8 @@ class MessageImageBubble extends StatelessWidget {
                     top: 8,
                     left: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(10),
@@ -73,38 +79,38 @@ class MessageImageBubble extends StatelessWidget {
                   ),
                 // Image
                 CachedNetworkImage(
-                  imageUrl:    message.mediaUrl ?? '',
-                  fit:         BoxFit.cover,
-                  width:       double.infinity,
+                  imageUrl: message.mediaUrl ?? '',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
                   placeholder: (_, __) => Container(
                     height: 200,
-                    color: AppColors.surface,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary)),
+                    color: colors.surface,
+                    child: Center(
+                        child:
+                            CircularProgressIndicator(color: colors.primary)),
                   ),
                   errorWidget: (_, __, ___) => Container(
                     height: 200,
-                    color: AppColors.surface,
-                    child: const Icon(Icons.broken_image_rounded,
-                        color: AppColors.textHint, size: 48),
+                    color: colors.surface,
+                    child: Icon(Icons.broken_image_rounded,
+                        color: colors.textHint, size: 48),
                   ),
                 ),
 
                 // Heure en overlay
                 Positioned(
-                  bottom: 8, right: 10,
+                  bottom: 8,
+                  right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.55),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       DateFormat('HH:mm').format(message.sentAt),
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 10),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
                 ),
@@ -117,9 +123,11 @@ class MessageImageBubble extends StatelessWidget {
   }
 
   void _openFullscreen(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => _FullscreenImage(url: message.mediaUrl ?? ''),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _FullscreenImage(url: message.mediaUrl ?? ''),
+        ));
   }
 }
 
@@ -130,6 +138,7 @@ class _FullscreenImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -148,7 +157,7 @@ class _FullscreenImage extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.contain,
             placeholder: (_, __) =>
-                const CircularProgressIndicator(color: AppColors.primary),
+                CircularProgressIndicator(color: colors.primary),
           ),
         ),
       ),

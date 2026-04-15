@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
+import '../providers/settings_providers.dart';
 
-// ── Couleurs dynamiques basées sur le thème ─────────────────────────────────
 class AppThemeColors {
   final Color background;
   final Color surface;
@@ -50,70 +50,86 @@ class AppThemeColors {
     required this.offline,
   });
 
-  // Dark theme colors
-  static const AppThemeColors dark = AppThemeColors(
-    background: AppColors.background,
-    surface: AppColors.surface,
-    surfaceVariant: AppColors.surfaceVariant,
-    surfaceHigh: AppColors.surfaceHigh,
-    textPrimary: AppColors.textPrimary,
-    textSecondary: AppColors.textSecondary,
-    textHint: AppColors.textHint,
-    bubbleSent: AppColors.bubbleSent,
-    bubbleReceived: AppColors.bubbleReceived,
-    bubbleSentText: AppColors.bubbleSentText,
-    bubbleReceivedText: AppColors.bubbleReceivedText,
-    divider: AppColors.divider,
-    border: AppColors.border,
-    inputFill: AppColors.inputFill,
-    primary: AppColors.primary,
-    accent: AppColors.accent,
-    error: AppColors.error,
-    success: AppColors.success,
-    online: AppColors.online,
-    offline: AppColors.offline,
-  );
+  static AppThemeColors dark(Color accentColor) {
+    final primary = AppColors.primaryFromAccent(accentColor);
+    final accent = AppColors.accentFromPrimary(primary);
 
-  // Light theme colors - Amélioré
-  static const AppThemeColors light = AppThemeColors(
-    background: AppColors.backgroundLight,
-    surface: AppColors.surfaceLight,
-    surfaceVariant: AppColors.surfaceVariantLight,
-    surfaceHigh: AppColors.surfaceHighLight,
-    textPrimary: AppColors.textPrimaryLight,
-    textSecondary: AppColors.textSecondaryLight,
-    textHint: AppColors.textHintLight,
-    bubbleSent: AppColors.bubbleSentLight,
-    bubbleReceived: AppColors.bubbleReceivedLight,
-    bubbleSentText: AppColors.bubbleSentTextLight,
-    bubbleReceivedText: AppColors.bubbleReceivedTextLight,
-    divider: AppColors.dividerLight,
-    border: AppColors.borderLight,
-    inputFill: AppColors.inputFillLight,
-    primary: AppColors.primary,
-    accent: AppColors.accent,
-    error: AppColors.errorLight,
-    success: AppColors.successLight,
-    online: AppColors.onlineLight,
-    offline: AppColors.offlineLight,
-  );
+    return AppThemeColors(
+      background: AppColors.background,
+      surface: AppColors.surface,
+      surfaceVariant: AppColors.surfaceVariant,
+      surfaceHigh: AppColors.surfaceHigh,
+      textPrimary: AppColors.textPrimary,
+      textSecondary: AppColors.textSecondary,
+      textHint: AppColors.textHint,
+      bubbleSent: AppColors.bubbleSentFromAccent(accentColor),
+      bubbleReceived: AppColors.bubbleReceived,
+      bubbleSentText: AppColors.bubbleSentTextFromAccent(accentColor, true),
+      bubbleReceivedText: AppColors.bubbleReceivedText,
+      divider: AppColors.divider,
+      border: AppColors.border,
+      inputFill: AppColors.inputFill,
+      primary: primary,
+      accent: accent,
+      error: AppColors.error,
+      success: AppColors.success,
+      online: AppColors.online,
+      offline: AppColors.offline,
+    );
+  }
+
+  static AppThemeColors light(Color accentColor) {
+    final primary = AppColors.primaryFromAccent(accentColor);
+    final accent = AppColors.accentFromPrimary(primary);
+
+    return AppThemeColors(
+      background: AppColors.backgroundLight,
+      surface: AppColors.surfaceLight,
+      surfaceVariant: AppColors.surfaceVariantLight,
+      surfaceHigh: AppColors.surfaceHighLight,
+      textPrimary: AppColors.textPrimaryLight,
+      textSecondary: AppColors.textSecondaryLight,
+      textHint: AppColors.textHintLight,
+      bubbleSent: AppColors.bubbleSentFromAccent(accentColor),
+      bubbleReceived: AppColors.bubbleReceivedLight,
+      bubbleSentText: AppColors.bubbleSentTextFromAccent(accentColor, false),
+      bubbleReceivedText: AppColors.bubbleReceivedTextLight,
+      divider: AppColors.dividerLight,
+      border: AppColors.borderLight,
+      inputFill: AppColors.inputFillLight,
+      primary: primary,
+      accent: accent,
+      error: AppColors.errorLight,
+      success: AppColors.successLight,
+      online: AppColors.onlineLight,
+      offline: AppColors.offlineLight,
+    );
+  }
 }
 
-// ── Provider pour les couleurs du thème ──────────────────────────────────────
 final themeColorsProvider = Provider<AppThemeColors>((ref) {
-  // This will be updated by the app based on theme mode
-  // Default to dark
-  return AppThemeColors.dark;
+  final settings = ref.watch(settingsProvider);
+  final accentColor = settings.accentColor;
+  final brightness =
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
+
+  return brightness == Brightness.light
+      ? AppThemeColors.light(accentColor)
+      : AppThemeColors.dark(accentColor);
 });
 
-// ── Extension sur BuildContext pour accéder aux couleurs ───────────────────
 extension AppColorsExtension on BuildContext {
   AppThemeColors get appThemeColors {
-    return Theme.of(this).brightness == Brightness.light
-        ? AppThemeColors.light
-        : AppThemeColors.dark;
+    final brightness = Theme.of(this).brightness;
+    final container = ProviderScope.containerOf(this);
+    final settings = container.read(settingsProvider);
+    final accentColor = settings.accentColor;
+
+    return brightness == Brightness.light
+        ? AppThemeColors.light(accentColor)
+        : AppThemeColors.dark(accentColor);
   }
-  
+
   Color get backgroundColor => appThemeColors.background;
   Color get surfaceColor => appThemeColors.surface;
   Color get surfaceVariantColor => appThemeColors.surfaceVariant;

@@ -19,9 +19,8 @@ class AddStatusScreen extends ConsumerStatefulWidget {
 
 class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
     with SingleTickerProviderStateMixin {
-
   late TabController _tabCtrl;
-  final _textCtrl    = TextEditingController();
+  final _textCtrl = TextEditingController();
   final _captionCtrl = TextEditingController();
   File? _selectedFile;
   bool _isVideo = false;
@@ -29,9 +28,16 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
 
   // Couleurs de fond pour les statuts texte
   final _bgColors = [
-    '#7C5CFC', '#4FC3F7', '#FF6B6B', '#51CF66',
-    '#FF9F43', '#FD79A8', '#0984E3', '#6C5CE7',
-    '#00B894', '#E17055',
+    '#7C5CFC',
+    '#4FC3F7',
+    '#FF6B6B',
+    '#51CF66',
+    '#FF9F43',
+    '#FD79A8',
+    '#0984E3',
+    '#6C5CE7',
+    '#00B894',
+    '#E17055',
   ];
   String _selectedBg = '#7C5CFC';
 
@@ -50,26 +56,27 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
   }
 
   Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) setState(() {
-      _selectedFile = File(picked.path);
-      _isVideo = false;
-    });
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null)
+      setState(() {
+        _selectedFile = File(picked.path);
+        _isVideo = false;
+      });
   }
 
   Future<void> _pickVideo() async {
     final picked = await ImagePicker().pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 1));
-    if (picked != null) setState(() {
-      _selectedFile = File(picked.path);
-      _isVideo = true;
-    });
+        source: ImageSource.gallery, maxDuration: const Duration(minutes: 1));
+    if (picked != null)
+      setState(() {
+        _selectedFile = File(picked.path);
+        _isVideo = true;
+      });
   }
 
   Future<void> _publish() async {
-    final user   = ref.read(authStateProvider).value;
+    final user = ref.read(authStateProvider).value;
     if (user == null) return;
     final myName = await ref.read(currentUserNameProvider.future);
 
@@ -84,9 +91,9 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
             return;
           }
           await service.postTextStatus(
-            userId:          user.uid,
-            userName:        myName,
-            text:            _textCtrl.text.trim(),
+            userId: user.uid,
+            userName: myName,
+            text: _textCtrl.text.trim(),
             backgroundColor: _selectedBg,
           );
           break;
@@ -97,11 +104,12 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
             return;
           }
           await service.postImageStatus(
-            userId:    user.uid,
-            userName:  myName,
+            userId: user.uid,
+            userName: myName,
             imageFile: _selectedFile!,
-            caption:   _captionCtrl.text.trim().isEmpty
-                ? null : _captionCtrl.text.trim(),
+            caption: _captionCtrl.text.trim().isEmpty
+                ? null
+                : _captionCtrl.text.trim(),
           );
           break;
 
@@ -111,11 +119,12 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
             return;
           }
           await service.postVideoStatus(
-            userId:    user.uid,
-            userName:  myName,
+            userId: user.uid,
+            userName: myName,
             videoFile: _selectedFile!,
-            caption:   _captionCtrl.text.trim().isEmpty
-                ? null : _captionCtrl.text.trim(),
+            caption: _captionCtrl.text.trim().isEmpty
+                ? null
+                : _captionCtrl.text.trim(),
           );
           break;
       }
@@ -129,8 +138,8 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: context.appThemeColors.error));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg), backgroundColor: context.appThemeColors.error));
   }
 
   @override
@@ -140,10 +149,12 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
       appBar: AppBar(
         backgroundColor: context.appThemeColors.background,
         title: Text('Nouveau statut',
-          style: TextStyle(
-              color: context.appThemeColors.textPrimary, fontWeight: FontWeight.w700)),
+            style: TextStyle(
+                color: context.appThemeColors.textPrimary,
+                fontWeight: FontWeight.w700)),
         leading: IconButton(
-          icon: Icon(Icons.close_rounded, color: context.appThemeColors.textSecondary),
+          icon: Icon(Icons.close_rounded,
+              color: context.appThemeColors.textSecondary),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -151,52 +162,55 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
             TextButton(
               onPressed: _publish,
               child: Text('Publier',
-                style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16)),
+                  style: TextStyle(
+                      color: context.primaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16)),
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(12),
-              child: SizedBox(width: 24, height: 24,
-                child: CircularProgressIndicator(
-                    color: AppColors.primary, strokeWidth: 2)),
+              child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                      color: context.primaryColor, strokeWidth: 2)),
             ),
         ],
         bottom: TabBar(
           controller: _tabCtrl,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
+          indicatorColor: context.primaryColor,
+          labelColor: context.primaryColor,
           unselectedLabelColor: context.appThemeColors.textSecondary,
           tabs: const [
             Tab(icon: Icon(Icons.text_fields_rounded), text: 'Texte'),
-            Tab(icon: Icon(Icons.image_rounded),       text: 'Image'),
-            Tab(icon: Icon(Icons.videocam_rounded),    text: 'Vidéo'),
+            Tab(icon: Icon(Icons.image_rounded), text: 'Image'),
+            Tab(icon: Icon(Icons.videocam_rounded), text: 'Vidéo'),
           ],
         ),
       ),
-
       body: TabBarView(
         controller: _tabCtrl,
         children: [
           _TextTab(
-            controller:  _textCtrl,
-            bgColors:    _bgColors,
-            selectedBg:  _selectedBg,
+            controller: _textCtrl,
+            bgColors: _bgColors,
+            selectedBg: _selectedBg,
             onBgChanged: (c) => setState(() => _selectedBg = c),
           ),
           _MediaTab(
-            isVideo:         false,
-            selectedFile:    _selectedFile,
-            captionCtrl:     _captionCtrl,
-            onPick:          _pickImage,
+            isVideo: false,
+            selectedFile: _selectedFile,
+            captionCtrl: _captionCtrl,
+            onPick: _pickImage,
+            primaryColor: context.primaryColor,
           ),
           _MediaTab(
-            isVideo:         true,
-            selectedFile:    _selectedFile,
-            captionCtrl:     _captionCtrl,
-            onPick:          _pickVideo,
+            isVideo: true,
+            selectedFile: _selectedFile,
+            captionCtrl: _captionCtrl,
+            onPick: _pickVideo,
+            primaryColor: context.primaryColor,
           ),
         ],
       ),
@@ -233,16 +247,16 @@ class _TextTab extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: TextField(
-                  controller:  controller,
-                  style:       TextStyle(
-                      color: Colors.white, fontSize: 24,
+                  controller: controller,
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
                       fontWeight: FontWeight.w600),
-                  textAlign:   TextAlign.center,
-                  maxLines:    null,
-                  decoration:  InputDecoration(
-                    hintText:  'Écris ton statut...',
-                    hintStyle: TextStyle(
-                        color: Colors.white54, fontSize: 24),
+                  textAlign: TextAlign.center,
+                  maxLines: null,
+                  decoration: InputDecoration(
+                    hintText: 'Écris ton statut...',
+                    hintStyle: TextStyle(color: Colors.white54, fontSize: 24),
                     border: InputBorder.none,
                   ),
                 ),
@@ -260,13 +274,13 @@ class _TextTab extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: bgColors.length,
             itemBuilder: (_, i) {
-              final c = Color(int.parse(
-                  bgColors[i].replaceFirst('#', '0xFF')));
+              final c = Color(int.parse(bgColors[i].replaceFirst('#', '0xFF')));
               final isSelected = bgColors[i] == selectedBg;
               return GestureDetector(
                 onTap: () => onBgChanged(bgColors[i]),
                 child: Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -291,12 +305,14 @@ class _MediaTab extends StatelessWidget {
   final File? selectedFile;
   final TextEditingController captionCtrl;
   final VoidCallback onPick;
+  final Color primaryColor;
 
   const _MediaTab({
     required this.isVideo,
     this.selectedFile,
     required this.captionCtrl,
     required this.onPick,
+    required this.primaryColor,
   });
 
   @override
@@ -312,24 +328,27 @@ class _MediaTab extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 100, height: 100,
+                          width: 100,
+                          height: 100,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: primaryColor.withOpacity(0.1),
                           ),
                           child: Icon(
-                            isVideo
-                                ? Icons.videocam_rounded
-                                : Icons.add_photo_alternate_rounded,
-                            color: AppColors.primary, size: 48),
+                              isVideo
+                                  ? Icons.videocam_rounded
+                                  : Icons.add_photo_alternate_rounded,
+                              color: context.primaryColor,
+                              size: 48),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          isVideo
-                              ? 'Sélectionner une vidéo'
-                              : 'Sélectionner une image',
-                          style: TextStyle(
-                              color: context.appThemeColors.textSecondary, fontSize: 16)),
+                            isVideo
+                                ? 'Sélectionner une vidéo'
+                                : 'Sélectionner une image',
+                            style: TextStyle(
+                                color: context.appThemeColors.textSecondary,
+                                fontSize: 16)),
                       ],
                     ),
                   ),
@@ -340,11 +359,12 @@ class _MediaTab extends StatelessWidget {
                     if (!isVideo)
                       Image.file(selectedFile!, fit: BoxFit.contain),
                     if (isVideo)
-                      const Center(child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: AppColors.primary, size: 80)),
+                      Center(
+                          child: Icon(Icons.play_circle_fill_rounded,
+                              color: context.primaryColor, size: 80)),
                     Positioned(
-                      top: 12, right: 12,
+                      top: 12,
+                      right: 12,
                       child: GestureDetector(
                         onTap: onPick,
                         child: Container(
@@ -370,16 +390,16 @@ class _MediaTab extends StatelessWidget {
             controller: captionCtrl,
             style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
-              hintText:  'Ajouter une légende...',
+              hintText: 'Ajouter une légende...',
               hintStyle: TextStyle(color: context.appThemeColors.textSecondary),
-              filled:     true,
-              fillColor:  context.appThemeColors.background,
-              border:     OutlineInputBorder(
+              filled: true,
+              fillColor: context.appThemeColors.background,
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
-                borderSide:   BorderSide.none,
+                borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ),

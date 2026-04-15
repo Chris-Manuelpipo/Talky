@@ -1,7 +1,7 @@
 // lib/shared/widgets/talky_button.dart
 
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_colors_provider.dart';
 
 class TalkyButton extends StatelessWidget {
   final String label;
@@ -23,6 +23,8 @@ class TalkyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = context.primaryColor;
+
     if (isOutlined) {
       return SizedBox(
         width: double.infinity,
@@ -30,9 +32,11 @@ class TalkyButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           icon: icon != null ? Icon(icon, size: 18) : const SizedBox.shrink(),
           label: isLoading
-              ? const SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: primaryColor),
                 )
               : Text(label),
         ),
@@ -48,8 +52,10 @@ class TalkyButton extends StatelessWidget {
             : null,
         child: isLoading
             ? const SizedBox(
-                width: 22, height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.5, color: Colors.white),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,

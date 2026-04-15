@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/ringback_service.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/call_providers.dart';
 import '../../chat/data/chat_providers.dart';
@@ -29,7 +30,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   StreamSubscription<MediaStream?>? _remoteStreamSub;
   bool _swapViews = false;
   bool _ringbackStarted = false;
-  bool _timerStarted = false;  // ← Track if timer was already started
+  bool _timerStarted = false; // ← Track if timer was already started
 
   @override
   void initState() {
@@ -44,13 +45,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final status = ref.read(callProvider).status;
-      
+
       // Lancer le ringback si l'appel est en cours
       if (status == CallStatus.calling && !_ringbackStarted) {
         _ringbackStarted = true;
         RingbackService.instance.play();
       }
-      
+
       // Lancer le timer si l'appel est déjà connecté (race condition protection)
       if (status == CallStatus.connected && !_timerStarted) {
         _timerStarted = true;
@@ -152,23 +153,25 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final callState = ref.watch(callProvider);
-    
+
     // 🔍 DEBUG: Voir quel status on a
-    debugPrint('[CallScreen] Status: ${callState.status}, timerStarted: $_timerStarted, isConnected: ${callState.status == CallStatus.connected}');
-    
+    debugPrint(
+        '[CallScreen] Status: ${callState.status}, timerStarted: $_timerStarted, isConnected: ${callState.status == CallStatus.connected}');
+
     // Watch for status changes
     ref.listen(callProvider, (prev, next) {
-      debugPrint('[CallScreen.listener] Status changed from ${prev?.status} to ${next.status}');
+      debugPrint(
+          '[CallScreen.listener] Status changed from ${prev?.status} to ${next.status}');
       // If status just became connected, ensure timer is started
-      if (next.status == CallStatus.connected && prev?.status != CallStatus.connected) {
-        debugPrint('[CallScreen.listener] >>> Status transitioned to CONNECTED');
+      if (next.status == CallStatus.connected &&
+          prev?.status != CallStatus.connected) {
+        debugPrint(
+            '[CallScreen.listener] >>> Status transitioned to CONNECTED');
       }
     });
-    
+
     // ✅ SAFETY CHECK : Si status est connected ET timer pas lancé, le lancer maintenant
-    if (callState.status == CallStatus.connected && 
-        !_timerStarted && 
-        mounted) {
+    if (callState.status == CallStatus.connected && !_timerStarted && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_timerStarted && mounted) {
           _timerStarted = true;
@@ -178,7 +181,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         }
       });
     }
-    
+
     final isVideo = callState.isVideo;
     final mainIsLocal = _swapViews;
     final pipIsLocal = !_swapViews;
@@ -211,14 +214,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         _ringbackStarted = true;
         RingbackService.instance.play();
       }
-      
+
       // Côté appelé : passe de ringing → connected OU côté appelant answer reçu
       if (next.status == CallStatus.connected && mounted && !_timerStarted) {
         _timerStarted = true;
         _startDurationTimer();
         RingbackService.instance.stop();
       }
-      
+
       // Appel terminé
       if (next.status == CallStatus.idle && mounted) {
         _stopDurationTimer(reset: true);
@@ -227,11 +230,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         RingbackService.instance.stop();
         Navigator.pop(context);
       }
-      
+
       // Transition de ringing → connected (appelé qui accepte) = sécurité supplémentaire
-      if (prev?.status == CallStatus.ringing && 
-          next.status == CallStatus.connected && 
-          mounted && 
+      if (prev?.status == CallStatus.ringing &&
+          next.status == CallStatus.connected &&
+          mounted &&
           !_timerStarted) {
         _timerStarted = true;
         _startDurationTimer();
@@ -244,7 +247,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.appThemeColors.background,
       body: GestureDetector(
         onTap: _onTap,
         child: Stack(
@@ -432,7 +435,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                   ref.read(callProvider.notifier).endCall(),
                             ),
 
-                            // Caméra (si vidéo) ou haut-parleur (si audio)
+// Caméra (si vidéo) ou haut-parleur (si audio)
                             if (isVideo)
                               _CallButton(
                                 icon: callState.isCameraOff
@@ -448,10 +451,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               )
                             else
                               _CallButton(
-                                icon: Icons.volume_up_rounded,
-                                label: 'HP',
-                                color: Colors.white.withOpacity(0.18),
-                                onPressed: () {},
+                                icon: callState.isSpeakerOn
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                                label:
+                                    callState.isSpeakerOn ? 'HP On' : 'HP Off',
+                                color: callState.isSpeakerOn
+                                    ? context.primaryColor
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () => ref
+                                    .read(callProvider.notifier)
+                                    .toggleSpeaker(),
                               ),
                           ],
                         ),
@@ -624,10 +634,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               )
                             else
                               _CallButton(
-                                icon: Icons.volume_up_rounded,
-                                label: 'HP',
-                                color: Colors.white.withOpacity(0.18),
-                                onPressed: () {},
+                                icon: callState.isSpeakerOn
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                                label:
+                                    callState.isSpeakerOn ? 'HP On' : 'HP Off',
+                                color: callState.isSpeakerOn
+                                    ? context.primaryColor
+                                    : Colors.white.withOpacity(0.18),
+                                onPressed: () => ref
+                                    .read(callProvider.notifier)
+                                    .toggleSpeaker(),
                               ),
                           ],
                         ),
@@ -755,7 +772,7 @@ class _VideoTile extends StatelessWidget {
   }
 }
 
-class _GroupAudioList extends StatelessWidget {
+class _GroupAudioList extends ConsumerWidget {
   final List<GroupParticipant> participants;
   final String title;
 
@@ -765,7 +782,7 @@ class _GroupAudioList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: ListView(
         shrinkWrap: true,
@@ -787,16 +804,12 @@ class _GroupAudioList extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 22,
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.primaryColor,
                       backgroundImage:
                           p.photo != null ? NetworkImage(p.photo!) : null,
                       child: p.photo == null
-                          ? Text(
-                              p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700),
-                            )
+                          ? const Icon(Icons.person_rounded,
+                              color: Colors.white, size: 24)
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -831,12 +844,8 @@ class _AudioCallBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1A0A3B), Color(0xFF0A1628)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+      decoration: BoxDecoration(
+        color: context.appThemeColors.background,
       ),
       child: Center(
         child: Column(
@@ -847,14 +856,10 @@ class _AudioCallBackground extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: context.primaryColor, 
                 boxShadow: [
                   BoxShadow(
-                      color: AppColors.primary.withOpacity(0.4),
+                      color: context.primaryColor.withOpacity(0.4),
                       blurRadius: 40,
                       spreadRadius: 10),
                 ],
@@ -863,15 +868,9 @@ class _AudioCallBackground extends StatelessWidget {
                   ? ClipOval(
                       child: Image.network(callState.remotePhoto!,
                           fit: BoxFit.cover))
-                  : Center(
-                      child: Text(
-                      (displayName.isNotEmpty ? displayName : '?')[0]
-                          .toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.w700),
-                    )),
+                  : const Center(
+                      child: Icon(Icons.person_rounded,
+                          color: Colors.white, size: 48)),
             ),
             const SizedBox(height: 24),
             Text(displayName,

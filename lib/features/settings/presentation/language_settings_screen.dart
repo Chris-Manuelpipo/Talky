@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../data/settings_providers.dart';
+import '../../../core/providers/settings_providers.dart';
 
 class LanguageSettingsScreen extends ConsumerWidget {
   const LanguageSettingsScreen({super.key});
@@ -92,7 +92,9 @@ class LanguageSettingsScreen extends ConsumerWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          ref.read(settingsProvider.notifier).setLanguage(entry.key);
+                          ref
+                              .read(settingsProvider.notifier)
+                              .setLanguage(entry.key);
                           Navigator.pop(context);
                         },
                         child: Padding(
@@ -125,8 +127,9 @@ class LanguageSettingsScreen extends ConsumerWidget {
                                   entry.value,
                                   style: TextStyle(
                                     fontSize: 15,
-                                    fontWeight:
-                                        isSelected ? FontWeight.w600 : FontWeight.w400,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
                                     color: isSelected
                                         ? colors.primary
                                         : colors.textPrimary,

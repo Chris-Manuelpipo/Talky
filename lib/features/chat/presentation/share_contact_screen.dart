@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/chat_providers.dart';
 
@@ -19,8 +20,7 @@ class ShareContactScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ShareContactScreen> createState() =>
-      _ShareContactScreenState();
+  ConsumerState<ShareContactScreen> createState() => _ShareContactScreenState();
 }
 
 class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
@@ -55,8 +55,8 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
               decoration: InputDecoration(
                 hintText: 'Rechercher un contact...',
                 hintStyle: const TextStyle(color: AppColors.textHint),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.textHint),
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: AppColors.textHint),
                 filled: true,
                 fillColor: AppColors.surface,
                 border: OutlineInputBorder(
@@ -68,20 +68,22 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: ref.read(chatServiceProvider)
+              stream: ref
+                  .read(chatServiceProvider)
                   .usersStream(currentUser?.uid ?? ''),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                      child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final all = snap.data ?? [];
                 final filtered = _query.isEmpty
                     ? all
-                    : all.where((u) =>
-                        (u['name'] as String? ?? '')
-                            .toLowerCase().contains(_query)).toList();
+                    : all
+                        .where((u) => (u['name'] as String? ?? '')
+                            .toLowerCase()
+                            .contains(_query))
+                        .toList();
 
                 if (filtered.isEmpty) {
                   return const Center(
@@ -118,15 +120,15 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
       final myName = await ref.read(currentUserNameProvider.future);
       final myPhoto = await _getMyPhotoFromFirestore(currentUser.uid);
 
-      final convId = await ref.read(chatServiceProvider)
-          .getOrCreateConversation(
-        currentUserId: currentUser.uid,
-        currentUserName: myName,
-        currentUserPhoto: myPhoto,
-        otherUserId: otherUser['id'] as String,
-        otherUserName: otherUser['name'] as String? ?? 'Utilisateur',
-        otherUserPhoto: otherUser['photoUrl'] as String?,
-      );
+      final convId =
+          await ref.read(chatServiceProvider).getOrCreateConversation(
+                currentUserId: currentUser.uid,
+                currentUserName: myName,
+                currentUserPhoto: myPhoto,
+                otherUserId: otherUser['id'] as String,
+                otherUserName: otherUser['name'] as String? ?? 'Utilisateur',
+                otherUserPhoto: otherUser['photoUrl'] as String?,
+              );
 
       final contactProfile = await ref
           .read(authServiceProvider)
@@ -138,17 +140,18 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
           : 'Contact: ${widget.contactName}';
 
       await ref.read(chatServiceProvider).sendMessage(
-        conversationId: convId,
-        senderId: currentUser.uid,
-        senderName: myName,
-        content: content,
-      );
+            conversationId: convId,
+            senderId: currentUser.uid,
+            senderName: myName,
+            content: content,
+          );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Contact partagé à ${otherUser['name'] ?? 'Utilisateur'}'),
-          backgroundColor: AppColors.primary,
+          content:
+              Text('Contact partagé à ${otherUser['name'] ?? 'Utilisateur'}'),
+          backgroundColor: context.primaryColor,
         ),
       );
       Navigator.pop(context);
@@ -169,44 +172,42 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
   }
 }
 
-class _UserTile extends StatelessWidget {
+class _UserTile extends ConsumerWidget {
   final Map<String, dynamic> user;
   final VoidCallback onTap;
   const _UserTile({required this.user, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final name = user['name'] as String? ?? 'Utilisateur';
     final phone = user['phone'] as String? ?? '';
     final photo = user['photoUrl'] as String?;
+    final colors = context.appThemeColors;
 
     return ListTile(
       onTap: onTap,
       leading: Container(
-        width: 46, height: 46,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: photo == null
-              ? const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent])
-              : null,
+          color: photo == null ? context.primaryColor : null,
           image: photo != null
               ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover)
               : null,
         ),
         child: photo == null
-            ? Center(
-                child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)))
+            ? const Center(
+                child:
+                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
             : null,
       ),
-      title: Text(name, style: const TextStyle(
-          fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-      subtitle: Text(phone, style: const TextStyle(
-          color: AppColors.textSecondary, fontSize: 12)),
-      trailing: const Icon(Icons.chevron_right_rounded,
-          color: AppColors.textHint),
+      title: Text(name,
+          style: TextStyle(
+              fontWeight: FontWeight.w600, color: colors.textPrimary)),
+      subtitle: Text(phone,
+          style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+      trailing: Icon(Icons.chevron_right_rounded, color: colors.textHint),
     );
   }
 }

@@ -27,7 +27,6 @@ class StatusViewerScreen extends ConsumerStatefulWidget {
 
 class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     with SingleTickerProviderStateMixin {
-
   int _currentIndex = 0;
   late AnimationController _progressCtrl;
   Timer? _autoTimer;
@@ -51,7 +50,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   void _markViewed() {
     final status = widget.group.statuses[_currentIndex];
     if (!status.isViewedBy(widget.currentUserId)) {
-      ref.read(statusServiceProvider)
+      ref
+          .read(statusServiceProvider)
           .markAsViewed(status.id, widget.currentUserId);
     }
   }
@@ -232,12 +232,15 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
               if (d.globalPosition.dy > screenHeight - bottomPadding) {
                 return; // Don't navigate when tapping reply bar
               }
-              
+
               final x = d.globalPosition.dx;
               final w = MediaQuery.of(context).size.width;
-              if (x < w / 3) _prev();
-              else if (x > w * 2 / 3) _next();
-              else _progressCtrl.forward();
+              if (x < w / 3)
+                _prev();
+              else if (x > w * 2 / 3)
+                _next();
+              else
+                _progressCtrl.forward();
             },
             child: _StatusContent(status: status),
           ),
@@ -280,13 +283,13 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.primaryColor,
                       backgroundImage: widget.group.userPhoto != null
-                          ? NetworkImage(widget.group.userPhoto!) : null,
+                          ? NetworkImage(widget.group.userPhoto!)
+                          : null,
                       child: widget.group.userPhoto == null
-                          ? Text(widget.group.userName[0].toUpperCase(),
-                              style: TextStyle(
-                                  color: Colors.white, fontWeight: FontWeight.w700))
+                          ? const Icon(Icons.person_rounded,
+                              color: Colors.white, size: 24)
                           : null,
                     ),
                     const SizedBox(width: 10),
@@ -294,16 +297,18 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(widget.group.isMyStatus
-                              ? 'Mon statut' : widget.group.userName,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15)),
+                          Text(
+                              widget.group.isMyStatus
+                                  ? 'Mon statut'
+                                  : widget.group.userName,
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15)),
                           Text(_timeAgo(status.createdAt),
-                            style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 12)),
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 12)),
                         ],
                       ),
                     ),
@@ -315,7 +320,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                           padding: const EdgeInsets.all(8),
                           child: Icon(
                             isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked ? AppColors.primary : Colors.white,
+                            color:
+                                isLiked ? context.primaryColor : Colors.white,
                             size: 28,
                           ),
                         ),
@@ -329,7 +335,8 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         icon: Icon(Icons.delete_outline_rounded,
                             color: Colors.white),
                         onPressed: () async {
-                          await ref.read(statusServiceProvider)
+                          await ref
+                              .read(statusServiceProvider)
                               .deleteStatus(status.id);
                           if (mounted) Navigator.pop(context);
                         },
@@ -343,13 +350,15 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
           // ── Compteur de vues (mon statut) ─────────────────────────
           if (isMyStatus)
             Positioned(
-              bottom: 100, left: 0, right: 0,
+              bottom: 100,
+              left: 0,
+              right: 0,
               child: Center(
                 child: GestureDetector(
                   onTap: () => _showViewers(context, status),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(20),
@@ -360,17 +369,18 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         Icon(Icons.visibility_outlined,
                             color: Colors.white, size: 16),
                         const SizedBox(width: 6),
-                        Text('${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 13)),
+                        Text(
+                            '${status.viewCount} vue${status.viewCount > 1 ? 's' : ''}',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 13)),
                         if (status.likeCount > 0) ...[
                           const SizedBox(width: 8),
                           Icon(Icons.favorite,
-                              color: AppColors.primary, size: 14),
+                              color: context.primaryColor, size: 14),
                           const SizedBox(width: 2),
                           Text('${status.likeCount}',
-                            style: TextStyle(
-                                color: AppColors.primary, fontSize: 13)),
+                              style: TextStyle(
+                                  color: context.primaryColor, fontSize: 13)),
                         ],
                       ],
                     ),
@@ -460,7 +470,8 @@ class _ReplyBar extends StatelessWidget {
                           color: Colors.white.withOpacity(0.5),
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 10),
                       ),
                       maxLines: 1,
                     ),
@@ -479,7 +490,7 @@ class _ReplyBar extends StatelessWidget {
           const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: context.primaryColor,
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -503,21 +514,23 @@ class _StatusContent extends StatelessWidget {
     switch (status.type) {
       case StatusType.text:
         final color = status.backgroundColor != null
-            ? Color(int.parse(status.backgroundColor!.replaceFirst('#', '0xFF')))
-            : AppColors.primary;
+            ? Color(
+                int.parse(status.backgroundColor!.replaceFirst('#', '0xFF')))
+            : context.primaryColor;
         return Container(
-          width:  double.infinity,
+          width: double.infinity,
           height: double.infinity,
-          color:  color,
-          child:  Center(
+          color: color,
+          child: Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
-              child: Text(status.text ?? '',
+              child: Text(
+                status.text ?? '',
                 style: TextStyle(
-                  color:      Colors.white,
-                  fontSize:   28,
+                  color: Colors.white,
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  height:     1.4,
+                  height: 1.4,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -534,22 +547,24 @@ class _StatusContent extends StatelessWidget {
                   fit: BoxFit.contain,
                   loadingBuilder: (_, child, prog) => prog == null
                       ? child
-                      : const Center(child: CircularProgressIndicator(
-                          color: Colors.white))),
+                      : const Center(
+                          child:
+                              CircularProgressIndicator(color: Colors.white))),
             if (status.text != null && status.text!.isNotEmpty)
               Positioned(
-                bottom: 80, left: 16, right: 16,
+                bottom: 80,
+                left: 16,
+                right: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(status.text!,
-                    style: TextStyle(
-                        color: Colors.white, fontSize: 16),
-                    textAlign: TextAlign.center),
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      textAlign: TextAlign.center),
                 ),
               ),
           ],
@@ -557,8 +572,8 @@ class _StatusContent extends StatelessWidget {
 
       case StatusType.video:
         return const Center(
-          child: Icon(Icons.play_circle_outline_rounded,
-              color: Colors.white, size: 80));
+            child: Icon(Icons.play_circle_outline_rounded,
+                color: Colors.white, size: 80));
     }
   }
 }
@@ -567,7 +582,8 @@ class _ViewerTile extends ConsumerWidget {
   final String userId;
   final DateTime? viewedAt;
   final bool hasLiked;
-  const _ViewerTile({required this.userId, this.viewedAt, this.hasLiked = false});
+  const _ViewerTile(
+      {required this.userId, this.viewedAt, this.hasLiked = false});
 
   String _formatViewedAt(DateTime dt) {
     final now = DateTime.now();
@@ -593,44 +609,45 @@ class _ViewerTile extends ConsumerWidget {
       leading: Stack(
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.primary,
+            backgroundColor: context.primaryColor,
             backgroundImage: photo != null ? NetworkImage(photo) : null,
             child: photo == null
-                ? Text(name[0].toUpperCase(),
-                    style: TextStyle(color: Colors.white))
+                ? const Icon(Icons.person_rounded,
+                    color: Colors.white, size: 24)
                 : null,
           ),
-              // Subtle heart indicator for those who liked
-              if (hasLiked)
-                Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: context.appThemeColors.surface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.favorite,
-                      color: AppColors.primary,
-                      size: 12,
-                    ),
-                  ),
+          // Subtle heart indicator for those who liked
+          if (hasLiked)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: context.appThemeColors.surface,
+                  shape: BoxShape.circle,
                 ),
-            ],
-          ),
-          title: Text(name,
-            style: TextStyle(color: context.appThemeColors.textPrimary)),
-          subtitle: viewedAt != null
-              ? Text(
-                  _formatViewedAt(viewedAt!),
-                  style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12),
-                )
-              : null,
-          trailing: hasLiked
-              ? Icon(Icons.favorite, color: AppColors.primary, size: 18)
-              : null,
+                child: Icon(
+                  Icons.favorite,
+                  color: context.primaryColor,
+                  size: 12,
+                ),
+              ),
+            ),
+        ],
+      ),
+      title: Text(name,
+          style: TextStyle(color: context.appThemeColors.textPrimary)),
+      subtitle: viewedAt != null
+          ? Text(
+              _formatViewedAt(viewedAt!),
+              style: TextStyle(
+                  color: context.appThemeColors.textSecondary, fontSize: 12),
+            )
+          : null,
+      trailing: hasLiked
+          ? Icon(Icons.favorite, color: context.primaryColor, size: 18)
+          : null,
     );
   }
 }
@@ -645,10 +662,10 @@ class _ProgressBar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
       child: LinearProgressIndicator(
-        value:           progress,
+        value: progress,
         backgroundColor: Colors.white.withOpacity(0.3),
-        valueColor:      const AlwaysStoppedAnimation<Color>(Colors.white),
-        minHeight:       2.5,
+        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+        minHeight: 2.5,
       ),
     );
   }
@@ -656,8 +673,8 @@ class _ProgressBar extends StatelessWidget {
 
 String _timeAgo(DateTime dt) {
   final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1)  return 'À l\'instant';
+  if (diff.inMinutes < 1) return 'À l\'instant';
   if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-  if (diff.inHours < 24)   return 'Il y a ${diff.inHours}h';
+  if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
   return 'Il y a ${diff.inDays}j';
 }

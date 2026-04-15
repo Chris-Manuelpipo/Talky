@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors_provider.dart';
+import '../../../core/widgets/floating_glass_nav_bar.dart';
 import '../../chat/presentation/conversations_screen.dart';
 import '../../groups/presentation/groups_screen.dart';
 import '../../status/presentation/status_screen.dart';
@@ -46,17 +46,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appThemeColors;
-    
     return Scaffold(
       body: PageView(
         controller: _pageController,
         onPageChanged: (i) => setState(() => _currentIndex = i),
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) {
+      bottomNavigationBar: FloatingGlassNavBar(
+        currentIndex: _currentIndex,
+        onTap: (i) {
           setState(() => _currentIndex = i);
           _pageController.animateToPage(
             i,
@@ -64,36 +62,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             curve: Curves.easeOut,
           );
         },
-        backgroundColor: colors.surface,
-        indicatorColor: colors.primary.withValues(alpha: 0.15),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded, color: colors.textHint),
-            selectedIcon: Icon(Icons.chat_bubble_rounded, color: colors.primary),
-            label: 'Discussions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.group_outlined, color: colors.textHint),
-            selectedIcon: Icon(Icons.group_rounded, color: colors.primary),
-            label: 'Groupes',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.circle_outlined, color: colors.textHint),
-            selectedIcon: Icon(Icons.circle_rounded, color: colors.primary),
-            label: 'Statuts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.call_outlined, color: colors.textHint),
-            selectedIcon: Icon(Icons.call_rounded, color: colors.primary),
-            label: 'Appels',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined, color: colors.textHint),
-            selectedIcon: Icon(Icons.settings_rounded, color: colors.primary),
-            label: 'Paramètres',
-          ),
-        ],
       ),
     );
   }

@@ -1,0 +1,1364 @@
+% ============================================================
+%  RAPPORT DE PROJET — TALKY
+%  ENSPY — Génie Informatique — 2025-2026
+% ============================================================
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm,headheight=15pt]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows,positioning,backgrounds,calc,fit}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=ENSPYblue,citecolor=ENSPYblue,urlcolor=ENSPYorange]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{emptypage}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{amsmath,amssymb}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+%% ── Couleurs ──────────────────────────────────────────────
+\definecolor{ENSPYblue}{RGB}{0,56,101}
+\definecolor{ENSPYPurple}{RGB}{90,61,216}
+\definecolor{ENSPYorange}{RGB}{230,100,20}
+\definecolor{ENSPYgray}{RGB}{245,245,245}
+\definecolor{ENSPYdark}{RGB}{30,30,30}
+\definecolor{CodeBg}{RGB}{248,248,248}
+\definecolor{TalkyGreen}{RGB}{37,211,102}
+\definecolor{TalkyTeal}{RGB}{0,150,136}
+
+%% ── Titres de chapitres ───────────────────────────────────
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{ENSPYblue}}
+  {\colorbox{ENSPYorange}{\color{white}\small\bfseries\chaptername~\thechapter}}
+  {10pt}{\huge\color{ENSPYblue}}
+  [\vspace{4pt}{\color{ENSPYorange}\titlerule[2pt]}\vspace{8pt}]
+
+\titleformat{\section}
+  {\large\bfseries\color{ENSPYblue}}
+  {{\color{ENSPYorange}\thesection}}{0.8em}{}
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{ENSPYdark}}
+  {{\color{ENSPYorange}\thesubsection}}{0.8em}{}
+
+%% ── En-têtes / pieds ──────────────────────────────────────
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\color{ENSPYblue}\textbf{Talky — Application de Messagerie Instantanée}}
+\fancyhead[R]{\small\color{ENSPYblue}ENSPY · GI · 2025-2026}
+\fancyfoot[C]{\small\color{ENSPYblue}\thepage}
+\renewcommand{\headrulewidth}{0.8pt}
+
+%% ── Listings ──────────────────────────────────────────────
+\lstset{
+  backgroundcolor=\color{CodeBg},
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\bfseries\color{ENSPYblue},
+  commentstyle=\itshape\color{gray},
+  stringstyle=\color{TalkyTeal},
+  breaklines=true, frame=single, framerule=0.5pt,
+  rulecolor=\color{ENSPYorange},
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=8pt,
+  showstringspaces=false, tabsize=2,
+}
+
+%% ── Boîtes colorées ───────────────────────────────────────
+\newtcolorbox{infobox}[1][Information]{
+  enhanced,breakable,colback=ENSPYgray,colframe=ENSPYblue,
+  fonttitle=\bfseries\color{white},title={#1},
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=ENSPYblue,rounded corners},sharp corners=south}
+
+\newtcolorbox{warningbox}[1][Remarque]{
+  enhanced,breakable,colback=orange!10,colframe=ENSPYorange,
+  fonttitle=\bfseries\color{white},title={#1},
+  attach boxed title to top left={yshift=-2mm,xshift=4mm},
+  boxed title style={colback=ENSPYorange,rounded corners},sharp corners=south}
+
+%% ── Styles TikZ ───────────────────────────────────────────
+\tikzset{
+  entity/.style={
+    rectangle,draw=ENSPYblue,fill=ENSPYblue!10,thick,
+    minimum width=3cm,minimum height=0.9cm,
+    text centered,font=\bfseries\small},
+  relation/.style={
+    diamond,draw=TalkyTeal,fill=TalkyTeal!15,
+    aspect=2.5,font=\bfseries\scriptsize,text centered,
+    minimum width=2.2cm,minimum height=0.7cm},
+  actbox/.style={
+    rectangle,draw=ENSPYblue,fill=ENSPYblue!15,
+    minimum width=3.8cm,minimum height=0.65cm,
+    font=\footnotesize,text centered},
+  statebox/.style={
+    rectangle,draw=ENSPYblue,fill=ENSPYblue!10,
+    rounded corners=5pt,minimum width=2.8cm,
+    minimum height=0.75cm,font=\small\bfseries,text centered},
+  decbox/.style={
+    diamond,draw=ENSPYorange,fill=ENSPYorange!10,
+    aspect=2.5,font=\footnotesize},
+  ucell/.style={
+    ellipse,draw=ENSPYblue,fill=ENSPYblue!8,
+    minimum width=4.6cm,minimum height=0.85cm,
+    font=\footnotesize,text centered},
+  cloudbox/.style={
+    rectangle,draw=TalkyTeal,fill=TalkyTeal!15,
+    rounded corners=6pt,minimum width=3cm,
+    minimum height=0.9cm,font=\small\bfseries,text centered},
+  startnode/.style={circle,fill=ENSPYdark,minimum size=0.38cm,inner sep=0pt},
+  endnode/.style={circle,fill=ENSPYdark,minimum size=0.38cm,inner sep=0pt,
+    double=white,double distance=2pt},
+  myarr/.style={->,>=stealth,draw=ENSPYdark,thick},
+  dasharr/.style={->,>=stealth,draw=gray,dashed,thick},
+  bigarr/.style={<->,>=stealth,draw=ENSPYdark,thick},
+}
+
+%% ── Macro acteur UML ──────────────────────────────────────
+\newcommand{\umlactor}[3]{%
+  \node[align=center,font=\small\bfseries] (#1) at (#2) {%
+    \tikz[scale=0.5]{%
+      \draw[thick](0,0.6) circle(0.28);
+      \draw[thick](0,0.32)--(0,-0.38);
+      \draw[thick](-0.32,-0.05)--(0.32,-0.05);
+      \draw[thick](0,-0.38)--(-0.25,-0.82);
+      \draw[thick](0,-0.38)--(0.25,-0.82);}\\#3};}
+
+% ============================================================
+\begin{document}
+
+%% ────────────────────────────────────────────────────────
+%%  PAGE DE GARDE
+%% ────────────────────────────────────────────────────────
+\begin{titlepage}
+%\pagecolor{ENSPYPurple}
+\begin{center}
+\vspace*{0.4cm}
+\begin{center}
+	\begin{tabular}{m{0.4\textwidth} m{0.15\textwidth} m{0.4\textwidth}}
+		\begin{flushleft}
+			\begin{center}
+				{\small
+					{République du Cameroun}\\
+					\textit{Paix – Travail – Patrie}\\
+					---------------\\
+					{Université de Yaoundé I}\\
+					---------------\\
+					École Nationale Supérieure Polytechnique de Yaoundé\\
+					{(ENSPY)}\\
+					%---------------\\
+				}
+			\end{center}
+		\end{flushleft}
+		&
+		% --- Logo au centre ---
+		\centering
+		\includegraphics[width=2.8cm]{logopo.png}
+		
+		&
+		% --- Colonne droite (Anglais) ---
+		\begin{flushright}
+			\begin{center}
+				{\small
+					{Republic of Cameroon}\\
+					\textit{Peace – Work – Fatherland}\\
+					---------------\\
+					{University of Yaoundé I}\\
+					---------------\\
+					National Advanced School of Engineering of Yaoundé\\
+					{(NASEY)}\\
+					%---------------\\
+				}
+			\end{center}
+		\end{flushright}
+	\end{tabular}
+\end{center}
+\textcolor{ENSPYorange}{\rule{14cm}{1.5pt}}\\[0.5cm]
+{\fontsize{14}{17}\selectfont{Rapport Académique}}\\[0.2cm]
+{\fontsize{27}{41}\selectfont
+Projet Base de Données  }\\[0.8cm]
+\textcolor{ENSPYorange}{\fontsize{44}{52}\selectfont\bfseries Talky}\\[0.15cm]
+{\fontsize{17}{21}\selectfont\itshape \guillemotleft{} Parlez sans frontières \guillemotright}\\[0.3cm]
+{\fontsize{13}{16}\selectfont
+  Conception et Implémentation d'une Application\\
+  de Messagerie Instantanée et d'Appels Temps Réel}\\[0.6cm]
+\textcolor{ENSPYorange}{\rule{14cm}{1pt}}\\[0.8cm]
+\begin{minipage}{0.48\textwidth}
+\raggedright
+{\small\bfseries\textcolor{ENSPYorange}{Membres du groupe :}}\\[0.3cm]
+{\small
+  1.\ \textbf{ETCHOME Chris Manuel Loïc}\\
+  2.\ \textbf{DOUANLA FOKOU Ange Kendra}\\
+  3.\ \textbf{ABEDE NDZANA Anatole}\\
+  4.\ \textbf{KAZITI DIZEKETI Simon Pierre}\\
+  5.\ \textbf{FOALEM SIMO Alfred}\\
+  6.\ \textbf{BENAE MPEKE Blaise}}
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\raggedleft
+{\small\bfseries\textcolor{ENSPYorange}{}}\\[0.2cm]
+
+\end{minipage}
+
+
+\vfill
+
+\raggedleft
+{\small\bfseries\textcolor{ENSPYorange}{Sous la supervision de  :}}\\[0.2cm]
+{\small Dr NANA MBINKEU}\\[0.5cm] 
+
+
+\begin{center}
+\textcolor{ENSPYorange}{\rule{14cm}{1.5pt}}\\[0.2cm]
+{\fontsize{13}{16}\selectfont
+  Année académique 2025 - 2026 }
+\end{center}
+\end{center}
+\end{titlepage}
+\nopagecolor
+
+%% ── Dédicace ──────────────────────────────────────────────
+\newpage\thispagestyle{empty}
+\vspace*{6cm}
+\begin{center}
+\itshape\large
+À nos familles, sources d'inspiration et de soutien indéfectible.\\[0.4cm]
+À notre encadrant, Dr NANA MBINKEU,\\
+pour sa guidance éclairée tout au long de ce projet.
+\end{center}
+
+%% ── Remerciements ─────────────────────────────────────────
+\newpage\thispagestyle{empty}
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+Nous tenons à exprimer notre profonde gratitude à toutes les personnes qui ont contribué à la réalisation de ce projet.
+
+Nos premiers remerciements vont au \textbf{Dr NANA MBINKEU}, notre encadrant, dont les conseils avisés, la disponibilité et les retours constructifs ont été déterminants dans l'orientation et la réussite de ce travail.
+
+Nous remercions également le corps enseignant du Département de Génie Informatique de l'\textbf{École Nationale Supérieure Polytechnique de Yaoundé (ENSPY)} pour la qualité de la formation dispensée, qui nous a fourni les bases théoriques et pratiques nécessaires à ce projet.
+
+Enfin, nous remercions l'ensemble de nos pairs et camarades de promotion pour les échanges fructueux et l'entraide permanente tout au long de ce cycle de formation.
+
+%% ── Résumé ────────────────────────────────────────────────
+\newpage\thispagestyle{empty}
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Ce rapport présente la conception et l'implémentation de \textbf{Talky}, une application mobile de messagerie instantanée et d'appels audio/vidéo temps réel, développée dans le cadre du module \textit{Projet Base de Données} à l'École Nationale Supérieure Polytechnique de Yaoundé.
+
+Talky cible les usages professionnels internes à l'entreprise et offre, à l'instar de WhatsApp, un ensemble riche de fonctionnalités : messagerie texte et multimédia, appels individuels et de groupe via WebRTC, publication de statuts éphémères de 24 heures, gestion des contacts, historique des appels et personnalisation de l'interface.
+
+L'application repose sur une architecture client-serveur hybride : \textbf{Flutter + Riverpod} côté client mobile, \textbf{Firebase} (Firestore, FCM, Realtime Database) pour la persistance et les notifications, \textbf{Cloudinary} pour le stockage des médias, et un serveur de signalisation \textbf{Node.js/Socket.IO} déployé sur Render.com pour la coordination des appels WebRTC.
+
+Le document couvre l'ensemble des phases du cycle de développement : analyse du problème, étude de l'existant, modélisation des données (MCD, MLD), modélisation UML, architecture technique, implémentation et perspectives.
+
+\medskip
+\textbf{Mots-clés :} messagerie instantanée, WebRTC, Flutter, Firebase, Firestore, Socket.IO, Cloudinary, temps réel, NoSQL, application mobile.
+
+\vspace{0.8cm}
+\begin{center}\rule{8cm}{0.5pt}\end{center}
+\vspace{0.4cm}
+
+\textbf{Abstract} --- This report presents the design and implementation of \textit{Talky}, a mobile instant-messaging and real-time audio/video calling application developed at the National Advanced School of Engineering of Yaoundé. The system leverages Flutter, Firebase, WebRTC and a Node.js signalling server. Keywords: instant messaging, WebRTC, Flutter, Firebase, real-time, NoSQL.
+
+%% ── Tables des matières ───────────────────────────────────
+\tableofcontents
+\listoffigures
+\listoftables
+
+%% ── Abréviations ──────────────────────────────────────────
+\newpage
+\chapter*{Liste des abréviations}
+\addcontentsline{toc}{chapter}{Liste des abréviations}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Sigle} & \textbf{Signification}\\\midrule
+API    & Application Programming Interface \\
+BDD    & Base De Données \\
+CDN    & Content Delivery Network \\
+FCM    & Firebase Cloud Messaging \\
+GI     & Génie Informatique \\
+ICE    & Interactive Connectivity Establishment \\
+JSON   & JavaScript Object Notation \\
+MCD    & Modèle Conceptuel des Données \\
+MLD    & Modèle Logique des Données \\
+NoSQL  & Not Only SQL \\
+OTP    & One-Time Password \\
+P2P    & Peer-to-Peer \\
+SDP    & Session Description Protocol \\
+SGBD   & Système de Gestion de Bases de Données \\
+STUN   & Session Traversal Utilities for NAT \\
+TURN   & Traversal Using Relays around NAT \\
+UML    & Unified Modeling Language \\
+VoIP   & Voice over Internet Protocol \\
+WebRTC & Web Real-Time Communication \\
+\bottomrule
+\end{tabularx}
+
+%% ============================================================
+\chapter{Introduction générale}
+
+\section{Contexte}
+
+La communication numérique a radicalement transformé la manière dont les individus et les organisations échangent de l'information. Les applications de messagerie instantanée --- WhatsApp, Telegram, Signal, Microsoft Teams --- sont désormais au cœur des pratiques professionnelles et personnelles à l'échelle mondiale. En Afrique subsaharienne, et particulièrement au Cameroun, la pénétration des smartphones et l'essor des réseaux mobiles 4G ont créé un besoin croissant de solutions de communication rapides, fiables et économiques.
+
+Dans le cadre du module \textit{Projet Base de Données} du Département de Génie Informatique de l'ENSPY, notre groupe a été chargé de concevoir et d'implémenter une solution logicielle complète répondant à des besoins réels de communication. Nous avons choisi de développer \textbf{Talky}, une application de messagerie instantanée et d'appels temps réel pensée pour un usage professionnel interne.
+
+\section{Problématique}
+
+Les entreprises et organisations camerounaises utilisent majoritairement des solutions propriétaires étrangères pour leurs communications internes. Ces solutions présentent plusieurs inconvénients majeurs :
+
+\begin{itemize}[leftmargin=1.5cm]
+  \item \textbf{Dépendance aux serveurs étrangers :} les données des employés transitent par des infrastructures hors du contrôle de l'organisation.
+  \item \textbf{Absence de personnalisation :} impossibilité d'adapter l'outil aux processus internes ou à l'identité visuelle de l'entreprise.
+  \item \textbf{Coûts de licence :} les solutions professionnelles comme Teams ou Zoom impliquent des abonnements onéreux.
+  \item \textbf{Problèmes de confidentialité :} la collecte de métadonnées par les grandes plateformes représente un risque pour la confidentialité des échanges.
+\end{itemize}
+
+\begin{tcolorbox}[colback=ENSPYgray,colframe=ENSPYblue,title={\bfseries\color{white}Question centrale}]
+\itshape Comment concevoir et implémenter une application mobile de communication interne à la fois performante, sécurisée, économique et adaptable, tout en s'appuyant sur des technologies modernes accessibles à une équipe étudiante~?
+\end{tcolorbox}
+
+\section{Objectifs du projet}
+
+\subsection{Objectif général}
+Concevoir et développer une application mobile multiplateforme de messagerie instantanée et d'appels audio/vidéo temps réel, destinée à un usage professionnel interne.
+
+\subsection{Objectifs spécifiques}
+\begin{enumerate}[leftmargin=1.5cm]
+  \item Implémenter un système de messagerie textuelle et multimédia avec accusés de réception.
+  \item Intégrer des appels audio et vidéo individuels et de groupe via WebRTC.
+  \item Développer un système de statuts éphémères (24 heures) similaire aux Stories.
+  \item Assurer les notifications push en temps réel via Firebase Cloud Messaging.
+  \item Proposer une interface utilisateur intuitive, moderne et accessible.
+  \item Mettre en place une authentification robuste par OTP.
+\end{enumerate}
+
+\section{Structure du rapport}
+
+Le rapport s'articule en sept chapitres. Le chapitre~2 présente l'étude de l'existant. Le chapitre~3 couvre la modélisation des données (MCD/MLD). Le chapitre~4 présente la modélisation UML. Le chapitre~5 décrit l'architecture technique. Le chapitre~6 détaille l'implémentation. Le chapitre~7 conclut et ouvre des perspectives.
+
+%% ============================================================
+\chapter{Analyse et étude de l'existant}
+
+\section{Panorama des solutions existantes}
+
+\subsection{WhatsApp}
+WhatsApp Messenger, propriété de Meta, est l'application de messagerie la plus utilisée au monde avec plus de 2,7 milliards d'utilisateurs actifs. Elle offre messagerie texte et multimédia, appels audio/vidéo, statuts de 24 heures et chiffrement de bout en bout. Son principal inconvénient pour un usage professionnel reste l'absence de contrôle sur les données et d'impossibilité de personnalisation.
+
+\subsection{Telegram}
+Telegram se distingue par ses groupes de grande capacité (jusqu'à 200\,000 membres), ses canaux de diffusion, la prise en charge de bots et une API ouverte. Il propose également un mode Secret avec chiffrement de bout en bout et auto-destruction des messages.
+
+\subsection{Signal}
+Signal est la référence en matière de confidentialité, avec un chiffrement de bout en bout basé sur son propre protocole. Il reste toutefois limité en fonctionnalités professionnelles avancées.
+
+\subsection{Microsoft Teams / Slack}
+Ces solutions professionnelles offrent des fonctionnalités de collaboration avancées (partage de fichiers, réunions, intégrations tierces) mais impliquent des coûts significatifs et une infrastructure complexe.
+
+\section{Tableau comparatif}
+
+\begin{table}[H]
+\centering
+\caption{Comparaison des principales applications de messagerie}
+\label{tab:comparaison}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{@{}lXXXXX@{}}
+\toprule
+\textbf{Critère} & \textbf{WhatsApp} & \textbf{Telegram}
+  & \textbf{Signal} & \textbf{Teams} & \textbf{Talky}\\\midrule
+Messagerie texte   & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+Médias             & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+Appels VoIP        & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+Statuts éphémères  & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{red}{$\times$} & \textcolor{red}{$\times$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+Open source        & \textcolor{red}{$\times$} & Partiel & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{red}{$\times$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+Mode confidentiel  & Limité & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{TalkyGreen}{$\checkmark$} & \textcolor{red}{$\times$} & Prévu\\
+Personnalisable    & \textcolor{red}{$\times$} & \textcolor{red}{$\times$} & \textcolor{red}{$\times$} & Limité & \textcolor{TalkyGreen}{$\checkmark$}\\
+Données maîtrisées & \textcolor{red}{$\times$} & \textcolor{red}{$\times$} & Partiel & \textcolor{red}{$\times$} & \textcolor{TalkyGreen}{$\checkmark$}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Positionnement de Talky}
+
+\begin{infobox}[Valeur ajoutée de Talky]
+\begin{itemize}
+  \item \textbf{Maîtrise des données :} l'organisation déploie son propre serveur de signalisation et contrôle intégralement la base Firebase.
+  \item \textbf{Mode fantôme (Ghost Mode) :} l'utilisateur peut masquer son statut de connexion sans quitter l'application.
+  \item \textbf{Messages confidentiels :} auto-destruction configurable de 5 secondes à une durée personnalisée (fonctionnalité planifiée).
+  \item \textbf{Traduction instantanée intégrée :} prévu pour la version 2.0.
+  \item \textbf{Architecture extensible :} base Flutter multiplateforme (Android, iOS, Web).
+\end{itemize}
+\end{infobox}
+
+\section{Analyse des besoins}
+
+\subsection{Besoins fonctionnels}
+
+\begin{enumerate}[leftmargin=1.5cm,label=\textbf{BF\arabic*}]
+  \item Inscription via numéro de téléphone avec vérification OTP.
+  \item Envoi/réception de messages texte, images, vidéos, audios et fichiers.
+  \item Appels audio et vidéo individuels et de groupe.
+  \item Publication de statuts éphémères visibles 24 heures.
+  \item Création et gestion de groupes de discussion.
+  \item Notifications push même lorsque l'application est fermée.
+  \item Archivage, épinglage et suppression de conversations.
+  \item Affichage du statut de présence des contacts.
+\end{enumerate}
+
+\subsection{Besoins non fonctionnels}
+
+\begin{enumerate}[leftmargin=1.5cm,label=\textbf{BNF\arabic*}]
+  \item \textbf{Performance :} latence des messages inférieure à 500 ms.
+  \item \textbf{Disponibilité :} serveur opérationnel 24h/24, 7j/7.
+  \item \textbf{Sécurité :} tokens et clés API non exposés dans le code source.
+  \item \textbf{Scalabilité :} groupes jusqu'à 256 membres.
+  \item \textbf{Maintenabilité :} architecture modulaire par fonctionnalités.
+  \item \textbf{Compatibilité :} Android API 21+ (Android 5.0 minimum).
+\end{enumerate}
+
+%% ============================================================
+\chapter{Modélisation des données}
+
+\section{Présentation du système de stockage}
+
+Talky repose sur une architecture de données \textbf{NoSQL distribuée} combinant Firebase Firestore (persistance principale) et Firebase Realtime Database (présence temps réel).
+
+\begin{warningbox}[Justification du choix NoSQL]
+Le recours à Firestore plutôt qu'un SGBD relationnel est motivé par~: (1)~la synchronisation temps réel sans polling, (2)~la flexibilité du schéma pour les messages hétérogènes, (3)~l'intégration native avec Firebase Auth et FCM, et (4)~la scalabilité horizontale automatique.
+\end{warningbox}
+
+\section{Modèle Conceptuel des Données (MCD)}
+
+Le MCD ci-dessous est établi selon la méthode MERISE. Il représente les entités du système et leurs associations.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.2cm]
+
+  %% Entités
+  \node[entity] (user)    at (0,0)     {UTILISATEUR};
+  \node[entity] (conv)    at (7,0)     {CONVERSATION};
+  \node[entity] (msg)     at (7,-4.5)  {MESSAGE};
+  \node[entity] (status)  at (0,-4.5)  {STATUT};
+  \node[entity] (call)    at (13,0)    {HIST. APPEL};
+  \node[entity] (contact) at (13,-4.5) {CONTACT};
+
+  %% Relations
+  \node[relation] (participe) at (3.5, 0)    {PARTICIPE};
+  \node[relation] (contient)  at (7,  -2.25) {CONTIENT};
+  \node[relation] (publie)    at (3.5,-4.5)  {PUBLIE};
+  \node[relation] (effectue)  at (6.5, 1.8)  {EFFECTUE};
+  \node[relation] (connait)   at (9.5,-4.5)  {CONNAÎT};
+
+  %% Liaisons + cardinalités
+  \draw[myarr] (user)      -- node[above,font=\tiny]{0,N} (participe);
+  \draw[myarr] (participe) -- node[above,font=\tiny]{1,N} (conv);
+
+  \draw[myarr] (conv)     -- node[right,font=\tiny]{1,1} (contient);
+  \draw[myarr] (contient) -- node[right,font=\tiny]{0,N} (msg);
+
+  \draw[myarr] (user)   -- node[above,font=\tiny]{1,1} (publie);
+  \draw[myarr] (publie) -- node[above,font=\tiny]{0,N} (status);
+
+  \draw[myarr] (user.north)  -- ++(0,0.5) node[above,font=\tiny]{} -|
+    node[above,font=\tiny,xshift=-1.4cm]{0,N}  (effectue.west);
+  \draw[myarr] (effectue)    -- node[above,font=\tiny]{1,1} (call);
+
+  \draw[myarr] (user.south east)
+    -- ++(1.5,-1.5) -- (connait.west)
+    node[near start,above,font=\tiny]{0,N};
+  \draw[myarr] (connait) -- node[above,font=\tiny]{0,N} (contact);
+
+\end{tikzpicture}
+\caption{Modèle Conceptuel des Données (MCD) de Talky}
+\label{fig:mcd}
+\end{figure}
+
+\subsection{Description des entités}
+
+\begin{table}[H]
+\centering
+\caption{Entités et attributs principaux}
+\label{tab:entites}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+\textbf{Entité} & \textbf{Clé primaire} & \textbf{Attributs principaux}\\\midrule
+UTILISATEUR  & uid (String)
+  & name, phone, email, photoUrl, status, isOnline, lastSeen, ghostMode, preferredLanguage \\
+CONVERSATION & id (String)
+  & participantIds, isGroup, groupName, groupPhoto, lastMessage, lastMessageAt, isPinned, isArchived, unreadCount \\
+MESSAGE      & id (String)
+  & conversationId, senderId, content, type, status, sentAt, readAt, mediaUrl, isDeleted, isEdited, replyToId \\
+STATUT       & id (String)
+  & userId, type, text, mediaUrl, backgroundColor, createdAt, expiresAt, viewedBy, likedBy \\
+HIST. APPEL  & id (String)
+  & callerId, receiverId, type (entrant/sortant/manqué), isVideo, durationSeconds, timestamp \\
+CONTACT      & id (String)
+  & contactName, contactPhoto, phoneNumber, addedAt \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Modèle Logique des Données (MLD)}
+
+Le MLD traduit le MCD en collections Firestore.
+Notation : \textit{Collection(\underline{clé}, attribut, \textit{cle\_etrangere}\textsuperscript{réf})}.
+
+\begin{infobox}[MLD --- Collections Firestore]
+\small
+\textbf{users}(\underline{uid}, name, phone, email, photoUrl, status,
+preferredLanguage, isOnline, lastSeen, ghostMode, fcmToken)
+
+\medskip
+\textbf{conversations}(\underline{id},
+participantIds[\,], participantNames\{uid\,$\to$\,name\},
+participantPhotos\{uid\,$\to$\,url\}, lastMessage,
+lastMessageSenderId\textsuperscript{$\to$users},
+lastMessageType, lastMessageStatus, lastMessageAt,
+unreadCount\{uid\,$\to$\,int\}, isGroup, groupName, groupPhoto,
+isPinned, isArchived)
+
+\medskip
+\textbf{conversations/\{id\}/messages}(\underline{id},
+conversationId\textsuperscript{$\to$conversations},
+senderId\textsuperscript{$\to$users}, senderName, content, type,
+status, sentAt, readAt, mediaUrl, mediaName, mediaDuration,
+replyToId\textsuperscript{$\to$messages}, isStatusReply, isDeleted,
+isEdited, editedAt, deletedFor[\,])
+
+\medskip
+\textbf{statuses}(\underline{id},
+userId\textsuperscript{$\to$users}, userName, userPhoto, type,
+text, mediaUrl, backgroundColor, createdAt, expiresAt,
+viewedBy[\,], viewedAt\{uid\,$\to$\,ts\}, likedBy[\,])
+
+\medskip
+\textbf{users/\{uid\}/call\_history}(\underline{id},
+callerId\textsuperscript{$\to$users}, callerName,
+receiverId\textsuperscript{$\to$users}, receiverName, isGroup,
+groupName, participantIds[\,], type, timestamp, durationSeconds, isVideo)
+
+\medskip
+\textbf{users/\{uid\}/contacts}(\underline{id},
+contactName, contactPhoto, phoneNumber, addedAt)
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{Types de messages supportés (\texttt{MessageType})}
+\label{tab:msgtypes}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Valeur} & \textbf{Description} & \textbf{Champs additionnels}\\\midrule
+\texttt{text}    & Message texte pur           & content \\
+\texttt{image}   & Image (JPEG/PNG/GIF)        & mediaUrl, mediaName \\
+\texttt{video}   & Vidéo                       & mediaUrl, mediaName, mediaDuration \\
+\texttt{audio}   & Note vocale                 & mediaUrl, mediaDuration \\
+\texttt{file}    & Document/fichier            & mediaUrl, mediaName \\
+\texttt{deleted} & Message supprimé (tombstone) & isDeleted = true \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Modèle physique --- Index Firestore}
+
+Pour garantir les performances, un index composite est défini sur la collection \texttt{conversations} :
+
+\begin{table}[H]
+\centering
+\caption{Index composite Firestore sur \texttt{conversations}}
+\label{tab:index}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Champ} & \textbf{Type} & \textbf{Ordre} & \textbf{Justification}\\\midrule
+participantIds & Arrays     & ---          & Filtrage par utilisateur    \\
+isArchived     & Ascending  & Croissant    & Séparation actif/archivé    \\
+isPinned       & Descending & Décroissant  & Épinglés en tête            \\
+lastMessageAt  & Descending & Décroissant  & Tri chronologique inversé   \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Modélisation mathématique}
+
+\subsection{Complexité des requêtes Firestore}
+
+Soit $C$ le nombre total de conversations et $k$ le nombre de résultats retournés.
+Avec l'index composite, la complexité d'une requête de listing est :
+\[
+  T_{\text{query}} = O(\log C + k)
+\]
+Sans index, elle serait $O(C)$ (scan complet), ce qui deviendrait inacceptable à grande échelle.
+
+\subsection{Modèle d'expiration des statuts}
+
+Un statut $s$ est \emph{valide} à l'instant $t$ (en secondes Unix) si et seulement si :
+\[
+  t_{\text{created}}(s) \;\leq\; t \;\leq\; t_{\text{created}}(s) + 86400
+\]
+
+Le taux de vues d'un statut est :
+\[
+  \tau_{\text{view}}(s) = \frac{|\,viewedBy(s)\,|}{|\,contacts(u)\,|} \times 100 \quad (\%)
+\]
+
+\subsection{Latence d'un appel WebRTC}
+
+La latence totale perçue est la somme de trois composantes :
+\[
+  L_{\text{total}} = L_{\text{signaling}} + L_{\text{ICE}} + L_{\text{media}}
+\]
+\begin{itemize}[noitemsep]
+  \item $L_{\text{signaling}} \approx 50$--$200$ ms (Socket.IO sur Render.com)
+  \item $L_{\text{ICE}} \approx 100$--$500$ ms (négociation STUN/TURN)
+  \item $L_{\text{media}} < 150$ ms (recommandation ITU-T G.114 pour la voix)
+\end{itemize}
+
+\subsection{Présence en temps réel --- Firebase Realtime Database}
+
+La structure JSON utilisée pour la présence est :
+\begin{lstlisting}[language=Java,caption={Structure Realtime Database pour la présence}]
+{
+  "presence": {
+    "{userId}": {
+      "isOnline": true,
+      "lastSeen": 1704067200000   // timestamp Unix ms
+    }
+  }
+}
+\end{lstlisting}
+
+%% ============================================================
+\chapter{Modélisation UML}
+
+\section{Diagramme des cas d'utilisation}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+
+  %% Acteurs
+  \umlactor{ua}{-5.2,0}{Utilisateur}
+  \umlactor{sa}{ 6.8,0}{Serveur FCM}
+
+  %% Frontière système
+  \draw[draw=ENSPYorange,thick,rounded corners=6pt]
+    (-3.2,-9.0) rectangle (5.2,2.5);
+  \node[font=\bfseries\small\color{ENSPYorange}] at (1,2.2){Système Talky};
+
+  %% Cas d'utilisation
+  \node[ucell] (uc1) at (1, 1.5){S'inscrire / Se connecter};
+  \node[ucell] (uc2) at (1, 0.3){Envoyer un message};
+  \node[ucell] (uc3) at (1,-0.9){Envoyer des médias};
+  \node[ucell] (uc4) at (1,-2.1){Passer un appel VoIP};
+  \node[ucell] (uc5) at (1,-3.3){Créer / Gérer un groupe};
+  \node[ucell] (uc6) at (1,-4.5){Publier un statut};
+  \node[ucell] (uc7) at (1,-5.7){Consulter les statuts};
+  \node[ucell] (uc8) at (1,-6.9){Gérer le profil};
+  \node[ucell] (uc9) at (1,-8.1){Recevoir notifications};
+
+  %% Associations acteur utilisateur
+  \foreach \n in {uc1,uc2,uc3,uc4,uc5,uc6,uc7,uc8,uc9}
+    \draw[myarr] (ua) -- (\n);
+
+  %% Associations acteur serveur
+  \draw[myarr] (sa) -- (uc9);
+  \draw[myarr] (sa) -- (uc4);
+
+  %% Relation include
+  \draw[dasharr] (uc3) -- node[above,font=\tiny]{$\ll$include$\gg$} (uc2);
+
+\end{tikzpicture}
+\caption{Diagramme des cas d'utilisation de Talky}
+\label{fig:usecase}
+\end{figure}
+
+\section{Diagramme de classes}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+
+%%── UserModel ─────────────────────────────────────────────
+\node[rectangle,draw=ENSPYblue,fill=ENSPYblue!8,thick,
+      text width=4.0cm,minimum width=4.0cm] (um) at (0,0)
+{%
+  \begin{tabular}{|l|}
+  \hline
+  \rowcolor{ENSPYblue}\textcolor{white}{\textbf{UserModel}}\\
+  \hline
+  + uid : String\\
+  + name : String\\
+  + phone : String\\
+  + email : String?\\
+  + photoUrl : String?\\
+  + status : String\\
+  + isOnline : bool\\
+  + lastSeen : DateTime?\\
+  + ghostMode : bool\\
+  \hline
+  + fromMap() : UserModel\\
+  + toMap() : Map\\
+  + copyWith() : UserModel\\
+  \hline
+  \end{tabular}
+};
+
+%%── ConversationModel ──────────────────────────────────────
+\node[rectangle,draw=ENSPYblue,fill=ENSPYblue!8,thick,
+      text width=4.3cm,minimum width=4.3cm] (cm) at (6.2,0)
+{%
+  \begin{tabular}{|l|}
+  \hline
+  \rowcolor{ENSPYblue}\textcolor{white}{\textbf{ConversationModel}}\\
+  \hline
+  + id : String\\
+  + participantIds : List\\
+  + participantNames : Map\\
+  + isGroup : bool\\
+  + groupName : String?\\
+  + lastMessage : String?\\
+  + lastMessageAt : DateTime?\\
+  + isPinned : bool\\
+  + isArchived : bool\\
+  + unreadCount : Map\\
+  \hline
+  + getDisplayName() : String\\
+  + getUnreadCount() : int\\
+  \hline
+  \end{tabular}
+};
+
+%%── MessageModel ───────────────────────────────────────────
+\node[rectangle,draw=TalkyTeal,fill=TalkyTeal!8,thick,
+      text width=4.0cm,minimum width=4.0cm] (mm) at (6.2,-5.8)
+{%
+  \begin{tabular}{|l|}
+  \hline
+  \rowcolor{TalkyTeal}\textcolor{white}{\textbf{MessageModel}}\\
+  \hline
+  + id : String\\
+  + conversationId : String\\
+  + senderId : String\\
+  + content : String?\\
+  + type : MessageType\\
+  + status : MessageStatus\\
+  + sentAt : DateTime\\
+  + mediaUrl : String?\\
+  + replyToId : String?\\
+  + isDeleted : bool\\
+  + isEdited : bool\\
+  + deletedFor : List\\
+  \hline
+  + fromMap() : MessageModel\\
+  + copyWith() : MessageModel\\
+  \hline
+  \end{tabular}
+};
+
+%%── StatusModel ────────────────────────────────────────────
+\node[rectangle,draw=ENSPYorange,fill=ENSPYorange!8,thick,
+      text width=4.0cm,minimum width=4.0cm] (sm) at (0,-5.8)
+{%
+  \begin{tabular}{|l|}
+  \hline
+  \rowcolor{ENSPYorange}\textcolor{white}{\textbf{StatusModel}}\\
+  \hline
+  + id : String\\
+  + userId : String\\
+  + type : StatusType\\
+  + text : String?\\
+  + mediaUrl : String?\\
+  + createdAt : DateTime\\
+  + expiresAt : DateTime\\
+  + viewedBy : List\\
+  + likedBy : List\\
+  \hline
+  + isExpired : bool\\
+  + viewCount : int\\
+  + isViewedBy() : bool\\
+  \hline
+  \end{tabular}
+};
+
+%%── CallHistoryModel ───────────────────────────────────────
+\node[rectangle,draw=ENSPYblue,fill=ENSPYblue!8,thick,
+      text width=4.0cm,minimum width=4.0cm] (ch) at (12.2,0)
+{%
+  \begin{tabular}{|l|}
+  \hline
+  \rowcolor{ENSPYblue}\textcolor{white}{\textbf{CallHistoryModel}}\\
+  \hline
+  + id : String\\
+  + callerId : String\\
+  + receiverId : String\\
+  + type : CallType\\
+  + isVideo : bool\\
+  + durationSeconds : int\\
+  + timestamp : DateTime\\
+  \hline
+  + formattedDuration : String\\
+  + getDisplayName() : String\\
+  + isOutgoing() : bool\\
+  \hline
+  \end{tabular}
+};
+
+%%── Relations ──────────────────────────────────────────────
+\draw[myarr] (um.east)  -- node[above,font=\tiny]{participe} (cm.west);
+\draw[myarr] (cm.south) -- node[right,font=\tiny]{contient}  (mm.north);
+\draw[dasharr] (um.south) -- node[left,font=\tiny]{publie}  (sm.north);
+\draw[myarr]   (um.north east) -- ++(0,0.5) -|
+  node[above,font=\tiny,xshift=0.5cm]{effectue} (ch.north);
+
+\end{tikzpicture}
+\caption{Diagramme de classes de Talky}
+\label{fig:classes}
+\end{figure}
+
+\section{Diagramme de séquence --- Envoi d'un message}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[every node/.style={font=\footnotesize}]
+  \def\A{0} \def\B{3} \def\C{6} \def\D{9} \def\E{12}
+
+  \foreach \x/\lbl in {\A/Utilisateur A,\B/ChatScreen,\C/ChatService,\D/Firestore,\E/FCM Server}
+    \node[actbox,minimum width=2.6cm] at (\x,0) {\lbl};
+
+  \foreach \x in {\A,\B,\C,\D,\E}
+    \draw[draw=gray,dashed] (\x,-0.35) -- (\x,-10.2);
+
+  \draw[myarr]  (\A,-0.9)  -- (\B,-0.9)  node[midway,above,font=\tiny]{sendMessage(content)};
+  \draw[myarr]  (\B,-1.7)  -- (\C,-1.7)  node[midway,above,font=\tiny]{createMessage()};
+  \draw[myarr]  (\C,-2.5)  -- (\D,-2.5)  node[midway,above,font=\tiny]{add(message)};
+  \draw[dasharr](\D,-3.3)  -- (\C,-3.3)  node[midway,above,font=\tiny]{docRef};
+  \draw[myarr]  (\C,-4.1)  -- (\D,-4.1)  node[midway,above,font=\tiny]{updateConversation()};
+  \draw[dasharr](\D,-4.9)  -- (\C,-4.9)  node[midway,above,font=\tiny]{OK};
+  \draw[myarr]  (\C,-5.7)  -- (\E,-5.7)  node[midway,above,font=\tiny]{POST /notify};
+  \draw[dasharr](\E,-6.5)  -- (\C,-6.5)  node[midway,above,font=\tiny]{success};
+  \draw[dasharr](\C,-7.3)  -- (\B,-7.3)  node[midway,above,font=\tiny]{messageId};
+  \draw[dasharr](\B,-8.1)  -- (\A,-8.1)  node[midway,above,font=\tiny]{Affichage «envoyé»};
+  \draw[myarr,color=TalkyGreen]
+    (\D,-9.3) -- (\A,-9.3)
+    node[midway,above,font=\tiny,color=TalkyGreen]{snapshot → temps réel};
+\end{tikzpicture}
+\caption{Diagramme de séquence --- Envoi d'un message texte}
+\label{fig:seq-message}
+\end{figure}
+
+\section{Diagramme de séquence --- Appel WebRTC}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  \def\A{0} \def\B{3.8} \def\C{7.6} \def\D{11.4}
+
+  \foreach \x/\lbl in {\A/Appelant A,\B/Signaling Server,\C/Appelé B,\D/STUN/TURN}
+    \node[actbox,minimum width=3cm] at (\x,0) {\lbl};
+
+  \foreach \x in {\A,\B,\C,\D}
+    \draw[draw=gray,dashed] (\x,-0.35) -- (\x,-11.8);
+
+  \draw[myarr]  (\A,-1.0) -- (\B,-1.0)  node[midway,above,font=\tiny]{call\_user + SDP offer};
+  \draw[myarr]  (\B,-1.8) -- (\C,-1.8)  node[midway,above,font=\tiny]{incoming\_call};
+  \draw[myarr]  (\B,-2.6) -- (\A,-2.6)  node[midway,above,font=\tiny]{FCM: IncomingCallScreen};
+  \draw[myarr]  (\C,-3.4) -- (\D,-3.4)  node[midway,above,font=\tiny]{getICECandidates()};
+  \draw[dasharr](\D,-4.2) -- (\C,-4.2)  node[midway,above,font=\tiny]{ICE candidates B};
+  \draw[myarr]  (\A,-5.0) -- (\D,-5.0)  node[midway,above,font=\tiny]{getICECandidates()};
+  \draw[dasharr](\D,-5.8) -- (\A,-5.8)  node[midway,above,font=\tiny]{ICE candidates A};
+  \draw[myarr]  (\C,-6.6) -- (\B,-6.6)  node[midway,above,font=\tiny]{answer\_call + SDP answer};
+  \draw[myarr]  (\B,-7.4) -- (\A,-7.4)  node[midway,above,font=\tiny]{call\_answered};
+  \draw[myarr]  (\A,-8.2) -- (\B,-8.2)  node[midway,above,font=\tiny]{ice\_candidate A};
+  \draw[myarr]  (\B,-8.2) -- (\C,-8.2);
+  \draw[myarr]  (\C,-9.0) -- (\B,-9.0)  node[midway,above,font=\tiny]{ice\_candidate B};
+  \draw[myarr]  (\B,-9.0) -- (\A,-9.0);
+  \draw[myarr,color=TalkyGreen]
+    (\A,-10.5) -- (\C,-10.5)
+    node[midway,above,font=\tiny,color=TalkyGreen]{Connexion P2P WebRTC établie};
+\end{tikzpicture}
+\caption{Diagramme de séquence --- Établissement d'un appel WebRTC}
+\label{fig:seq-call}
+\end{figure}
+
+\section{Diagramme d'états --- Cycle de vie d'un message}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.3cm]
+  \node[startnode] (s) {};
+  \node[statebox, below=0.7cm of s]        (sending)   {SENDING};
+  \node[statebox, below=1.1cm of sending]  (sent)      {SENT};
+  \node[statebox, below=1.1cm of sent]     (delivered) {DELIVERED};
+  \node[statebox, below=1.1cm of delivered](read)      {READ};
+  \node[statebox, right=4cm of sent]       (deleted)   {DELETED};
+  \node[endnode,  below=1.1cm of read]     (e) {};
+
+  \draw[myarr] (s)         -- (sending);
+  \draw[myarr] (sending)   -- node[right,font=\tiny]{ACK Firestore}    (sent);
+  \draw[myarr] (sent)      -- node[right,font=\tiny]{destinataire reçoit} (delivered);
+  \draw[myarr] (delivered) -- node[right,font=\tiny]{destinataire lit} (read);
+  \draw[myarr] (read)      -- (e);
+
+  \draw[myarr] (sent.east)      -- ++(0.8,0)
+    node[above,font=\tiny]{suppression} -- (deleted.north west);
+  \draw[myarr] (delivered.east) -- ++(0.8,0) |- (deleted.west);
+  \draw[myarr] (read.east)      -- ++(0.8,0) |- (deleted.south west);
+\end{tikzpicture}
+\caption{Diagramme d'états --- Cycle de vie d'un message}
+\label{fig:etat-message}
+\end{figure}
+
+\section{Diagramme d'activité --- Authentification}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.9cm]
+  \node[startnode] (s) {};
+  \node[actbox, below=0.6cm of s]  (a1){Saisir numéro de téléphone};
+  \node[actbox, below=0.8cm of a1] (a2){Envoyer SMS OTP (Firebase Auth)};
+  \node[actbox, below=0.8cm of a2] (a3){Saisir code OTP};
+  \node[decbox,  below=1.0cm of a3](d1){OTP valide ?};
+  \node[actbox,  right=3cm of d1]  (a4){Afficher erreur};
+  \node[decbox,  below=1.2cm of d1](d2){Profil existe ?};
+  \node[actbox,  right=3cm of d2]  (a5){Écran création profil};
+  \node[actbox,  below=1.2cm of d2](a6){Accès HomeScreen};
+  \node[endnode, below=0.8cm of a6](e) {};
+
+  \draw[myarr] (s)  -- (a1);
+  \draw[myarr] (a1) -- (a2);
+  \draw[myarr] (a2) -- (a3);
+  \draw[myarr] (a3) -- (d1);
+  \draw[myarr] (d1) -- node[above,font=\tiny]{Non}(a4);
+  \draw[myarr] (a4.south) -- ++(0,-0.4) -| (a3.east);
+  \draw[myarr] (d1) -- node[left,font=\tiny]{Oui}(d2);
+  \draw[myarr] (d2) -- node[above,font=\tiny]{Non}(a5);
+  \draw[myarr] (a5.south) -- ++(0,-0.4) -| (a6.east);
+  \draw[myarr] (d2) -- node[left,font=\tiny]{Oui}(a6);
+  \draw[myarr] (a6) -- (e);
+\end{tikzpicture}
+\caption{Diagramme d'activité --- Processus d'authentification}
+\label{fig:activite-auth}
+\end{figure}
+
+%% ============================================================
+\chapter{Architecture technique}
+
+\section{Vue d'ensemble}
+
+Talky adopte une architecture \textbf{client-serveur hybride} combinant~:
+\begin{itemize}
+  \item Un client mobile Flutter avec gestion d'état Riverpod (architecture Feature-First).
+  \item Une couche BaaS Firebase pour la persistance et les notifications.
+  \item Un serveur de signalisation Node.js/Socket.IO pour la coordination WebRTC.
+  \item Un CDN Cloudinary pour le stockage et la transformation des médias.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+
+  \node[entity,fill=TalkyGreen!20,draw=TalkyGreen,minimum width=4cm]
+    (mobile) at (0,0) {\shortstack{Client Flutter\\(Android / iOS)}};
+
+  \node[cloudbox,minimum width=3.2cm] (fs)   at (-4.5,-3) {Firestore};
+  \node[cloudbox,minimum width=3.2cm] (fcm)  at ( 0,  -3) {FCM};
+  \node[cloudbox,minimum width=3.2cm] (rtdb) at ( 4.5,-3) {Realtime DB};
+
+  \node[entity,minimum width=3.8cm]   (signal) at ( 0, 3.2) {\shortstack{Signaling Server\\Node.js/Socket.IO}};
+  \node[entity,minimum width=3.2cm]   (stun)   at ( 5.5,3.2){\shortstack{STUN/TURN\\openrelay.metered.ca}};
+  \node[entity,fill=ENSPYorange!20,draw=ENSPYorange,minimum width=3.2cm]
+    (cdn) at (-5.5,0) {\shortstack{Cloudinary\\(médias)}};
+
+  \draw[bigarr] (mobile) -- node[sloped,above,font=\tiny]{CRUD messages} (fs);
+  \draw[bigarr] (mobile) -- node[font=\tiny,left=2pt]{Push notifs}       (fcm);
+  \draw[bigarr] (mobile) -- node[sloped,above,font=\tiny]{Présence}       (rtdb);
+  \draw[bigarr] (mobile) -- node[right,font=\tiny]{Signaling WebRTC}      (signal);
+  \draw[bigarr] (signal) -- node[above,font=\tiny]{ICE négociation}        (stun);
+  \draw[bigarr] (mobile) -- node[above,font=\tiny]{Upload médias}          (cdn);
+  \draw[myarr]  (signal.south) -- ++(0,-0.9)
+    -| node[near start,above,font=\tiny]{POST /notify} (fcm.north);
+
+\end{tikzpicture}
+\caption{Architecture globale de Talky}
+\label{fig:archi}
+\end{figure}
+
+\section{Architecture Flutter --- Feature-First}
+
+\begin{infobox}[Structure modulaire du projet Flutter]
+\texttt{lib/}
+\begin{itemize}[noitemsep]
+  \item \texttt{core/} --- Services transverses : notifications, présence, routage, thème, cache
+  \item \texttt{features/auth/} --- Inscription, OTP, gestion de session Firebase
+  \item \texttt{features/chat/} --- Messagerie, médias, conversations, groupes
+  \item \texttt{features/calls/} --- Appels WebRTC audio/vidéo (individuel et groupe)
+  \item \texttt{features/status/} --- Statuts éphémères 24h
+  \item \texttt{features/settings/} --- Paramètres, thème, langue, profil
+  \item \texttt{shared/} --- Widgets réutilisables (\texttt{TalkyButton}, \texttt{TalkyTextField})
+\end{itemize}
+\end{infobox}
+
+Chaque fonctionnalité est découpée en trois sous-couches~:
+\begin{enumerate}
+  \item \texttt{domain/} --- Modèles de données purs (classes Dart sans dépendances Firebase).
+  \item \texttt{data/} --- Services (accès Firestore, Socket.IO) et providers Riverpod.
+  \item \texttt{presentation/} --- Écrans et widgets Flutter.
+\end{enumerate}
+
+\section{Serveur de signalisation WebRTC}
+
+Le serveur Node.js/Socket.IO assume deux rôles~:
+\begin{enumerate}
+  \item \textbf{Broker de signalisation~:} acheminement des offres SDP, réponses SDP et candidats ICE.
+  \item \textbf{Gateway FCM~:} endpoint REST \texttt{POST /notify} envoyant des messages \textit{data-only}.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Événements Socket.IO du serveur de signalisation}
+\label{tab:socket}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+\textbf{Événement} & \textbf{Direction} & \textbf{Description}\\\midrule
+\texttt{register}         & Client $\to$ Serveur & Enregistrement socket de l'utilisateur\\
+\texttt{call\_user}       & Client $\to$ Serveur & Initiation d'appel + SDP offer\\
+\texttt{incoming\_call}   & Serveur $\to$ Client & Notification d'appel entrant\\
+\texttt{answer\_call}     & Client $\to$ Serveur & SDP answer de l'appelé\\
+\texttt{call\_answered}   & Serveur $\to$ Caller & Transmission SDP answer à l'appelant\\
+\texttt{reject\_call}     & Client $\to$ Serveur & Refus de l'appel par le destinataire\\
+\texttt{ice\_candidate}   & Bidirectionnel       & Échange de candidats ICE\\
+\texttt{end\_call}        & Client $\to$ Serveur & Terminaison de l'appel\\
+\texttt{create\_group\_call} & Client $\to$ Serveur & Création d'une salle d'appel groupe\\
+\texttt{join\_group\_call}   & Client $\to$ Serveur & Rejoindre une salle existante\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Système de notifications push}
+
+\begin{warningbox}[Point clé --- Notifications data-only]
+Les notifications FCM de Talky sont envoyées en mode \textbf{data-only} (sans champ \texttt{notification} dans le payload). Ce choix est fondamental~: sur Android, la présence d'un champ \texttt{notification} entraîne la prise en main par le système Android, contournant Flutter et empêchant la navigation vers l'écran d'appel entrant. Avec un payload \textit{data-only}, Flutter reçoit le message via \texttt{onMessage}/\texttt{onMessageOpenedApp} et contrôle lui-même l'affichage via \texttt{flutter\_local\_notifications}.
+\end{warningbox}
+
+%% ============================================================
+\chapter{Implémentation}
+
+\section{Environnement et stack technologique}
+
+\begin{table}[H]
+\centering
+\caption{Stack technologique de Talky}
+\label{tab:stack}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+\textbf{Composant} & \textbf{Technologie} & \textbf{Détail}\\\midrule
+Langage client     & Dart / Flutter               & Flutter 3.x, Dart 3.x\\
+Gestion d'état     & Riverpod                     & flutter\_riverpod\\
+Routage            & GoRouter                     & go\_router\\
+Base de données    & Firebase Firestore           & cloud\_firestore\\
+Authentification   & Firebase Auth                & OTP SMS\\
+Notifications      & Firebase FCM                 & Messages data-only\\
+Présence           & Firebase Realtime Database   & firebase\_database\\
+Médias             & Cloudinary                   & cloud: \texttt{dvnxsn73m}\\
+Appels VoIP        & WebRTC                       & flutter\_webrtc\\
+Signalisation      & Socket.IO                    & socket\_io\_client\\
+Sonneries          & flutter\_ringtone\_player    & v4.0.0\\
+Serveur            & Node.js / Express            & Render.com (free tier)\\
+IDE                & Visual Studio Code / Android Studio          & ---\\
+Appareil de test      & Redmi 14C                    & Android 15, API 35\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Fonctionnalités implémentées}
+
+\subsection{Authentification par OTP}
+
+L'authentification utilise Firebase Phone Authentication. L'utilisateur saisit son numéro international, reçoit un SMS de vérification, entre le code à 6 chiffres, puis complète son profil (nom, photo). Le routage est géré par GoRouter avec redirection automatique selon l'état d'authentification et la complétude du profil Firestore.
+
+\subsection{Messagerie instantanée}
+
+La messagerie est implémentée avec Firestore en temps réel (listeners \texttt{snapshots()}). Les fonctionnalités comprennent~:
+\begin{itemize}
+  \item Messages texte, images, vidéos, audio et fichiers.
+  \item Réponse contextuelle à un message avec prévisualisation (reply).
+  \item Modification et suppression de messages (pour tous ou pour soi).
+  \item Accusés de réception : envoyé $\to$ reçu $\to$ lu (double coche bleue).
+  \item Épinglage et archivage de conversations.
+  \item Groupes jusqu'à 256 membres.
+\end{itemize}
+
+\subsection{Appels audio/vidéo --- WebRTC}
+
+Les appels P2P utilisent le protocole WebRTC avec le serveur STUN/TURN        \texttt{openrelay.metered.ca}. La signalisation est gérée via Socket.IO. Les appels de groupe utilisent une architecture \textit{mesh} complète.
+
+\begin{lstlisting}[language=Java,caption={Création de la RTCPeerConnection --- call\_service.dart}]
+Future<void> _createPeerConnection() async {
+  final config = {
+    'iceServers': [
+      {'urls': 'stun:openrelay.metered.ca:80'},
+      {
+        'urls':       'turn:openrelay.metered.ca:80',
+        'username':   'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+    ],
+  };
+  _peerConnection = await createPeerConnection(config);
+  _peerConnection!.onIceCandidate = (candidate) {
+    _socket!.emit('ice_candidate', {
+      'targetUserId': _remoteUserId,
+      'candidate':    candidate.toMap(),
+    });
+  };
+}
+\end{lstlisting}
+
+\subsection{Statuts éphémères}
+
+Les statuts (texte avec couleur de fond, image, vidéo) expirent automatiquement après 24 heures. Le système enregistre les vues et les likes. Une requête Firestore filtre les documents dont \texttt{expiresAt > now()}.
+
+\subsection{Gestion de la présence}
+
+La présence en temps réel utilise Firebase Realtime Database avec la fonctionnalité \texttt{onDisconnect()} pour mettre à jour automatiquement le statut hors-ligne lors d'une déconnexion, y compris inopinée. Le \textbf{Ghost Mode} permet de masquer sa présence.
+
+\section{Interfaces utilisateur}
+
+L'interface suit les principes du Material Design 3 avec support des thèmes clair et sombre, une palette personnalisée (vert Talky \#25D366) et une navigation par onglets (Conversations, Appels, Statuts).
+
+\begin{table}[H]
+\centering
+\caption{Écrans principaux de l'application Talky}
+\label{tab:screens}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Écran} & \textbf{Description}\\\midrule
+SplashScreen         & Démarrage avec logo animé\\
+OnboardingScreen     & Présentation des fonctionnalités (3 slides)\\
+PhoneScreen          & Saisie du numéro de téléphone\\
+OtpScreen            & Vérification du code OTP\\
+ProfileSetupScreen   & Création du profil (nom + photo)\\
+HomeScreen           & Hub principal (onglets Chats/Appels/Statuts)\\
+ChatScreen           & Interface de messagerie complète\\
+CallScreen           & Écran d'appel actif (audio/vidéo)\\
+IncomingCallScreen   & Écran d'appel entrant (Accepter/Refuser)\\
+StatusScreen         & Liste des statuts des contacts\\
+StatusViewerScreen   & Visionneuse de statuts avec barre de progression\\
+SettingsScreen       & Paramètres (thème, langue, profil, à propos)\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Sécurité}
+
+\begin{itemize}
+  \item Les clés Firebase et Cloudinary sont stockées dans des variables d'environnement (fichier \texttt{.env} exclu par \texttt{.gitignore}).
+  \item Le service account Firebase Admin est injecté via la variable d'environnement \texttt{FIREBASE\_SERVICE\_ACCOUNT} sur Render.com.
+  \item Les règles Firestore restreignent l'accès aux données aux seuls participants des conversations.
+  \item L'OTP garantit que chaque compte est lié à un numéro de téléphone réel et vérifié.
+\end{itemize}
+
+%% ============================================================
+\chapter{Conclusion et perspectives}
+
+\section{Bilan}
+
+Ce projet nous a permis de concevoir et d'implémenter de A à Z une application de messagerie professionnelle en mobilisant un large spectre de technologies modernes. Les principaux livrables sont~:
+
+\begin{itemize}
+  \item Une application Android fonctionnelle avec messagerie texte et multimédia complète.
+  \item Un système d'appels audio/vidéo P2P via WebRTC avec prise en charge des appels de groupe.
+  \item Un système de statuts éphémères 24h avec compteur de vues et réactions.
+  \item Un serveur de signalisation Node.js déployé en production sur Render.com.
+  \item Une architecture NoSQL bien structurée avec index Firestore optimisés.
+  \item Un système de notifications push robuste basé sur FCM data-only.
+\end{itemize}
+
+Sur le plan académique, ce projet a renforcé nos compétences en modélisation (MCD/MLD/UML), architecture logicielle, développement mobile multiplateforme et gestion de bases de données NoSQL temps réel.
+
+\section{Difficultés rencontrées}
+
+\begin{enumerate}
+  \item \textbf{Notifications FCM sur Android~:} la présence du champ \texttt{notification} dans le payload FCM provoquait l'interception par Android et rendait inopérante la navigation vers l'écran d'appel. La solution~: messages \textit{data-only}.
+  \item \textbf{Écran d'appel entrant~:} l'utilisation de \texttt{FlutterActivity} comme parent de l'activité Android native générait un second moteur Flutter isolé. Le passage à \texttt{AppCompatActivity} a résolu ce problème.
+  \item \textbf{Candidats ICE prématurés~:} des candidats ICE étaient émis avant que la connexion peer soit prête, causant des échecs silencieux.
+  \item \textbf{Contraintes Firebase Spark~:} Firebase Storage étant limité géographiquement, nous avons adopté Cloudinary comme alternative.
+\end{enumerate}
+
+\section{Perspectives d'évolution}
+
+\begin{enumerate}[leftmargin=1.5cm,label=\textbf{P\arabic*}]
+  \item \textbf{Traduction instantanée~:} intégration de l'API Google Translate pour traduire les messages dans la langue de l'utilisateur.
+  \item \textbf{Mode confidentiel~:} messages à auto-destruction avec durée configurable et prévention des captures d'écran.
+  \item \textbf{Version web~:} portage Flutter Web ou React.js partageant la même infrastructure Firebase.
+  \item \textbf{Chiffrement de bout en bout~:} implémentation du protocole Signal avant stockage Firestore.
+  \item \textbf{Déploiement iOS~:} portage et certification App Store.
+  \item \textbf{Tableau de bord d'administration~:} interface web de gestion et monitoring.
+\end{enumerate}
+
+En définitive, \textbf{Talky} constitue une démonstration concrète qu'une équipe académique peut, avec les outils modernes disponibles, concevoir et livrer une solution de communication complète et opérationnelle. Ce projet pose les fondations d'un produit qui, avec les évolutions planifiées, pourrait être déployé à l'échelle d'une organisation.
+
+%% ── Bibliographie ─────────────────────────────────────────
+\begin{thebibliography}{99}
+\bibitem{flutter}
+  Google. \textit{Flutter Documentation}. \url{https://docs.flutter.dev}, 2024.
+\bibitem{firebase}
+  Google. \textit{Firebase Documentation --- Firestore, FCM, Realtime Database}.
+  \url{https://firebase.google.com/docs}, 2024.
+\bibitem{webrtc}
+  W3C / IETF. \textit{WebRTC 1.0: Real-Time Communication Between Browsers}.
+  \url{https://www.w3.org/TR/webrtc/}, 2023.
+\bibitem{socketio}
+  Socket.IO. \textit{Socket.IO Documentation v4}.
+  \url{https://socket.io/docs/v4/}, 2024.
+\bibitem{riverpod}
+  R.~Rousselet. \textit{Riverpod Documentation}.
+  \url{https://riverpod.dev}, 2024.
+\bibitem{cloudinary}
+  Cloudinary. \textit{Upload API Reference}.
+  \url{https://cloudinary.com/documentation}, 2024.
+\bibitem{merise}
+  H.~Tardieu, A.~Rochfeld, R.~Colletti.
+  \textit{La méthode MERISE --- Principes et outils}.
+  Éditions d'Organisation, Paris, 1983.
+\bibitem{uml}
+  M.~Fowler.
+  \textit{UML Distilled}, 3\textsuperscript{e}~éd. Addison-Wesley, 2003.
+\bibitem{nosql}
+  P.~Sadalage, M.~Fowler.
+  \textit{NoSQL Distilled}. Addison-Wesley, 2012.
+\end{thebibliography}
+
+%% ── Annexes ───────────────────────────────────────────────
+\appendix
+
+\chapter{Structure du projet Flutter}
+\begin{lstlisting}[caption={Arborescence complète du projet Talky}]
+talky/
++-- android/
+|   +-- app/src/main/
+|       +-- kotlin/.../MainActivity.kt
+|       +-- kotlin/.../IncomingCallActivity.kt
+|       +-- AndroidManifest.xml
++-- lib/
+|   +-- core/
+|   |   +-- cache/          local_cache.dart
+|   |   +-- constants/      app_constants.dart, app_colors.dart
+|   |   +-- router/         app_router.dart
+|   |   +-- services/       notification_service.dart
+|   |   |                   presence_service.dart
+|   |   |                   fcm_sender.dart
+|   |   |                   ringback_service.dart
+|   |   +-- theme/          app_theme.dart
+|   +-- features/
+|   |   +-- auth/           phone_screen, otp_screen, register_screen
+|   |   +-- chat/           chat_screen, conversations_screen
+|   |   |                   message_model, conversation_model
+|   |   +-- calls/          call_screen, call_service
+|   |   |                   call_history_model
+|   |   +-- status/         status_screen, status_model
+|   |   |                   status_service
+|   |   +-- settings/       settings_screen, appearance
+|   |   |                   language_settings
+|   |   +-- home/           home_screen
+|   |   +-- profile/        profile_setup_screen
+|   |   +-- splash/         splash_screen
+|   +-- shared/widgets/     talky_button.dart
+|   |                       talky_text_field.dart
+|   +-- firebase_options.dart
+|   +-- main.dart
++-- server.js           Serveur Node.js / Socket.IO
++-- pubspec.yaml
++-- .env                (non versionne)
+\end{lstlisting}
+
+\chapter{Serveur de signalisation --- Extraits clés}
+\begin{lstlisting}[language=Java,caption={Endpoint FCM data-only}]
+app.post('/notify', async (req, res) => {
+  const { toUserId, title, body, type,
+          conversationId, callerId } = req.body;
+
+  const userDoc = await db.collection('users')
+                           .doc(toUserId).get();
+  const fcmToken = userDoc.data().fcmToken;
+
+  // Pas de champ "notification" -> data-only
+  // Flutter gere l'affichage lui-meme
+  const message = {
+    token: fcmToken,
+    data: {
+      type:           String(type  ?? 'message'),
+      title:          String(title ?? 'Talky'),
+      body:           String(body  ?? ''),
+      conversationId: String(conversationId ?? ''),
+      callerId:       String(callerId       ?? ''),
+    },
+    android: {
+      priority: type === 'call' ? 'high' : 'normal',
+    },
+  };
+  await admin.messaging().send(message);
+  res.json({ success: true });
+});
+\end{lstlisting}
+
+\chapter{Règles de sécurité Firestore}
+\begin{lstlisting}[language=Java,caption={Règles Firestore recommandées}]
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Profils : lecture publique, ecriture par le proprietaire
+    match /users/{userId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Conversations : acces aux participants uniquement
+    match /conversations/{convId} {
+      allow read, write: if request.auth.uid in
+        resource.data.participantIds;
+
+      match /messages/{msgId} {
+        allow read, write: if request.auth.uid in
+          get(/databases/$(database)/documents/
+              conversations/$(convId))
+            .data.participantIds;
+      }
+    }
+
+    // Statuts : lecture authentifiee, ecriture par auteur
+    match /statuses/{statusId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth.uid
+                   == resource.data.userId;
+    }
+  }
+}
+\end{lstlisting}
+
+\end{document}

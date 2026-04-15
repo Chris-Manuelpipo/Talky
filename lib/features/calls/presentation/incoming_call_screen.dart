@@ -49,29 +49,33 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
 
-    // Jouer la sonnerie système dès que l'écran s'affiche
-    RingbackService.instance.playRingtone();
+    // Initialiser l'audio et gérer le ringtone en un seul callback
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Initialiser l'audio sur écouteur (au cas où Android ne l'aurait pas fait)
+      final callService = CallService();
+      await callService.initializeCallAudio();
+
+      // Jouer la sonnerie
+      await RingbackService.instance.playRingtone();
+
+      // Traiter les paramètres d'appel si présents (via notification)
+      if (widget.callerId != null && mounted) {
+        final incomingData = IncomingCallData(
+          callerId: widget.callerId!,
+          callerName: widget.callerName ?? 'Appel entrant',
+          isVideo: widget.isVideo ?? false,
+          offer: widget.offer ?? const <String, dynamic>{},
+          isGroup: widget.isGroup ?? false,
+          roomId: widget.roomId,
+        );
+        ref.read(callProvider.notifier).setIncomingCallData(incomingData);
+      }
+    });
 
     // Auto-rejeter après 60s
     _autoRejectTimer = Timer(const Duration(seconds: 60), () {
       if (!mounted) return;
       _stopRingtoneAndReject();
-    });
-
-    // Si des paramètres d'appel sont passés (via notification)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.callerId != null) {
-        final incomingData = IncomingCallData(
-          callerId:   widget.callerId!,
-          callerName: widget.callerName ?? 'Appel entrant',
-          callerPhoto: null,
-          isVideo:    widget.isVideo ?? false,
-          offer:      widget.offer ?? const <String, dynamic>{},
-          isGroup:    widget.isGroup ?? false,
-          roomId:     widget.roomId,
-        );
-        ref.read(callProvider.notifier).setIncomingCallData(incomingData);
-      }
     });
   }
 
@@ -97,10 +101,12 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
   @override
   Widget build(BuildContext context) {
-    final callState    = ref.watch(callProvider);
-    final callerId     = callState.incomingCall?.callerId ?? widget.callerId;
-    final fallbackName = callState.remoteName ?? widget.callerName ?? 'Appel entrant';
-    final isGroupCall  = callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
+    final callState = ref.watch(callProvider);
+    final callerId = callState.incomingCall?.callerId ?? widget.callerId;
+    final fallbackName =
+        callState.remoteName ?? widget.callerName ?? 'Appel entrant';
+    final isGroupCall =
+        callState.incomingCall?.isGroup ?? widget.isGroup ?? false;
 
     final contactsService = ref.read(phoneContactsServiceProvider);
     final user = (callerId != null && callerId.isNotEmpty)
@@ -125,7 +131,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D1A),
+      backgroundColor: context.appThemeColors.background, 
       body: Stack(
         children: [
           // Fond animé
@@ -138,8 +144,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     center: Alignment.center,
                     radius: 1.0 + _pulseCtrl.value * 0.2,
                     colors: [
-                      AppColors.primary.withOpacity(
-                          0.15 + _pulseCtrl.value * 0.05),
+                      context.primaryColor
+                          .withOpacity(0.15 + _pulseCtrl.value * 0.05),
                       Colors.transparent,
                     ],
                   ),
@@ -171,38 +177,30 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                 AnimatedBuilder(
                   animation: _pulseCtrl,
                   builder: (_, __) => Container(
-                    width:  130 + _pulseCtrl.value * 10,
+                    width: 130 + _pulseCtrl.value * 10,
                     height: 130 + _pulseCtrl.value * 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.accent],
+                      gradient: LinearGradient(
+                        colors: [context.primaryColor, context.accentColor],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary
-                              .withOpacity(0.3 + _pulseCtrl.value * 0.2),
-                          blurRadius: 40,
-                          spreadRadius: 10),
+                            color: context.primaryColor
+                                .withOpacity(0.3 + _pulseCtrl.value * 0.2),
+                            blurRadius: 40,
+                            spreadRadius: 10),
                       ],
                     ),
                     child: displayPhoto != null
                         ? ClipOval(
-                            child: Image.network(displayPhoto!,
-                                fit: BoxFit.cover))
+                            child:
+                                Image.network(displayPhoto!, fit: BoxFit.cover))
                         : Center(
-                            child: Text(
-                              (displayName.isNotEmpty
-                                      ? displayName
-                                      : '?')[0]
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 52,
-                                fontWeight: FontWeight.w700),
-                            )),
+                            child: Icon(Icons.person_rounded,
+                                color: Colors.white, size: 52)),
                   ),
                 ),
 
@@ -248,7 +246,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               Navigator.pop(context);
                             },
                             child: Container(
-                              width: 72, height: 72,
+                              width: 72,
+                              height: 72,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.red,
@@ -281,8 +280,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                          'Permission microphone refusée'),
+                                      content:
+                                          Text('Permission microphone refusée'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -298,8 +297,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                     await openAppSettings();
                                   }
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content:
                                             Text('Permission caméra refusée'),
@@ -330,17 +328,18 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               }
                             },
                             child: Container(
-                              width: 72, height: 72,
+                              width: 72,
+                              height: 72,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Color(0xFF00C851),
                               ),
                               child: Icon(
-                                callState.isVideo
-                                    ? Icons.videocam_rounded
-                                    : Icons.call_rounded,
-                                color: Colors.white,
-                                size: 32),
+                                  callState.isVideo
+                                      ? Icons.videocam_rounded
+                                      : Icons.call_rounded,
+                                  color: Colors.white,
+                                  size: 32),
                             ),
                           ),
                           const SizedBox(height: 12),

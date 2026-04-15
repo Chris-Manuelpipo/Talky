@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/app_colors_provider.dart';
 import '../../domain/message_model.dart';
 import 'package:intl/intl.dart';
 
@@ -57,6 +58,7 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Align(
       alignment: widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -68,33 +70,39 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.only(
-              topLeft:     const Radius.circular(18),
-              topRight:    const Radius.circular(18),
-              bottomLeft:  Radius.circular(widget.isMine ? 18 : 4),
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(widget.isMine ? 18 : 4),
               bottomRight: Radius.circular(widget.isMine ? 4 : 18),
             ),
-            boxShadow: [BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 6, offset: const Offset(0, 3),
-            )],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              )
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.only(
-              topLeft:     const Radius.circular(18),
-              topRight:    const Radius.circular(18),
-              bottomLeft:  Radius.circular(widget.isMine ? 18 : 4),
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(widget.isMine ? 18 : 4),
               bottomRight: Radius.circular(widget.isMine ? 4 : 18),
             ),
             child: Stack(
               alignment: Alignment.center,
               children: [
                 // Nom de l'expéditeur pour les messages de groupe
-                if (!widget.isMine && widget.isGroup && widget.message.senderName.isNotEmpty)
+                if (!widget.isMine &&
+                    widget.isGroup &&
+                    widget.message.senderName.isNotEmpty)
                   Positioned(
                     top: 8,
                     left: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(10),
@@ -112,17 +120,17 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
                 if (_hasError)
                   Container(
                     height: 200,
-                    color: AppColors.surface,
-                    child: const Icon(Icons.broken_image_rounded,
-                        color: AppColors.textHint, size: 48),
+                    color: colors.surface,
+                    child: Icon(Icons.broken_image_rounded,
+                        color: colors.textHint, size: 48),
                   )
                 else if (_controller == null)
                   Container(
                     height: 200,
-                    color: AppColors.surface,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary)),
+                    color: colors.surface,
+                    child: Center(
+                        child:
+                            CircularProgressIndicator(color: colors.primary)),
                   )
                 else
                   AspectRatio(
@@ -145,18 +153,18 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
 
                 // Heure
                 Positioned(
-                  bottom: 8, right: 10,
+                  bottom: 8,
+                  right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.55),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       DateFormat('HH:mm').format(widget.message.sentAt),
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 10),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
                     ),
                   ),
                 ),
@@ -171,9 +179,11 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
   void _openFullscreen() {
     final url = widget.message.mediaUrl;
     if (url == null || url.isEmpty) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => _FullscreenVideo(url: url),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _FullscreenVideo(url: url),
+        ));
   }
 }
 
@@ -215,6 +225,7 @@ class _FullscreenVideoState extends State<_FullscreenVideo> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -223,10 +234,9 @@ class _FullscreenVideoState extends State<_FullscreenVideo> {
       ),
       body: Center(
         child: _hasError
-            ? const Icon(Icons.broken_image_rounded,
-                color: AppColors.textHint, size: 48)
+            ? Icon(Icons.broken_image_rounded, color: colors.textHint, size: 48)
             : _controller == null
-                ? const CircularProgressIndicator(color: AppColors.primary)
+                ? CircularProgressIndicator(color: colors.primary)
                 : AspectRatio(
                     aspectRatio: _controller!.value.aspectRatio,
                     child: Stack(
@@ -241,7 +251,7 @@ class _FullscreenVideoState extends State<_FullscreenVideo> {
                             _controller!,
                             allowScrubbing: true,
                             colors: VideoProgressColors(
-                              playedColor: AppColors.primary,
+                              playedColor: colors.primary,
                               bufferedColor: Colors.white24,
                               backgroundColor: Colors.white12,
                             ),
@@ -257,7 +267,8 @@ class _FullscreenVideoState extends State<_FullscreenVideo> {
                             setState(() {});
                           },
                           child: Container(
-                            width: 64, height: 64,
+                            width: 64,
+                            height: 64,
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.4),
                               shape: BoxShape.circle,
@@ -266,7 +277,8 @@ class _FullscreenVideoState extends State<_FullscreenVideo> {
                               _controller!.value.isPlaying
                                   ? Icons.pause_rounded
                                   : Icons.play_arrow_rounded,
-                              color: Colors.white, size: 36,
+                              color: Colors.white,
+                              size: 36,
                             ),
                           ),
                         ),

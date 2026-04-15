@@ -7,6 +7,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'core/cache/local_cache.dart';
 import 'firebase_options.dart';
 import 'core/router/app_router.dart';
@@ -15,9 +17,14 @@ import 'core/constants/app_colors.dart';
 import 'features/auth/data/auth_providers.dart';
 import 'core/services/presence_service.dart';
 import 'core/services/notification_service.dart';
-import 'features/settings/data/settings_providers.dart';
+import 'core/providers/settings_providers.dart';
 import 'features/calls/data/call_providers.dart';
 import 'features/calls/presentation/incoming_call_screen.dart';
+
+final _isDesktop = !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 // ── Handler notifications en arrière-plan (OBLIGATOIRE top-level) ─────
 @pragma('vm:entry-point')
@@ -31,17 +38,30 @@ void main() async {
 
   await initializeDateFormatting('fr_FR', null);
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+      debugPrint('Firebase initialization: $e');
+    }
+  
 
   await LocalCache.init();
 
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  if (!_isDesktop) {
+    try {
+      FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler);
+    } catch (_) {}
 
-  await NotificationService.instance.init();
+    try {
+      await NotificationService.instance.init();
+    } catch (_) {}
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -210,12 +230,13 @@ class _TalkyAppState extends ConsumerState<TalkyApp>
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
+    final accentColor = settings.accentColor;
 
     return MaterialApp.router(
       title: 'Talky',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: AppTheme.light(accentColor),
+      darkTheme: AppTheme.dark(accentColor),
       themeMode: settings.themeMode,
       routerConfig: ref.watch(routerProvider),
     );

@@ -65,13 +65,15 @@ class ArchivedConversationsScreen extends ConsumerWidget {
                       .scale(duration: 600.ms, curve: Curves.easeOutBack),
                   const SizedBox(height: 16),
                   Text('Aucune conversation archivée',
-                    style: Theme.of(context).textTheme.titleLarge),
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   Text(
                     'Les conversations archivées apparaîtront ici',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: colors.textSecondary),
                   ),
                 ],
               ),
@@ -83,7 +85,10 @@ class ArchivedConversationsScreen extends ConsumerWidget {
               return _ArchivedConversationTile(
                 conversation: list[index],
                 currentUserId: currentUid,
-              ).animate(delay: (index * 40).ms).fadeIn().slideX(begin: 0.1, end: 0);
+              )
+                  .animate(delay: (index * 40).ms)
+                  .fadeIn()
+                  .slideX(begin: 0.1, end: 0);
             },
           );
         },
@@ -115,7 +120,7 @@ class _ArchivedConversationTile extends ConsumerWidget {
     if (!conversation.isGroup && otherId.isNotEmpty) {
       final userAsync = ref.watch(userProfileStreamProvider(otherId));
       final user = userAsync.asData?.value;
-      final resolvedName  = user?.name.trim();
+      final resolvedName = user?.name.trim();
       final name = (resolvedName != null && resolvedName.isNotEmpty)
           ? resolvedName
           : displayName;
@@ -185,9 +190,8 @@ class _ArchivedConversationTile extends ConsumerWidget {
                           displayName,
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: unread > 0
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                            fontWeight:
+                                unread > 0 ? FontWeight.w700 : FontWeight.w500,
                             color: colors.textPrimary,
                           ),
                           maxLines: 1,
@@ -209,8 +213,8 @@ class _ArchivedConversationTile extends ConsumerWidget {
                     children: [
                       if (isMe && conversation.lastMessage != null)
                         const Text('Vous : ',
-                            style:
-                                TextStyle(fontSize: 13, color: AppColors.textHint)),
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.textHint)),
                       Expanded(
                         child: Text(
                           _getLastMessagePreview(conversation),
@@ -282,8 +286,10 @@ class _ArchivedConversationTile extends ConsumerWidget {
             ),
             // Supprimer
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-              title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+              leading:
+                  const Icon(Icons.delete_outline_rounded, color: Colors.red),
+              title:
+                  const Text('Supprimer', style: TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(context);
                 final confirm = await showDialog<bool>(
@@ -300,7 +306,8 @@ class _ArchivedConversationTile extends ConsumerWidget {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        style:
+                            TextButton.styleFrom(foregroundColor: Colors.red),
                         child: const Text('Supprimer'),
                       ),
                     ],
@@ -356,6 +363,7 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
@@ -366,13 +374,9 @@ class _Avatar extends StatelessWidget {
           placeholder: (context, url) => Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: context.primaryColor,
             ),
             child: const Center(
               child: CircularProgressIndicator(
@@ -384,25 +388,15 @@ class _Avatar extends StatelessWidget {
           errorWidget: (context, url, error) => Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: context.primaryColor,
             ),
             child: Center(
               child: isGroup
-                  ? const Icon(AppIcons.group, color: Colors.white, size: 24)
-                  : Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
+                  ? Icon(AppIcons.group, color: Colors.white, size: 24)
+                  : const Icon(Icons.person_rounded,
+                      color: Colors.white, size: 24),
             ),
           ),
         ),
@@ -412,25 +406,14 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 52,
       height: 52,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: context.primaryColor,
       ),
       child: Center(
         child: isGroup
-            ? const Icon(AppIcons.group, color: Colors.white, size: 24)
-            : Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20,
-          ),
-        ),
+            ? Icon(AppIcons.group, color: Colors.white, size: 24)
+            : const Icon(Icons.person_rounded, color: Colors.white, size: 24),
       ),
     );
   }

@@ -34,7 +34,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final conversations = ref.watch(conversationsProvider);
-    final currentUid    = ref.watch(authStateProvider).value?.uid ?? '';
+    final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
 
     return Scaffold(
       backgroundColor: context.appThemeColors.background,
@@ -75,33 +75,37 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       ),
       body: conversations.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => Center(child: Text('Erreur: $e')),
-        data:    (list) {
+        error: (e, _) => Center(child: Text('Erreur: $e')),
+        data: (list) {
           final groups = list.where((c) => c.isGroup).toList();
           final filtered = _query.trim().isEmpty
               ? groups
-              : groups.where((g) =>
-                  (g.groupName ?? '').toLowerCase().contains(_query)).toList();
+              : groups
+                  .where(
+                      (g) => (g.groupName ?? '').toLowerCase().contains(_query))
+                  .toList();
 
           if (filtered.isEmpty) {
             return _searching && _query.isNotEmpty
                 ? Center(
                     child: Text('Aucun groupe trouvé',
-                      style: TextStyle(color: context.appThemeColors.textSecondary)),
+                        style: TextStyle(
+                            color: context.appThemeColors.textSecondary)),
                   )
                 : _EmptyGroupsState();
           }
           return ListView.builder(
             itemCount: filtered.length,
             itemBuilder: (_, i) => _GroupTile(
-              group: filtered[i], currentUserId: currentUid,
+              group: filtered[i],
+              currentUserId: currentUid,
             ).animate(delay: (i * 40).ms).fadeIn().slideX(begin: 0.1),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(AppRoutes.createGroup),
-        backgroundColor: AppColors.primary,
+        backgroundColor: context.primaryColor,
         child: const Icon(Icons.group_add_rounded, color: Colors.white),
       ),
     );
@@ -131,13 +135,11 @@ class _GroupTile extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              width: 52, height: 52,
-              decoration: const BoxDecoration(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF7C5CFC), Color(0xFF4FC3F7)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ),
+                color: context.primaryColor,
               ),
               child: Center(
                 child: Icon(AppIcons.group, color: Colors.white, size: 24),
@@ -152,41 +154,61 @@ class _GroupTile extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(group.groupName ?? 'Groupe',
-                          style: TextStyle(fontSize: 16,
-                            fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
-                            color: context.appThemeColors.textPrimary),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: unread > 0
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: context.appThemeColors.textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
                       if (group.lastMessageAt != null)
                         Text(_formatTime(group.lastMessageAt!),
-                          style: TextStyle(fontSize: 12,
-                            color: unread > 0 ? AppColors.primary : context.appThemeColors.textHint)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: unread > 0
+                                    ? AppColors.primary
+                                    : context.appThemeColors.textHint)),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(_getMembersPreview(),
-                    style: const TextStyle(fontSize: 11, color: AppColors.primary),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                      style:
+                          TextStyle(fontSize: 11, color: context.primaryColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          group.lastMessage ?? '${group.participantIds.length} membres',
-                          style: TextStyle(fontSize: 13,
-                            color: unread > 0 ? context.appThemeColors.textPrimary : context.appThemeColors.textSecondary,
-                            fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.w400),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                            group.lastMessage ??
+                                '${group.participantIds.length} membres',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: unread > 0
+                                    ? context.appThemeColors.textPrimary
+                                    : context.appThemeColors.textSecondary,
+                                fontWeight: unread > 0
+                                    ? FontWeight.w500
+                                    : FontWeight.w400),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
                       if (unread > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primary,
+                            color: context.primaryColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text('$unread',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700)),
                         ),
                     ],
                   ),
@@ -324,24 +346,28 @@ class _EmptyGroupsState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(AppIcons.group, size: 64, color: colors.textHint)
-              .animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+              .animate()
+              .scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 16),
           Text('Aucun groupe', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text('Créez un groupe pour discuter\navec plusieurs personnes',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: colors.textSecondary)),
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: colors.textSecondary)),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => context.push(AppRoutes.createGroup),
             icon: const Icon(Icons.group_add_rounded),
             label: Text('Créer un groupe'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.primaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],

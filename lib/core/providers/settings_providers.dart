@@ -5,10 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_constants.dart';
 
+// ── Default accent color (Talky Violet) ─────────────────────────────────
+const Color kDefaultAccentColor = Color(0xFF7C5CFC);
+
 // ── Settings state ─────────────────────────────────────────────────────────
 class SettingsState {
   final ThemeMode themeMode;
   final String language;
+  final int accentColorValue; // ARGB int stocké dans SharedPreferences
   final bool notificationsEnabled;
   final bool notificationSound;
   final bool callNotifications;
@@ -20,6 +24,7 @@ class SettingsState {
   const SettingsState({
     this.themeMode = ThemeMode.system,
     this.language = 'fr',
+    this.accentColorValue = 0xFF7C5CFC,
     this.notificationsEnabled = true,
     this.notificationSound = true,
     this.callNotifications = true,
@@ -29,9 +34,13 @@ class SettingsState {
     this.profileVisibility = 'everyone',
   });
 
+  // Convertit accentColorValue en Color
+  Color get accentColor => Color(accentColorValue);
+
   SettingsState copyWith({
     ThemeMode? themeMode,
     String? language,
+    int? accentColorValue,
     bool? notificationsEnabled,
     bool? notificationSound,
     bool? callNotifications,
@@ -43,6 +52,7 @@ class SettingsState {
     return SettingsState(
       themeMode: themeMode ?? this.themeMode,
       language: language ?? this.language,
+      accentColorValue: accentColorValue ?? this.accentColorValue,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       notificationSound: notificationSound ?? this.notificationSound,
       callNotifications: callNotifications ?? this.callNotifications,
@@ -65,8 +75,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void _loadSettings() {
     if (_prefs == null) return;
 
-    final themeModeIndex = _prefs!.getInt(AppConstants.prefThemeMode) ?? 0; // 0 = ThemeMode.system
+    final themeModeIndex =
+        _prefs!.getInt(AppConstants.prefThemeMode) ?? 0; // 0 = ThemeMode.system
     final language = _prefs!.getString(AppConstants.prefUserLanguage) ?? 'fr';
+    final accentColorValue = _prefs!.getInt(AppConstants.prefAccentColor) ??
+        kDefaultAccentColor.toARGB32();
     final notifications = _prefs!.getBool('notifications_enabled') ?? true;
     final sound = _prefs!.getBool('notification_sound') ?? true;
     final calls = _prefs!.getBool('call_notifications') ?? true;
@@ -78,6 +91,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = SettingsState(
       themeMode: ThemeMode.values[themeModeIndex],
       language: language,
+      accentColorValue: accentColorValue,
       notificationsEnabled: notifications,
       notificationSound: sound,
       callNotifications: calls,
@@ -96,6 +110,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> setLanguage(String language) async {
     state = state.copyWith(language: language);
     await _prefs?.setString(AppConstants.prefUserLanguage, language);
+  }
+
+  Future<void> setAccentColor(Color color) async {
+    state = state.copyWith(accentColorValue: color.toARGB32());
+    await _prefs?.setInt(AppConstants.prefAccentColor, color.toARGB32());
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {
@@ -137,28 +156,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 // ── Providers ─────────────────────────────────────────────────────────────
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
+final settingsProvider =
+    StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return SettingsNotifier(prefs);
 });
 
-// ── Language options ───────────────────────────────────────────────────────
-const Map<String, String> availableLanguages = {
-  'fr': 'Français',
-  'en': 'English',
-  'es': 'Español',
-  'de': 'Deutsch',
-  'it': 'Italiano',
-  'pt': 'Português',
-  'ar': 'العربية',
-  'zh': '中文',
-  'ja': '日本語',
-  'ko': '한국어',
-};
+const Map<String, String> availableLanguages = AppConstants.availableLanguages;
 
-// ── Visibility options ─────────────────────────────────────────────────────
-const Map<String, String> visibilityOptions = {
-  'everyone': 'Tout le monde',
-  'contacts': 'Mes contacts',
-  'none': 'Personne',
-};
+const Map<String, String> visibilityOptions = AppConstants.visibilityOptions;

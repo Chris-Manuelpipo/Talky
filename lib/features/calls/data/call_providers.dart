@@ -57,6 +57,7 @@ class CallState {
   final bool isVideo;
   final bool isMuted;
   final bool isCameraOff;
+  final bool isSpeakerOn;
   final IncomingCallData? incomingCall;
   final String? errorMessage;
 
@@ -71,6 +72,7 @@ class CallState {
     this.isVideo     = false,
     this.isMuted     = false,
     this.isCameraOff = false,
+    this.isSpeakerOn = false,
     this.incomingCall,
     this.errorMessage,
   });
@@ -86,6 +88,7 @@ class CallState {
     bool? isVideo,
     bool? isMuted,
     bool? isCameraOff,
+    bool? isSpeakerOn,
     IncomingCallData? incomingCall,
     String? errorMessage,
   }) => CallState(
@@ -99,6 +102,7 @@ class CallState {
     isVideo:      isVideo      ?? this.isVideo,
     isMuted:      isMuted      ?? this.isMuted,
     isCameraOff:  isCameraOff  ?? this.isCameraOff,
+    isSpeakerOn:  isSpeakerOn  ?? this.isSpeakerOn,
     incomingCall: incomingCall ?? this.incomingCall,
     errorMessage: errorMessage ?? this.errorMessage,
   );
@@ -229,8 +233,12 @@ class CallNotifier extends StateNotifier<CallState> {
       remoteName:   targetName,
       remotePhoto:  targetPhoto,
       isVideo:      isVideo,
+      isSpeakerOn:  false,
       errorMessage: null,
     );
+
+    // Initialiser l'audio sur écouteur AVANT de lancer l'appel
+    await _service.initializeCallAudio();
 
     await _service.callUser(
       targetUserId: targetUserId,
@@ -270,8 +278,12 @@ class CallNotifier extends StateNotifier<CallState> {
       isVideo: isVideo,
       remoteName: groupName,
       remotePhoto: null,
+      isSpeakerOn: false,
       errorMessage: null,
     );
+
+    // Initialiser l'audio sur écouteur AVANT de lancer l'appel
+    await _service.initializeCallAudio();
 
     await _service.startGroupCall(
       roomId: roomId,
@@ -296,6 +308,7 @@ class CallNotifier extends StateNotifier<CallState> {
     state = state.copyWith(
       status:       CallStatus.calling,
       remoteUserId: state.incomingCall!.callerId,
+      isSpeakerOn:  false,
     );
   }
 
@@ -326,6 +339,7 @@ class CallNotifier extends StateNotifier<CallState> {
       remoteName: incoming.callerName,
       remotePhoto: incoming.callerPhoto,
       incomingCall: incoming,
+      isSpeakerOn: false,
     );
   }
 
@@ -512,6 +526,12 @@ class CallNotifier extends StateNotifier<CallState> {
   void toggleCamera() {
     _service.toggleCamera();
     state = state.copyWith(isCameraOff: !state.isCameraOff);
+  }
+
+  Future<void> toggleSpeaker() async {
+    final newSpeakerState = !state.isSpeakerOn;
+    await _service.setSpeaker(newSpeakerState);
+    state = state.copyWith(isSpeakerOn: newSpeakerState);
   }
 
   Future<void> switchCamera() => _service.switchCamera();

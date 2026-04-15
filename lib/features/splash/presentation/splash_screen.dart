@@ -36,21 +36,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         if (user == null) {
           context.go(AppRoutes.onboarding);
         } else {
-          final isComplete = await ref
-              .read(authServiceProvider)
-              .isProfileComplete(user.uid);
+          final isComplete =
+              await ref.read(authServiceProvider).isProfileComplete(user.uid);
           if (mounted) {
             context.go(isComplete ? AppRoutes.home : AppRoutes.profileSetup);
           }
           if (isComplete) {
             await ref.read(authServiceProvider).saveFcmToken(user.uid);
             // Précharger les contacts en arrière-plan dès le splash
-            unawaited(ref.read(phoneContactsServiceProvider).warmUpIfPermitted());
+            unawaited(
+                ref.read(phoneContactsServiceProvider).warmUpIfPermitted());
           }
         }
       },
       loading: () => context.go(AppRoutes.onboarding),
-      error:   (_, __) => context.go(AppRoutes.onboarding),
+      error: (_, __) => context.go(AppRoutes.onboarding),
     );
   }
 
@@ -58,10 +58,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = context.appThemeColors;
-    
+
     // Dynamic colors based on theme
-    final backgroundColor = isDark ? AppColors.background : AppColors.backgroundLight;
-    final gradient = isDark ? AppColors.splashGradient : AppColors.splashGradientLight;
+    final backgroundColor =
+        isDark ? AppColors.background : AppColors.backgroundLight;
+    final gradient = isDark
+        ? AppColors.splashGradient(colors.primary)
+        : AppColors.splashGradientLight(colors.primary);
     final primaryColor = colors.primary;
     final accentColor = colors.accent;
     final textSecondaryColor = colors.textSecondary;
@@ -82,11 +85,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 color: primaryColor.withValues(alpha: isDark ? 0.12 : 0.08),
               ),
             ).animate().fadeIn(duration: 600.ms).scale(
-              begin: const Offset(0.8, 0.8),
-              end: const Offset(1.0, 1.0),
-              duration: 800.ms,
-              curve: Curves.easeOut,
-            ),
+                  begin: const Offset(0.8, 0.8),
+                  end: const Offset(1.0, 1.0),
+                  duration: 800.ms,
+                  curve: Curves.easeOut,
+                ),
             Positioned(
               bottom: -120,
               left: -120,
@@ -95,11 +98,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 color: accentColor.withValues(alpha: isDark ? 0.06 : 0.05),
               ),
             ).animate(delay: 200.ms).fadeIn(duration: 600.ms).scale(
-              begin: const Offset(0.8, 0.8),
-              end: const Offset(1.0, 1.0),
-              duration: 800.ms,
-              curve: Curves.easeOut,
-            ),
+                  begin: const Offset(0.8, 0.8),
+                  end: const Offset(1.0, 1.0),
+                  duration: 800.ms,
+                  curve: Curves.easeOut,
+                ),
             // Additional accent glow
             Positioned(
               top: MediaQuery.of(context).size.height * 0.4,
@@ -109,65 +112,64 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 color: primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
               ),
             ).animate(delay: 400.ms).fadeIn(duration: 500.ms),
-            
+
             // Main content
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _TalkyLogo(isDark: isDark)
-                    .animate()
-                    .scale(
-                      begin: const Offset(0.5, 0.5),
-                      end: const Offset(1.0, 1.0),
-                      duration: 800.ms,
-                      curve: Curves.easeOutBack,
-                    )
-                    .fadeIn(duration: 500.ms)
-                    .shimmer(
-                      delay: 800.ms,
-                      duration: 1200.ms,
-                      color: isDark 
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.3),
-                    ),
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.5, 0.5),
+                        end: const Offset(1.0, 1.0),
+                        duration: 800.ms,
+                        curve: Curves.easeOutBack,
+                      )
+                      .fadeIn(duration: 500.ms)
+                      .shimmer(
+                        delay: 800.ms,
+                        duration: 1200.ms,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.white.withValues(alpha: 0.3),
+                      ),
                   const SizedBox(height: 32),
                   Text(
                     AppConstants.appName,
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                      color: textPrimaryColor,
-                    ),
-                  ).animate(delay: 400.ms)
-                    .fadeIn(duration: 500.ms)
-                    .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                          color: textPrimaryColor,
+                        ),
+                  )
+                      .animate(delay: 400.ms)
+                      .fadeIn(duration: 500.ms)
+                      .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
                   const SizedBox(height: 12),
                   Text(
                     AppConstants.appTagline,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: textSecondaryColor,
-                      letterSpacing: 0.5,
-                    ),
-                  ).animate(delay: 600.ms)
-                    .fadeIn(duration: 500.ms),
+                          color: textSecondaryColor,
+                          letterSpacing: 0.5,
+                        ),
+                  ).animate(delay: 600.ms).fadeIn(duration: 500.ms),
                 ],
               ),
             ),
-            
+
             // Loading indicator
             Positioned(
               bottom: 80,
               left: 0,
               right: 0,
               child: Center(
-                child: _LoadingIndicator(
-                  primaryColor: primaryColor,
-                  isDark: isDark,
-                ).animate(delay: 1000.ms)
-                  .fadeIn(duration: 400.ms)),
+                  child: _LoadingIndicator(
+                primaryColor: primaryColor,
+                isDark: isDark,
+              ).animate(delay: 1000.ms).fadeIn(duration: 400.ms)),
             ),
-            
+
             // Version text
             Positioned(
               bottom: 30,
@@ -177,9 +179,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 child: Text(
                   'v${AppConstants.appVersion}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: textSecondaryColor.withValues(alpha: 0.5),
-                    fontSize: 10,
-                  ),
+                        color: textSecondaryColor.withValues(alpha: 0.5),
+                        fontSize: 10,
+                      ),
                 ).animate(delay: 1200.ms).fadeIn(duration: 400.ms),
               ),
             ),
@@ -192,30 +194,32 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
 class _TalkyLogo extends StatelessWidget {
   final bool isDark;
-  
+
   const _TalkyLogo({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+
     return Container(
       width: 110,
       height: 110,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.accent],
+        gradient: LinearGradient(
+          colors: [colors.primary, colors.accent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: isDark ? 0.5 : 0.3),
+            color: colors.primary.withValues(alpha: isDark ? 0.5 : 0.3),
             blurRadius: 40,
             spreadRadius: isDark ? 8 : 5,
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: isDark ? 0.2 : 0.1),
+            color: colors.accent.withValues(alpha: isDark ? 0.2 : 0.1),
             blurRadius: 60,
             spreadRadius: isDark ? 15 : 10,
           ),
@@ -246,7 +250,7 @@ class _TalkyLogo extends StatelessWidget {
 class _LoadingIndicator extends StatelessWidget {
   final Color primaryColor;
   final bool isDark;
-  
+
   const _LoadingIndicator({
     required this.primaryColor,
     required this.isDark,
@@ -262,7 +266,7 @@ class _LoadingIndicator extends StatelessWidget {
         valueColor: AlwaysStoppedAnimation<Color>(
           primaryColor.withValues(alpha: 0.7),
         ),
-        backgroundColor: isDark 
+        backgroundColor: isDark
             ? Colors.white.withValues(alpha: 0.1)
             : Colors.black.withValues(alpha: 0.08),
       ),
@@ -273,7 +277,7 @@ class _LoadingIndicator extends StatelessWidget {
 class _GlowCircle extends StatelessWidget {
   final double size;
   final Color color;
-  
+
   const _GlowCircle({
     required this.size,
     required this.color,

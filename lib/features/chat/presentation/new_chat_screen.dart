@@ -155,7 +155,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           }
 
           if (isOnTalky) {
-            onTalky.add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
+            onTalky
+                .add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
           } else {
             notOnTalky.add(contact);
           }
@@ -244,9 +245,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             style: TextStyle(fontWeight: FontWeight.w700)),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
+          labelColor: context.primaryColor,
           unselectedLabelColor: context.appThemeColors.textSecondary,
-          indicatorColor: AppColors.primary,
+          indicatorColor: context.primaryColor,
           tabs: const [
             Tab(text: 'Contacts'),
             Tab(text: 'Rechercher'),
@@ -273,7 +274,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.contacts, size: 64, color: context.appThemeColors.textHint),
+              Icon(Icons.contacts,
+                  size: 64, color: context.appThemeColors.textHint),
               SizedBox(height: 16),
               Text('Permission requise',
                   style: TextStyle(
@@ -298,7 +300,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.primaryColor,
                 ),
                 child: Text(
                   _permissionDeniedPermanently
@@ -322,27 +324,26 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             onTap: () => context.push(AppRoutes.createGroup),
             borderRadius: BorderRadius.circular(14),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: context.appThemeColors.surface,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: context.primaryColor,
                     radius: 22,
                     child: Icon(Icons.group_add_rounded,
                         color: Colors.white, size: 22),
                   ),
                   SizedBox(width: 14),
                   Text('Créer un groupe',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    )),
+                      style: TextStyle(
+                        color: context.primaryColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      )),
                 ],
               ),
             ),
@@ -359,8 +360,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             decoration: InputDecoration(
               hintText: 'Rechercher un contact...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: context.appThemeColors.textHint),
               filled: true,
               fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
@@ -423,7 +424,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             child: Text(
               'CONTACTS SUR TALKY',
               style: TextStyle(
-                color: AppColors.primary,
+                color: context.primaryColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -495,8 +496,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             decoration: InputDecoration(
               hintText: 'Rechercher par numéro ou nom...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: context.appThemeColors.textHint),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: context.appThemeColors.textHint),
               filled: true,
               fillColor: context.appThemeColors.surface,
               border: OutlineInputBorder(
@@ -626,14 +627,15 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
         phone: user['phone'] as String?,
       );
 
-      final convId = await ref.read(chatServiceProvider).getOrCreateConversation(
-            currentUserId: currentUser.uid,
-            currentUserName: myName,
-            currentUserPhoto: myPhoto,
-            otherUserId: user['id'] as String,
-            otherUserName: displayName,
-            otherUserPhoto: user['photoUrl'] as String?,
-          );
+      final convId =
+          await ref.read(chatServiceProvider).getOrCreateConversation(
+                currentUserId: currentUser.uid,
+                currentUserName: myName,
+                currentUserPhoto: myPhoto,
+                otherUserId: user['id'] as String,
+                otherUserName: displayName,
+                otherUserPhoto: user['photoUrl'] as String?,
+              );
 
       if (mounted) {
         context.push(
@@ -676,16 +678,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
               // In a full implementation, this would send an SMS invitation
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                      'Invitation envoyée à ${contact.displayName}!'),
+                  content: Text('Invitation envoyée à ${contact.displayName}!'),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.primaryColor,
             ),
-            child:
-                Text('Inviter', style: TextStyle(color: Colors.white)),
+            child: Text('Inviter', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -735,45 +735,39 @@ class _PhoneContactTile extends StatelessWidget {
         height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: photoUrl == null
-              ? const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent])
-              : null,
+          color: photoUrl == null ? context.primaryColor : null,
           image: photoUrl != null
-              ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
+              ? DecorationImage(
+                  image: NetworkImage(photoUrl!), fit: BoxFit.cover)
               : null,
         ),
         child: photoUrl == null
-            ? Center(
-                child: Text(
-                  contact.displayName.isNotEmpty
-                      ? contact.displayName[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700),
-                ),
-              )
+            ? const Center(
+                child:
+                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
             : null,
       ),
       title: Text(contact.displayName,
           style: TextStyle(
-              fontWeight: FontWeight.w600, color: context.appThemeColors.textPrimary)),
+              fontWeight: FontWeight.w600,
+              color: context.appThemeColors.textPrimary)),
       subtitle: Text(
         contact.phones.isNotEmpty ? contact.phones.first : '',
-        style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12),
+        style: TextStyle(
+            color: context.appThemeColors.textSecondary, fontSize: 12),
       ),
       trailing: isOnTalky
-          ? Icon(Icons.chat_rounded, color: AppColors.primary)
+          ? Icon(Icons.chat_rounded, color: context.primaryColor)
           : Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: context.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'Inviter',
                 style: TextStyle(
-                  color: AppColors.primary,
+                  color: context.primaryColor,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -796,7 +790,8 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
+    final name =
+        displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
     final phone = user['phone'] as String? ?? '';
     final photo = user['photoUrl'] as String?;
 
@@ -807,28 +802,25 @@ class _UserTile extends StatelessWidget {
         height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: photo == null
-              ? const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent])
-              : null,
+          color: photo == null ? context.primaryColor : null,
           image: photo != null
               ? DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover)
               : null,
         ),
         child: photo == null
-            ? Center(
-                child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)))
+            ? const Center(
+                child:
+                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
             : null,
       ),
       title: Text(name,
           style: TextStyle(
-              fontWeight: FontWeight.w600, color: context.appThemeColors.textPrimary)),
+              fontWeight: FontWeight.w600,
+              color: context.appThemeColors.textPrimary)),
       subtitle: Text(phone,
-          style: TextStyle(color: context.appThemeColors.textSecondary, fontSize: 12)),
-      trailing: Icon(Icons.chat_rounded, color: AppColors.primary),
+          style: TextStyle(
+              color: context.appThemeColors.textSecondary, fontSize: 12)),
+      trailing: Icon(Icons.chat_rounded, color: context.primaryColor),
     );
   }
 }

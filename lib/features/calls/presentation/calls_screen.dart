@@ -33,8 +33,9 @@ class CallsScreen extends ConsumerStatefulWidget {
       if (micStatus.isPermanentlyDenied) {
         await openAppSettings();
       }
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission microphone refusée'),
+      if (context.mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Permission microphone refusée'),
             backgroundColor: Colors.red));
       return;
     }
@@ -45,8 +46,9 @@ class CallsScreen extends ConsumerStatefulWidget {
         if (camStatus.isPermanentlyDenied) {
           await openAppSettings();
         }
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission caméra refusée'),
+        if (context.mounted)
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Permission caméra refusée'),
               backgroundColor: Colors.red));
         return;
       }
@@ -68,17 +70,17 @@ class CallsScreen extends ConsumerStatefulWidget {
 
     try {
       await ref.read(callProvider.notifier).startCall(
-        targetUserId: userId,
-        targetName: name,
-        targetPhoto: photo,
-        isVideo: isVideo,
-      );
+            targetUserId: userId,
+            targetName: name,
+            targetPhoto: photo,
+            isVideo: isVideo,
+          );
 
       RingbackService.instance.play();
 
       if (context.mounted) {
-        Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const CallScreen()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const CallScreen()));
       }
     } catch (e) {
       if (context.mounted) {
@@ -171,12 +173,11 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
             MaterialPageRoute(builder: (_) => const NewCallScreen()),
           );
         },
-        backgroundColor: AppColors.primary,
+        backgroundColor: context.primaryColor,
         child: const Icon(Icons.add_call, color: Colors.white),
       ),
     );
   }
-
 }
 
 // ── Contenu de l'écran d'appels ───────────────────────────────────────
@@ -191,7 +192,8 @@ class _CallsContent extends ConsumerWidget {
     if (currentUser == null) return const SizedBox();
 
     final callHistoryAsync = ref.watch(callHistoryProvider(currentUser.uid));
-    final weeklyDurationAsync = ref.watch(weeklyCallDurationProvider(currentUser.uid));
+    final weeklyDurationAsync =
+        ref.watch(weeklyCallDurationProvider(currentUser.uid));
 
     // Prefetch profils pour l'historique d'appels
     ref.listen(callHistoryProvider(currentUser.uid), (_, next) {
@@ -230,7 +232,8 @@ class _CallsContent extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
               child: Text('Erreur: $e',
-                  style: TextStyle(color: context.appThemeColors.textSecondary)),
+                  style:
+                      TextStyle(color: context.appThemeColors.textSecondary)),
             ),
           ),
         ),
@@ -277,12 +280,12 @@ class _WeeklyStatsCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: context.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.access_time_rounded,
-              color: AppColors.primary,
+              color: context.primaryColor,
               size: 28,
             ),
           ),
@@ -332,10 +335,10 @@ class _WeeklyStatsCard extends StatelessWidget {
             onPressed: () {
               // Détails - à implémenter
             },
-            child: const Text(
+            child: Text(
               'Détails',
               style: TextStyle(
-                color: AppColors.primary,
+                color: context.primaryColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -501,8 +504,18 @@ class _DateHeader extends StatelessWidget {
       return 'Hier';
     } else if (date.year == now.year) {
       final months = [
-        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+        'Janvier',
+        'Février',
+        'Mars',
+        'Avril',
+        'Mai',
+        'Juin',
+        'Juillet',
+        'Août',
+        'Septembre',
+        'Octobre',
+        'Novembre',
+        'Décembre'
       ];
       return '${months[date.month - 1]} ${date.day}';
     } else {
@@ -538,9 +551,8 @@ class _CallTile extends ConsumerWidget {
     final displayName = call.getDisplayName(currentUserId);
     final displayPhoto = call.getDisplayPhoto(currentUserId);
     final isOutgoing = call.isOutgoing(currentUserId);
-    final otherId = call.callerId == currentUserId
-        ? call.receiverId
-        : call.callerId;
+    final otherId =
+        call.callerId == currentUserId ? call.receiverId : call.callerId;
     final contactsService = ref.read(phoneContactsServiceProvider);
 
     if (call.isGroup) {
@@ -583,19 +595,15 @@ class _CallTile extends ConsumerWidget {
     WidgetRef ref, {
     bool isGroup = false,
     required String otherId,
-  }
-  ) {
-
+  }) {
     return ListTile(
       leading: CircleAvatar(
         radius: 24,
-        backgroundColor: AppColors.primary,
-        backgroundImage: displayPhoto != null ? NetworkImage(displayPhoto) : null,
+        backgroundColor: context.primaryColor,
+        backgroundImage:
+            displayPhoto != null ? NetworkImage(displayPhoto) : null,
         child: displayPhoto == null
-            ? Text(
-                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700))
+            ? const Icon(Icons.person_rounded, color: Colors.white, size: 24)
             : null,
       ),
       title: Text(
@@ -634,14 +642,13 @@ class _CallTile extends ConsumerWidget {
           IconButton(
             icon: Icon(
               call.isVideo ? Icons.videocam_rounded : Icons.call_rounded,
-              color: AppColors.primary,
+              color: context.primaryColor,
             ),
             onPressed: () {
               if (isGroup) {
                 final currentId = ref.read(authStateProvider).value?.uid ?? '';
-                final targetUserIds = call.participantIds
-                    .where((id) => id != currentId)
-                    .toList();
+                final targetUserIds =
+                    call.participantIds.where((id) => id != currentId).toList();
                 final participants = call.participantIds.map((id) {
                   return GroupParticipant(
                     id: id,

@@ -3,6 +3,7 @@ package com.example.talky
 import android.content.ContentResolver
 import android.content.Intent
 import android.database.Cursor
+import android.media.AudioManager
 import android.provider.ContactsContract
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -12,6 +13,7 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL        = "com.example.talky/contacts"
     private val CALL_CHANNEL   = "com.example.talky/call_notification"
     private val CALL_ACTION_CH = "com.example.talky/call_action"
+    private val AUDIO_CHANNEL  = "com.example.talky/audio"
 
     // Stocker un intent arrivé AVANT que Flutter soit prêt
     private var pendingCallAction: Intent? = null
@@ -35,6 +37,8 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "showIncomingCall" -> {
                         val data = call.arguments as? Map<String, Any?> ?: emptyMap()
+                        // Initialiser l'audio avec écouteur interne par défaut
+                        initializeCallAudio()
                         CallNotificationService(this).showIncomingCallNotification(data)
                         result.success(null)
                     }
@@ -42,6 +46,23 @@ class MainActivity : FlutterActivity() {
                         CallNotificationService(this).cancelNotification()
                         // Fermer aussi IncomingCallActivity si elle est visible
                         sendBroadcast(Intent(IncomingCallActivity.ACTION_DISMISS))
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // ── Canal audio (gestion du speakerphone) ───────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setSpeaker" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        setSpeaker(enabled)
+                        result.success(null)
+                    }
+                    "initializeCallAudio" -> {
+                        initializeCallAudio()
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -149,5 +170,56 @@ class MainActivity : FlutterActivity() {
             }
         }
         return contacts
+    }
+
+    // ── Audio Management ──────────────────────────────────────────────
+    private fun setSpeaker(enabled: Boolean) {
+        try {
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            
+            if (enabled) {
+                // Mettre le mode à MODE_IN_CALL pour un meilleur contrôle
+                audioManager.mode = AudioManager.MODE_IN_CALL
+                audioManager.setSpeakerphoneOn(true)
+            } else {
+                // Revenir au mode normal avec speakerphone désactivé
+                audioManager.setSpeakerphoneOn(false)
+                audioManager.mode = AudioManager.MODE_NORMAL
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error setting speakerphone: ${e.message}")
+        }
+    }
+
+    /**
+     * Initialise l'audio pour les appels avec écouteur interne par défaut.
+     * Met le mode à MODE_IN_CALL et désactive le speakerphone.
+     * Configure aussi les routes audio pour forcer l'écouteur.
+     */
+    private fun initializeCallAudio() {
+        try {
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            
+            // Mettre le mode d'appel EN PREMIER, avant de changer speakerphone
+            audioManager.mode = AudioManager.MODE_IN_CALL
+            
+            // Désactiver speakerphone
+            audioManager.setSpeakerphoneOn(false)
+            
+            // Forcer les routes audio pour la voix vers l'écouteur
+            // On abandonne les autres routes
+            audioManager.clearCommunicationDevice()
+            
+            // S'assurer que le volume du STREAM_VOICE_CALL n'est pas muet
+            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+            if (currentVol == 0) {
+                audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol / 2, 0)
+            }
+            
+            android.util.Log.i("MainActivity", "Call audio initialized on earpiece")
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error initializing call audio: ${e.message}")
+        }
     }
 }
