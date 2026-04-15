@@ -432,7 +432,7 @@ class _PreviewWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'John Doe',
+                      'Chris Manuel',
                       style: TextStyle(
                         color: context.appThemeColors.textPrimary,
                         fontWeight: FontWeight.w600,

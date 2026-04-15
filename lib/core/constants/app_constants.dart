@@ -22,7 +22,28 @@ class AppConstants {
     Color(0xFF9C27B0), // Violet foncé
     Color(0xFF607D8B), // Bleu gris
     Color(0xFF795548), // Marron
-  ];
+  ]; 
+
+  // ── Language options ───────────────────────────────────────────────────────
+  static const Map<String, String> availableLanguages = {
+    'fr': 'Français',
+    'en': 'English',
+    'es': 'Español',
+    'de': 'Deutsch',
+    'it': 'Italiano',
+    'pt': 'Português',
+    'ar': 'العربية',
+    'zh': '中文',
+    'ja': '日本語',
+    'ko': '한국어',
+  };
+
+  // ── Visibility options ─────────────────────────────────────────────────────
+  static const Map<String, String> visibilityOptions = {
+    'everyone': 'Tout le monde',
+    'contacts': 'Mes contacts',
+    'none': 'Personne',
+  };
 
   // ── Firestore collections ──────────────────────────────────────────
   static const String usersCollection = 'users';

@@ -162,23 +162,6 @@ final settingsProvider =
   return SettingsNotifier(prefs);
 });
 
-// ── Language options ───────────────────────────────────────────────────────
-const Map<String, String> availableLanguages = {
-  'fr': 'Français',
-  'en': 'English',
-  'es': 'Español',
-  'de': 'Deutsch',
-  'it': 'Italiano',
-  'pt': 'Português',
-  'ar': 'العربية',
-  'zh': '中文',
-  'ja': '日本語',
-  'ko': '한국어',
-};
+const Map<String, String> availableLanguages = AppConstants.availableLanguages;
 
-// ── Visibility options ─────────────────────────────────────────────────────
-const Map<String, String> visibilityOptions = {
-  'everyone': 'Tout le monde',
-  'contacts': 'Mes contacts',
-  'none': 'Personne',
-};
+const Map<String, String> visibilityOptions = AppConstants.visibilityOptions;
