@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'api_service.dart';
 import '../router/app_router.dart';
 
 class NotificationService {
@@ -67,8 +67,15 @@ class NotificationService {
     // App en background → tap sur notification
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNavigation);
 
-    // Refresh token
-    FirebaseMessaging.instance.onTokenRefresh.listen((_) {});
+    // Refresh token 
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      try {
+        await ApiService.instance.updateMe({'fcm_token': newToken});
+        debugPrint('[FCM] Token rafraîchi et mis à jour en MySQL ✅');
+      } catch (e) {
+        debugPrint('[FCM] Échec mise à jour token rafraîchi: $e');
+      }
+    });
 
     // App fermée → tap sur notification
     final initial = await messaging.getInitialMessage();
@@ -80,12 +87,18 @@ class NotificationService {
   }
 
   // ── Token FCM ─────────────────────────────────────────────────────
+ 
   Future<void> registerTokenForUser(String uid) async {
     final token = await FirebaseMessaging.instance.getToken();
     if (token == null || token.isEmpty) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'fcmToken': token,
-    });
+    try {
+      // Sauvegarde dans MySQL via PUT /api/auth/me
+      // uid (Firebase) non utilisé : le JWT dans ApiService identifie l'utilisateur
+      await ApiService.instance.updateMe({'fcm_token': token});
+      debugPrint('[FCM] Token enregistré en MySQL ✅');
+    } catch (e) {
+      debugPrint('[FCM] Échec enregistrement token: $e');
+    }
   }
 
   // ── Message en foreground ─────────────────────────────────────────

@@ -1,27 +1,26 @@
-// lib/features/calls/data/call_providers.dart
-
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'call_service.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../domain/call_history_model.dart';
 
+// APRÈS
 final callServiceProvider = Provider<CallService>((ref) {
   final service = CallService();
 
-  // Connecter immédiatement si déjà connecté
-  final user = ref.read(authStateProvider).value;
-  if (user != null) {
-    service.connect(user.uid);
+  // Connexion immédiate si l'alanyaID est déjà résolu (session active)
+  final alanyaID = ref.read(currentAlanyaIDProvider);
+  if (alanyaID != null) {
+    service.connect(alanyaID.toString());
   }
 
-  // Connecter au serveur dès que l'utilisateur est connecté
-  ref.listen(authStateProvider, (_, next) {
-    final user = next.value;
-    if (user != null) {
-      service.connect(user.uid);
+  // Connexion / déconnexion au changement d'alanyaID (login / logout)
+  ref.listen<int?>(currentAlanyaIDProvider, (prev, next) {
+    if (next != null) {
+      service.connect(next.toString());
     } else {
       service.disconnect();
     }
@@ -253,12 +252,16 @@ class CallNotifier extends StateNotifier<CallState> {
     List<GroupParticipant> initialParticipants = const [],
     String groupName = 'Appel de groupe',
   }) async {
+    // APRÈS
     final user = _ref.read(authStateProvider).value;
     if (user == null) return;
     final myName = await _ref.read(currentUserNameProvider.future);
     final myPhoto = user.photoURL;
 
-    final roomId = '${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
+    // Utiliser alanyaID pour le roomId (cohérent avec le signaling server)
+    final alanyaID = _ref.read(currentAlanyaIDProvider);
+    if (alanyaID == null) return;
+    final roomId = '${alanyaID}_${DateTime.now().millisecondsSinceEpoch}';
     _isOutgoing = true;
     _callStartTime = null;
     _pendingTargetUserId = null;
@@ -320,12 +323,16 @@ class CallNotifier extends StateNotifier<CallState> {
     if (user == null) return;
     final myName = await _ref.read(currentUserNameProvider.future);
 
+    // alanyaID requis pour l'identification dans la room de groupe
+    final alanyaID = _ref.read(currentAlanyaIDProvider);
+    if (alanyaID == null) return;
+
     _isOutgoing = false;
     _callStartTime = null;
 
     await _service.joinGroupCall(
       roomId: incoming.roomId!,
-      userId: user.uid,
+      userId: alanyaID.toString(), // ← CORRIGÉ
       userName: myName,
       userPhoto: user.photoURL,
       isVideo: incoming.isVideo,
@@ -552,47 +559,44 @@ final callProvider = StateNotifierProvider<CallNotifier, CallState>((ref) {
 });
 
 // ── Call History Provider ─────────────────────────────────────────────
-final callHistoryProvider = StreamProvider.family<List<CallHistoryModel>, String>((ref, userId) {
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(userId)
-      .collection('callHistory')
-      .orderBy('timestamp', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs
-          .map((doc) => CallHistoryModel.fromMap(doc.id, doc.data()))
-          .toList());
+ 
+final callHistoryProvider =
+    FutureProvider.family<List<CallHistoryModel>, String>((ref, alanyaId) async {
+  // alanyaId est ignoré côté serveur (JWT identifie l'utilisateur)
+  // mais conservé comme paramètre family pour la compatibilité des call sites
+  final raw = await ApiService.instance.get('/calls') as List<dynamic>;
+  return raw
+      .map((e) => CallHistoryModel.fromJson(e as Map<String, dynamic>))
+      .toList();
 });
 
 // Provider pour la durée totale des appels de la semaine
-final weeklyCallDurationProvider = FutureProvider.family<int, String>((ref, userId) async {
+// APRÈS
+final weeklyCallDurationProvider =
+    FutureProvider.family<int, String>((ref, alanyaId) async {
+  final calls = await ref.watch(callHistoryProvider(alanyaId).future);
   final now = DateTime.now();
   final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-  final startOfWeekMidnight = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+  final weekStart =
+      DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
 
-  final snapshot = await FirebaseFirestore.instance
-      .collection('users')
-      .doc(userId)
-      .collection('callHistory')
-      .where('timestamp', isGreaterThan: startOfWeekMidnight.toIso8601String())
-      .get();
-
-  int totalSeconds = 0;
-  for (final doc in snapshot.docs) {
-    final data = doc.data();
-    // Compter seulement les appels sortants et entrants (pas manqués)
-    final type = data['type'] as String?;
-    if (type != 'missed') {
-      totalSeconds += (data['durationSeconds'] as int?) ?? 0;
-    }
-  }
-  return totalSeconds;
+  return calls
+      .where((c) => c.timestamp.isAfter(weekStart) && c.statusInt != 0)
+      .fold<int>(0, (sum, c) => sum + c.durationSeconds);
 });
 
 // Service pour sauvegarder l'historique des appels
-class CallHistoryService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+class CallHistoryService {
+  /// L'historique 1-à-1 est géré automatiquement par le socket backend :
+  ///   - call_user     → INSERT callHistory (status=missed par défaut)
+  ///   - answer_call   → UPDATE status=1, start_time=NOW()
+  ///   - reject_call   → UPDATE status=2
+  ///   - end_call      → UPDATE duree=TIMESTAMPDIFF(...)
+  ///
+  /// Les appels de groupe ne sont pas encore trackés en MySQL
+  /// (la table callHistory n'a pas de colonne groupe).
+  /// Cette méthode est intentionnellement vide pour éviter les doublons.
   Future<void> saveCallHistory({
     required String currentUserId,
     required String currentUserName,
@@ -609,53 +613,9 @@ class CallHistoryService {
     required int durationSeconds,
     required bool isVideo,
   }) async {
-    final callData = {
-      'callerId': currentUserId,
-      'callerName': currentUserName,
-      'callerPhoto': currentUserPhoto,
-      'receiverId': targetUserId,
-      'receiverName': targetUserName,
-      'receiverPhoto': targetUserPhoto,
-      'isGroup': isGroup,
-      'groupName': groupName,
-      'participantIds': participantIds,
-      'participantNames': participantNames,
-      'participantPhotos': participantPhotos,
-      'type': type.name,
-      'timestamp': DateTime.now().toIso8601String(),
-      'durationSeconds': durationSeconds,
-      'isVideo': isVideo,
-    };
-
-    // Sauvegarder dans l'historique de l'appelant
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('callHistory')
-        .add(callData);
-
-    // Sauvegarder aussi dans l'historique du réceptionnaire (pour les appels entrants et manqués)
-    if (!isGroup && type != CallType.outgoing) {
-      await _db
-          .collection('users')
-          .doc(targetUserId)
-          .collection('callHistory')
-          .add({
-        'callerId': currentUserId,
-        'callerName': currentUserName,
-        'callerPhoto': currentUserPhoto,
-        'receiverId': targetUserId,
-        'receiverName': targetUserName,
-        'receiverPhoto': targetUserPhoto,
-        'type': type == CallType.incoming ? CallType.outgoing.name : CallType.missed.name,
-        'timestamp': DateTime.now().toIso8601String(),
-        'durationSeconds': durationSeconds,
-        'isVideo': isVideo,
-      });
-    }
+    // no-op — historique géré par le socket backend (MySQL)
   }
 }
-
 final callHistoryServiceProvider = Provider<CallHistoryService>((ref) {
   return CallHistoryService();
 });

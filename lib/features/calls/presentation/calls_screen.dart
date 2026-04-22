@@ -189,15 +189,13 @@ class _CallsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(authStateProvider).value;
-    if (currentUser == null) return const SizedBox();
+    final alanyaIdString = ref.watch(currentAlanyaIDStringProvider);
+    if (alanyaIdString.isEmpty) return const SizedBox();
 
-    final callHistoryAsync = ref.watch(callHistoryProvider(currentUser.uid));
-    final weeklyDurationAsync =
-        ref.watch(weeklyCallDurationProvider(currentUser.uid));
-
+    final callHistoryAsync = ref.watch(callHistoryProvider(alanyaIdString));
+    final weeklyDurationAsync =ref.watch(weeklyCallDurationProvider(alanyaIdString));
     // Prefetch profils pour l'historique d'appels
-    ref.listen(callHistoryProvider(currentUser.uid), (_, next) {
+    ref.listen(callHistoryProvider(alanyaIdString), (_, next) {
       next.whenData((calls) {
         final ids = <String>{};
         for (final call in calls) {
@@ -228,7 +226,7 @@ class _CallsContent extends ConsumerWidget {
           child: callHistoryAsync.when(
             data: (calls) => _CallsList(
               calls: calls,
-              currentUserId: currentUser.uid,
+              currentUserId: alanyaIdString,   // ← CORRIGÉ
               query: query,
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -648,7 +646,7 @@ class _CallTile extends ConsumerWidget {
             ),
             onPressed: () {
               if (isGroup) {
-                final currentId = ref.read(authStateProvider).value?.uid ?? '';
+                final currentId = ref.read(currentAlanyaIDStringProvider);
                 final targetUserIds =
                     call.participantIds.where((id) => id != currentId).toList();
                 final participants = call.participantIds.map((id) {
