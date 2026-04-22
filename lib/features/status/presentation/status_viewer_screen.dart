@@ -73,15 +73,6 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
     }
   }
 
-  Future<void> _toggleLike(StatusModel status) async {
-    final service = ref.read(statusServiceProvider);
-    if (status.isLikedBy(widget.currentUserId)) {
-      await service.unlikeStatus(status.id, widget.currentUserId);
-    } else {
-      await service.likeStatus(status.id, widget.currentUserId);
-    }
-  }
-
   Future<void> _sendReply(StatusModel status) async {
     final text = _replyCtrl.text.trim();
     if (text.isEmpty) return;
@@ -179,11 +170,9 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final uid = viewers[i];
-                    final isLiked = status.likedBy.contains(uid);
                     return _ViewerTile(
                       userId: uid,
                       viewedAt: status.viewedAt[uid],
-                      hasLiked: isLiked,
                     );
                   },
                 ),
@@ -207,7 +196,6 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
   Widget build(BuildContext context) {
     final status = widget.group.statuses[_currentIndex];
     final isMyStatus = widget.group.isMyStatus;
-    final isLiked = status.isLikedBy(widget.currentUserId);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -312,20 +300,6 @@ class _StatusViewerScreenState extends ConsumerState<StatusViewerScreen>
                         ],
                       ),
                     ),
-                    // Like button (only for others' statuses)
-                    if (!isMyStatus)
-                      GestureDetector(
-                        onTap: () => _toggleLike(status),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color:
-                                isLiked ? context.primaryColor : Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                      ),
                     IconButton(
                       icon: Icon(Icons.close_rounded, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
@@ -581,9 +555,7 @@ class _StatusContent extends StatelessWidget {
 class _ViewerTile extends ConsumerWidget {
   final String userId;
   final DateTime? viewedAt;
-  final bool hasLiked;
-  const _ViewerTile(
-      {required this.userId, this.viewedAt, this.hasLiked = false});
+  const _ViewerTile({required this.userId, this.viewedAt});
 
   String _formatViewedAt(DateTime dt) {
     final now = DateTime.now();
@@ -603,38 +575,16 @@ class _ViewerTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileStreamProvider(userId)).asData?.value;
-    final name = (user?.name?.isNotEmpty == true) ? user!.name : 'Utilisateur';
+    final hasName = user?.name.isNotEmpty ?? false;
+    final name = hasName ? user!.name : 'Utilisateur';
     final photo = user?.photoUrl;
     return ListTile(
-      leading: Stack(
-        children: [
-          CircleAvatar(
-            backgroundColor: context.primaryColor,
-            backgroundImage: photo != null ? NetworkImage(photo) : null,
-            child: photo == null
-                ? const Icon(Icons.person_rounded,
-                    color: Colors.white, size: 24)
-                : null,
-          ),
-          // Subtle heart indicator for those who liked
-          if (hasLiked)
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: context.appThemeColors.surface,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.favorite,
-                  color: context.primaryColor,
-                  size: 12,
-                ),
-              ),
-            ),
-        ],
+      leading: CircleAvatar(
+        backgroundColor: context.primaryColor,
+        backgroundImage: photo != null ? NetworkImage(photo) : null,
+        child: photo == null
+            ? const Icon(Icons.person_rounded, color: Colors.white, size: 24)
+            : null,
       ),
       title: Text(name,
           style: TextStyle(color: context.appThemeColors.textPrimary)),
@@ -644,9 +594,6 @@ class _ViewerTile extends ConsumerWidget {
               style: TextStyle(
                   color: context.appThemeColors.textSecondary, fontSize: 12),
             )
-          : null,
-      trailing: hasLiked
-          ? Icon(Icons.favorite, color: context.primaryColor, size: 18)
           : null,
     );
   }

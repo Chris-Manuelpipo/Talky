@@ -1,11 +1,14 @@
 // lib/features/chat/domain/conversation_model.dart
+//
+// Aligné sur MySQL : conversation + conv_participants
+// Les participantIds/Names/Photos sont reconstruits depuis l'API
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'message_model.dart';
 
 class ConversationModel {
-  final String id;
-  final List<String> participantIds;
+  final int conversID;                        // PK MySQL
+  final String id;                            // String pour compatibilité UI existante
+  final List<String> participantIds;          // alanyaIDs en String
   final Map<String, String> participantNames;
   final Map<String, String?> participantPhotos;
   final String? lastMessage;
@@ -13,7 +16,7 @@ class ConversationModel {
   final MessageType lastMessageType;
   final MessageStatus lastMessageStatus;
   final DateTime? lastMessageAt;
-  final Map<String, int> unreadCount;
+  final Map<String, int> unreadCount;         // { "alanyaID": count }
   final bool isGroup;
   final String? groupName;
   final String? groupPhoto;
@@ -21,80 +24,104 @@ class ConversationModel {
   final bool isArchived;
 
   const ConversationModel({
+    this.conversID = 0,
     required this.id,
     required this.participantIds,
     required this.participantNames,
     required this.participantPhotos,
     this.lastMessage,
     this.lastMessageSenderId,
-    this.lastMessageType = MessageType.text,
+    this.lastMessageType  = MessageType.text,
     this.lastMessageStatus = MessageStatus.sent,
     this.lastMessageAt,
     required this.unreadCount,
-    this.isGroup = false,
+    this.isGroup   = false,
     this.groupName,
     this.groupPhoto,
-    this.isPinned = false,
+    this.isPinned  = false,
     this.isArchived = false,
   });
 
-  factory ConversationModel.fromMap(Map<String, dynamic> map, String id) {
+  // ── API REST → ConversationModel ─────────────────────────────────
+  // Le backend retourne conv + conv_participants joinés.
+  // Les participants détaillés (noms, photos) arrivent via un champ `participants[]`
+  factory ConversationModel.fromJson(Map<String, dynamic> json) {
+    // Participants enrichis (nom, avatar) si fournis par l'API
+    final rawParticipants =
+        (json['participants'] as List<dynamic>?) ?? [];
+
+    final participantIds    = <String>[];
+    final participantNames  = <String, String>{};
+    final participantPhotos = <String, String?>{};
+
+    for (final p in rawParticipants) {
+      final pid = p['alanyaID']?.toString() ?? '';
+      if (pid.isEmpty) continue;
+      participantIds.add(pid);
+      participantNames[pid]  = p['nom']        as String? ?? '';
+      participantPhotos[pid] = p['avatar_url'] as String?;
+    }
+
+    // unreadCount : on reçoit la valeur pour l'utilisateur courant
+    final unreadCount = <String, int>{};
+    final currentUserID = json['currentUserID']?.toString();
+    if (currentUserID != null) {
+      unreadCount[currentUserID] = json['unreadCount'] as int? ?? 0;
+    }
+
     return ConversationModel(
-      id:                   id,
-      participantIds:       List<String>.from(map['participantIds'] ?? []),
-      participantNames:     Map<String, String>.from(map['participantNames'] ?? {}),
-      participantPhotos:    Map<String, String?>.from(map['participantPhotos'] ?? {}),
-      lastMessage:          map['lastMessage'],
-      lastMessageSenderId:  map['lastMessageSenderId'],
-      lastMessageType:      MessageType.values.firstWhere(
-                              (e) => e.name == (map['lastMessageType'] ?? 'text'),
-                              orElse: () => MessageType.text),
-      lastMessageStatus:    MessageStatus.values.firstWhere(
-                              (e) => e.name == (map['lastMessageStatus'] ?? 'sent'),
-                              orElse: () => MessageStatus.sent),
-      lastMessageAt:        (map['lastMessageAt'] as Timestamp?)?.toDate(),
-      unreadCount:          Map<String, int>.from(map['unreadCount'] ?? {}),
-      isGroup:              map['isGroup'] ?? false,
-      groupName:            map['groupName'],
-      groupPhoto:           map['groupPhoto'],
-      isPinned:             map['isPinned'] ?? false,
-      isArchived:           map['isArchived'] ?? false,
+      conversID:            json['conversID'] as int? ?? 0,
+      id:                   (json['conversID'] ?? '').toString(),
+      participantIds:       participantIds,
+      participantNames:     participantNames,
+      participantPhotos:    participantPhotos,
+      lastMessage:          json['lastMessage']          as String?,
+      lastMessageSenderId:  json['lastMessageSenderID']?.toString(),
+      lastMessageType:      _typeFromInt(json['lastMessageType'] as int? ?? 0),
+      lastMessageStatus:    _statusFromInt(json['lastMessageStatus'] as int? ?? 0),
+      lastMessageAt:        json['lastMessageAt'] != null
+          ? DateTime.tryParse(json['lastMessageAt'] as String)
+          : null,
+      unreadCount:          unreadCount,
+      isGroup:              (json['isGroup'] as int? ?? 0) == 1,
+      groupName:            json['GroupName']  as String?,
+      groupPhoto:           json['groupPhoto'] as String?,
+      isPinned:             (json['isPinned']  as int? ?? 0) == 1,
+      isArchived:           (json['isArchived'] as int? ?? 0) == 1,
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'participantIds':      participantIds,
-    'participantNames':    participantNames,
-    'participantPhotos':   participantPhotos,
-    'lastMessage':         lastMessage,
-    'lastMessageSenderId': lastMessageSenderId,
-    'lastMessageType':     lastMessageType.name,
-    'lastMessageStatus':   lastMessageStatus.name,
-    'lastMessageAt':       lastMessageAt != null ? Timestamp.fromDate(lastMessageAt!) : null,
-    'unreadCount':         unreadCount,
-    'isGroup':             isGroup,
-    'groupName':           groupName,
-    'groupPhoto':          groupPhoto,
-    'isPinned':            isPinned,
-    'isArchived':          isArchived,
-  };
+  // ── Helpers enums ────────────────────────────────────────────────
+  static MessageType _typeFromInt(int v) {
+    const map = {0: MessageType.text, 1: MessageType.image,
+                 2: MessageType.video, 3: MessageType.audio,
+                 4: MessageType.file};
+    return map[v] ?? MessageType.text;
+  }
 
-  // Obtenir le nom affiché pour un utilisateur donné (l'autre participant)
+  static MessageStatus _statusFromInt(int v) {
+    const map = {0: MessageStatus.sending, 1: MessageStatus.sent,
+                 2: MessageStatus.delivered, 3: MessageStatus.read};
+    return map[v] ?? MessageStatus.sent;
+  }
+
+  // ── UI helpers (inchangés) ───────────────────────────────────────
   String getDisplayName(String currentUserId) {
     if (isGroup) return groupName ?? 'Groupe';
     final otherId = participantIds.firstWhere(
-      (id) => id != currentUserId, orElse: () => '');
+        (id) => id != currentUserId, orElse: () => '');
     return participantNames[otherId] ?? 'Utilisateur';
   }
 
   String? getDisplayPhoto(String currentUserId) {
     if (isGroup) return groupPhoto;
     final otherId = participantIds.firstWhere(
-      (id) => id != currentUserId, orElse: () => '');
+        (id) => id != currentUserId, orElse: () => '');
     return participantPhotos[otherId];
   }
 
   int getUnreadCount(String userId) => unreadCount[userId] ?? 0;
 }
 
-enum MessageType { text, image, video, audio, file, deleted }
+enum MessageType   { text, image, video, audio, file, deleted }
+enum MessageStatus { sending, sent, delivered, read }

@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
@@ -33,7 +34,7 @@ class ChatDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final messages = ref.watch(messagesProvider(conversationId));
-    final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
+    final currentUid = ref.watch(currentAlanyaIDStringProvider);
     final contactsService = ref.read(phoneContactsServiceProvider);
     final user =
         (!isGroup && contactUserId != null && contactUserId!.isNotEmpty)

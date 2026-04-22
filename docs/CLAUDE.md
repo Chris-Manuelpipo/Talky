@@ -53,9 +53,12 @@
 | **Framework** | Flutter (Dart) | UI cross-platform |
 | **État global** | Riverpod 2.0 | Gestion d'état moderne |
 | **Navigation** | GoRouter | Routing déclaratif |
-| **Backend** | Firebase (Firestore + Auth) | BDD temps réel + auth |
-| **Temps réel** | flutter_webrtc | Appels audio/vidéo |
+| **Backend API** | Node.js + Express | API REST |
+| **Base de données** | MySQL | BDD relationnelle |
+| **Temps réel** | Socket.io + WebRTC DataChannel | Messages, présence |
+| **WebRTC** | flutter_webrtc | Appels audio/vidéo |
 | **Signaling** | Socket.io (serveur Node.js) | Coordination WebRTC |
+| **Auth** | Firebase Auth (Flutter) | Authentification |
 | **Traduction** | Google Cloud Translation API | Traduction instantanée |
 | **Stockage** | Firebase Storage | Médias |
 | **Notifications** | Firebase Cloud Messaging | Push notifs |
@@ -163,62 +166,73 @@ talky/
 ---
 
 ### 🔐 PHASE 2 — Authentification & Profils
-**Statut :** 🟡 En cours | **Dépend de :** Firebase configuré
+**Statut :** 🟡 En cours | **Dépend de :** Firebase + Backend Node.js
 
-#### Étape 2.1 — Firebase Auth
+#### Étape 2.1 — Firebase Auth (Flutter)
 - [ ] Créer projet Firebase + `flutterfire configure`
 - [ ] Connecter LoginScreen à Firebase Auth
 - [ ] Connecter RegisterScreen à Firebase Auth
 - [ ] Gestion des erreurs (email invalide, mauvais mdp, etc.)
 - [ ] Redirection automatique si déjà connecté (auth state listener)
 
-#### Étape 2.2 — Gestion des sessions
+#### Étape 2.2 — Backend Node.js (API + MySQL)
+- [ ] Setup serveur Node.js + Express
+- [ ] Connexion MySQL
+- [ ] Endpoint `/auth/verify` (valide token Firebase, retourne user)
+- [ ] Endpoint `/users/:id` et `/users/me`
+
+#### Étape 2.3 — Gestion des sessions
 - [ ] Persistance de session avec StreamProvider Riverpod
 - [ ] Déconnexion depuis les paramètres
 - [ ] Provider global `authStateProvider`
 
-#### Étape 2.3 — Profil utilisateur
+#### Étape 2.4 — Profil utilisateur
 - [ ] Écran création de profil post-inscription (photo, nom, statut, langue)
 - [ ] Upload photo vers Firebase Storage
-- [ ] Sauvegarde dans Firestore (`users/{uid}`)
+- [ ] Sauvegarde dans MySQL via API REST
 - [ ] Écran consultation/modification du profil
 
-#### Étape 2.4 — Écran Paramètres
+#### Étape 2.5 — Écran Paramètres
 - [ ] Affichage du profil connecté
 - [ ] Bouton déconnexion
 - [ ] Toggle langue préférée (pour la traduction)
 - [ ] Toggle thème dark/light
 
-✅ **Validation Phase 2 :** Inscription → profil → connexion → déconnexion fonctionnels.
+✅ **Validation Phase 2 :** Inscription → profil → connexion → déconnexion fonctionnels avec backend MySQL.
 
 ---
 
 ### 💬 PHASE 3 — Messagerie Core
 **Statut :** 🔲 À faire | **Durée :** 3 à 4 semaines
 
-#### Étape 3.1 — Modèles Firestore
-- [ ] Modèle `Conversation` (id, participants, dernierMessage, date)
-- [ ] Modèle `Message` (id, contenu, expediteur, timestamp, type, statut)
-- [ ] Règles de sécurité Firestore
+#### Étape 3.1 — Backend MySQL + API REST
+- [ ] Serveur Node.js + Express + MySQL
+- [ ] Modèles API (conversation, message, participant)
+- [ ] Authentification Firebase token côté backend
 
-#### Étape 3.2 — Liste des discussions
+#### Étape 3.2 — Socket.io temps réel
+- [ ] Connection Socket.io avec token Firebase
+- [ ] Events temps réel (message:new, typing, presence)
+
+#### Étape 3.3 — Liste des discussions
 - [ ] Écran Discussions avec conversations en temps réel
 - [ ] Badge non-lu, aperçu du dernier message, tri par date
 
-#### Étape 3.3 — Écran de chat 1-to-1
+#### Étape 3.4 — Écran de chat 1-to-1
 - [ ] Bulles de messages (envoyé/reçu)
 - [ ] Statuts ✓ ✓✓ 🔵
 - [ ] Scroll automatique
 
-#### Étape 3.4 — Groupes
+#### Étape 3.5 — Groupes
 - [ ] Création groupe (nom, photo, membres)
 - [ ] Messagerie de groupe en temps réel
 - [ ] Ajout/suppression de membres
 
-#### Étape 3.5 — Médias
+#### Étape 3.6 — Médias
 - [ ] Images, vidéos, fichiers, messages vocaux
+- [ ] Upload vers Firebase Storage
 
-#### Étape 3.6 — Notifications Push (FCM)
+#### Étape 3.7 — Notifications Push (FCM)
 - [ ] Notification à la réception d'un message
 - [ ] Navigation au tap de notification
 
@@ -252,15 +266,29 @@ talky/
 
 ---
 
-### 📞 PHASE 6 — Appels Audio & Vidéo (WebRTC)
-**Statut :** 🔲 À faire | **Durée :** 2 à 3 semaines
+### 📞 PHASE 6 — Appels Audio & Vidéo (WebRTC) + Meetings
+**Statut :** 🔲 À faire | **Durée :** 3 à 4 semaines
 
-- [ ] Serveur Node.js + Socket.io (signaling)
-- [ ] Appels audio (initier, accepter, refuser, raccrocher)
-- [ ] Appels vidéo (caméra locale/distante, bascule avant/arrière)
+#### Appels
+- [ ] Serveur Node.js + Socket.io (signaling WebRTC)
+- [ ] WebRTC DataChannel (messages P2P sans passer par serveur)
+- [ ] Appels audio 1-to-1
+- [ ] Appels vidéo 1-to-1
+- [ ] Appels de groupe (jusqu'à 10 participants, topologie mesh)
 - [ ] Notifications d'appel entrant (au-dessus du lock screen)
+- [ ] Chat éphémère pendant appel (pas de persistence)
 
-✅ **Validation Phase 6 :** Appel audio/vidéo entre deux appareils réels.
+#### Meetings
+- [ ] Création meeting (planifié avec date/heure)
+- [ ] Waiting room (validation organisateur)
+- [ ] Participants obligatoires/optionnels
+- [ ] Visioconférence (vidéo + audio)
+- [ ] Partage d'écran
+- [ ] Chat éphémère pendant meeting
+- [ ] Enregistrement vidéo
+- [ ] Limite 10 participants
+
+✅ **Validation Phase 6 :** Appel audio/vidéo + meeting fonctionnel.
 
 ---
 
@@ -284,10 +312,10 @@ talky/
 |---|---|---|
 | Phase 1 | Setup & Fondations | ✅ Complétée |
 | Phase 2 | Authentification & Profils | 🟡 En cours |
-| Phase 3 | Messagerie Core | 🔲 À faire |
+| Phase 3 | Messagerie Core (MySQL + Socket.io) | 🔲 À faire |
 | Phase 4 | 🌍 Traduction Instantanée | 🔲 À faire |
 | Phase 5 | 🔒 Mode Confidentiel | 🔲 À faire |
-| Phase 6 | 📞 Appels Audio & Vidéo | 🔲 À faire |
+| Phase 6 | 📞 Appels + 📅 Meetings (WebRTC) | 🔲 À faire |
 | Phase 7 | 🎨 Polish, Tests & Déploiement | 🔲 À faire |
 
 **Progression globale : 1 / 7 phases complétées**

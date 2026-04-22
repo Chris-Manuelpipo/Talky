@@ -1,140 +1,239 @@
 // lib/features/chat/data/chat_service.dart
-// Version mise à jour Phase 3b — avec envoi médias
+//
+// Service Chat — version REST/Socket (backend Node.js + MySQL).
+// Remplace l'ancienne implémentation Firestore.
+// L'API publique est conservée autant que possible pour limiter l'impact écrans.
+//
+// La couche REST (ApiService) reste la source de vérité.
+// La couche temps réel (SocketService) est consommée par les providers
+// (pas directement ici, sauf pour émettre des events lors des écritures).
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../../../core/services/api_service.dart';
+import '../../../core/services/socket_service.dart';
+import '../domain/contact_model.dart';
 import '../domain/conversation_model.dart';
 import '../domain/message_model.dart';
-import '../domain/contact_model.dart';
-import '../../../core/services/fcm_sender.dart';
+import 'contact_local_store.dart';
 
 class ChatService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  ApiService get _api => ApiService.instance;
+  SocketService get _socket => SocketService.instance;
+  ContactLocalStore get _contacts => ContactLocalStore.instance;
 
-  CollectionReference get _conversations => _db.collection('conversations');
-  CollectionReference _messages(String convId) =>
-      _db.collection('conversations').doc(convId).collection('messages');
+  // ════════════════════════════════════════════════════════════════
+  //  CONVERSATIONS
+  // ════════════════════════════════════════════════════════════════
 
-  // ── CONVERSATIONS ──────────────────────────────────────────────────
-
-  Stream<List<ConversationModel>> conversationsStream(String userId) {
-    return _conversations
-        .where('participantIds', arrayContains: userId)
-        .where('isArchived', isEqualTo: false)
-        .orderBy('isPinned', descending: true)
-        .orderBy('lastMessageAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => ConversationModel.fromMap(
-                doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+  /// Récupère la liste des conversations (non-archivées).
+  Future<List<ConversationModel>> getConversations(String currentUserId) async {
+    final rows = await _api.getConversations();
+    final list = <ConversationModel>[];
+    for (final raw in rows) {
+      if (raw is! Map) continue;
+      final map = Map<String, dynamic>.from(raw);
+      map['currentUserID'] = currentUserId;
+      await _ensureParticipants(map);
+      list.add(ConversationModel.fromJson(map));
+    }
+    return list.where((c) => !c.isArchived).toList();
   }
 
-  /// Stream des conversations archivées
-  Stream<List<ConversationModel>> archivedConversationsStream(String userId) {
-    return _conversations
-        .where('participantIds', arrayContains: userId)
-        .where('isArchived', isEqualTo: true)
-        .orderBy('lastMessageAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => ConversationModel.fromMap(
-                doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+  Future<List<ConversationModel>> getArchivedConversations(
+      String currentUserId) async {
+    final rows = await _api.getConversations();
+    final list = <ConversationModel>[];
+    for (final raw in rows) {
+      if (raw is! Map) continue;
+      final map = Map<String, dynamic>.from(raw);
+      map['currentUserID'] = currentUserId;
+      await _ensureParticipants(map);
+      list.add(ConversationModel.fromJson(map));
+    }
+    return list.where((c) => c.isArchived).toList();
   }
 
+  /// Stream de conversations — pour compat avec l'ancien code Firestore.
+  /// Émet une seule valeur (charge initiale). Les providers réactifs
+  /// s'occupent des live updates via Socket.IO.
+  Stream<List<ConversationModel>> conversationsStream(String userId) async* {
+    yield await getConversations(userId);
+  }
+
+  Stream<List<ConversationModel>> archivedConversationsStream(
+      String userId) async* {
+    yield await getArchivedConversations(userId);
+  }
+
+  /// Enrichit une Map de conversation avec un champ `participants[]` si absent.
+  /// Si le backend ne renvoie pas les participants, on les extrait depuis
+  /// les champs disponibles (`otherName`, `otherAvatar`) ou on laisse vide —
+  /// les écrans font aussi une résolution côté `backendUserProvider`.
+  Future<void> _ensureParticipants(Map<String, dynamic> map) async {
+    if (map['participants'] is List) return;
+    // Fallback minimaliste — le provider enrichit via backendUserProvider.
+    map['participants'] = <Map<String, dynamic>>[];
+  }
+
+  /// Crée ou retourne une conversation 1-à-1.
+  /// L'API publique historique prenait des IDs String (Firebase UID).
+  /// Maintenant, `otherUserId` doit contenir un `alanyaID` sérialisé en String.
   Future<String> getOrCreateConversation({
     required String currentUserId,
     required String currentUserName,
-    required String? currentUserPhoto,
+    String? currentUserPhoto,
     required String otherUserId,
     required String otherUserName,
-    required String? otherUserPhoto,
+    String? otherUserPhoto,
   }) async {
-    String _cleanName(String? name) {
-      final n = (name ?? '').trim();
-      if (n.isEmpty) return 'Utilisateur';
-      if (n.toLowerCase() == 'moi') return 'Utilisateur';
-      return n;
+    final participantID = int.tryParse(otherUserId);
+    if (participantID == null) {
+      throw ArgumentError('otherUserId doit être un alanyaID numérique');
     }
+    final res = await _api.getOrCreateConversation(participantID);
+    final conversID = (res['conversID'] ?? 0).toString();
 
-    final safeCurrentName = _cleanName(currentUserName);
-    final safeOtherName   = _cleanName(otherUserName);
-
-    final existing = await _conversations
-        .where('participantIds', arrayContains: currentUserId)
-        .where('isGroup', isEqualTo: false)
-        .get();
-
-    for (final doc in existing.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final ids = List<String>.from(data['participantIds'] ?? []);
-      if (ids.contains(otherUserId) && ids.length == 2) {
-        // Mettre à jour noms + photos à chaque fois (corrige le bug "Moi")
-        await doc.reference.update({
-          'participantNames.$currentUserId': safeCurrentName,
-          'participantNames.$otherUserId':   safeOtherName,
-          if (currentUserPhoto != null) 'participantPhotos.$currentUserId': currentUserPhoto,
-          if (otherUserPhoto != null)   'participantPhotos.$otherUserId':   otherUserPhoto,
-        });
-        return doc.id;
+    // Ajout automatique dans les contacts locaux si nécessaire
+    final ownerID = int.tryParse(currentUserId);
+    if (ownerID != null) {
+      try {
+        final existing = await _contacts.isContact(
+          ownerID: ownerID,
+          alanyaID: participantID,
+        );
+        if (!existing) {
+          await _contacts.addOrUpdateContact(
+            ownerID: ownerID,
+            alanyaID: participantID,
+            contactName: otherUserName,
+            contactPhoto: otherUserPhoto,
+          );
+        }
+      } catch (_) {
+        // best effort
       }
     }
 
-    final conv = ConversationModel(
-      id: '',
-      participantIds: [currentUserId, otherUserId],
-      participantNames: {
-        currentUserId: safeCurrentName,
-        otherUserId:   safeOtherName,
-      },
-      participantPhotos: {
-        currentUserId: currentUserPhoto,
-        otherUserId:   otherUserPhoto,
-      },
-      unreadCount: {currentUserId: 0, otherUserId: 0},
+    return conversID;
+  }
+
+  Future<String> createGroup({
+    required String creatorId,
+    required String creatorName,
+    String? creatorPhoto,
+    required String groupName,
+    String? groupPhoto,
+    required List<Map<String, dynamic>> members,
+  }) async {
+    final participantIDs = <int>[];
+    for (final m in members) {
+      final rawId = m['id'];
+      final id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+      if (id != null && id > 0) participantIDs.add(id);
+    }
+    if (participantIDs.isEmpty) {
+      throw ArgumentError('Aucun membre valide');
+    }
+    final res = await _api.createGroup(
+      participantIDs: participantIDs,
+      groupName: groupName,
+      groupPhoto: groupPhoto,
     );
-
-    final ref = await _conversations.add(conv.toMap());
-    return ref.id;
+    return (res['conversID'] ?? 0).toString();
   }
 
-  // ── MESSAGES ───────────────────────────────────────────────────────
-
-  Stream<List<MessageModel>> messagesStream(String conversationId) {
-    return _messages(conversationId)
-        .orderBy('sentAt', descending: false)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => MessageModel.fromMap(
-                doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+  Future<void> togglePinConversation({
+    required String conversationId,
+    required bool isPinned,
+  }) async {
+    final id = int.tryParse(conversationId);
+    if (id == null) return;
+    await _api.updateConversation(id, {'isPinned': isPinned ? 1 : 0});
   }
 
-  /// Envoyer un message texte
-  Future<void> sendMessage({
+  Future<void> toggleArchiveConversation({
+    required String conversationId,
+    required bool isArchived,
+  }) async {
+    final id = int.tryParse(conversationId);
+    if (id == null) return;
+    await _api.updateConversation(id, {'isArchived': isArchived ? 1 : 0});
+  }
+
+  Future<void> deleteConversation({
+    required String conversationId,
+  }) async {
+    final id = int.tryParse(conversationId);
+    if (id == null) return;
+    await _api.deleteConversation(id);
+  }
+
+  Future<void> leaveGroup({required String conversationId}) async {
+    final id = int.tryParse(conversationId);
+    if (id == null) return;
+    await _api.leaveGroup(id);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  MESSAGES
+  // ════════════════════════════════════════════════════════════════
+
+  Future<List<MessageModel>> getMessages(
+    String conversationId, {
+    int limit = 50,
+    int? before,
+  }) async {
+    final id = int.tryParse(conversationId);
+    if (id == null) return const [];
+    final rows = await _api.getMessages(id, limit: limit, before: before);
+    return rows
+        .whereType<Map>()
+        .map((r) => MessageModel.fromJson(Map<String, dynamic>.from(r)))
+        .toList();
+  }
+
+  /// Stream pour compat — émet une seule valeur (charge initiale).
+  /// Les providers ajoutent les nouveaux messages via Socket.IO.
+  Stream<List<MessageModel>> messagesStream(String conversationId) async* {
+    yield await getMessages(conversationId);
+  }
+
+  Future<MessageModel?> sendMessage({
     required String conversationId,
     required String senderId,
     required String senderName,
-    required String content,
+    String? content,
     String? replyToId,
     String? replyToContent,
     bool isStatusReply = false,
   }) async {
-    await _sendMessageInternal(
-      conversationId:  conversationId,
-      senderId:        senderId,
-      senderName:      senderName,
-      content:         content,
-      type:            MessageType.text,
-      replyToId:       replyToId,
-      replyToContent:  replyToContent,
-      isStatusReply:   isStatusReply,
-      lastMessagePreview: content,
-    );
+    final convID = int.tryParse(conversationId);
+    if (convID == null) return null;
+
+    try {
+      final res = await _api.sendMessage(
+        convID,
+        content: content,
+        type: 0,
+        replyToID: replyToId != null ? int.tryParse(replyToId) : null,
+        replyToContent: replyToContent,
+        isStatusReply: isStatusReply,
+      );
+      final msg = MessageModel.fromJson(Map<String, dynamic>.from(res));
+
+      // Broadcast via socket pour les autres clients (si le backend ne broadcast pas)
+      _socket.broadcastSentMessage(Map<String, dynamic>.from(res));
+      return msg;
+    } catch (e) {
+      debugPrint('[ChatService.sendMessage] $e');
+      rethrow;
+    }
   }
 
-  /// Envoyer un message média (image, vidéo, audio, fichier)
-  Future<void> sendMediaMessage({
+  Future<MessageModel?> sendMediaMessage({
     required String conversationId,
     required String senderId,
     required String senderName,
@@ -142,129 +241,96 @@ class ChatService {
     required MessageType type,
     String? mediaName,
     int? mediaDuration,
-  }) async {
-    final previews = {
-      MessageType.image: 'Photo',
-      MessageType.video: 'Vidéo',
-      MessageType.audio: 'Vocal',
-      MessageType.file:  'Fichier',
-    };
-
-    await _sendMessageInternal(
-      conversationId:     conversationId,
-      senderId:           senderId,
-      senderName:         senderName,
-      content:            previews[type] ?? 'Média',
-      type:               type,
-      mediaUrl:           mediaUrl,
-      mediaName:          mediaName,
-      mediaDuration:      mediaDuration,
-      lastMessagePreview: previews[type] ?? 'Média',
-    );
-  }
-
-  Future<void> _sendMessageInternal({
-    required String conversationId,
-    required String senderId,
-    required String senderName,
-    required String content,
-    required MessageType type,
-    required String lastMessagePreview,
     String? replyToId,
     String? replyToContent,
-    bool isStatusReply = false,
-    String? mediaUrl,
-    String? mediaName,
-    int? mediaDuration,
   }) async {
-    final batch = _db.batch();
+    final convID = int.tryParse(conversationId);
+    if (convID == null) return null;
 
-    final msgRef = _messages(conversationId).doc();
-    final message = MessageModel(
-      id:             msgRef.id,
-      conversationId: conversationId,
-      senderId:       senderId,
-      senderName:     senderName,
-      content:        content,
-      type:           type,
-      status:         MessageStatus.sent,
-      sentAt:         DateTime.now(),
-      replyToId:      replyToId,
-      replyToContent: replyToContent,
-      isStatusReply:  isStatusReply,
-      mediaUrl:       mediaUrl,
-      mediaName:      mediaName,
-      mediaDuration:  mediaDuration,
-    );
-    batch.set(msgRef, message.toMap());
+    final typeInt = _typeToInt(type);
 
-    // Mise à jour conversation
-    final convRef  = _conversations.doc(conversationId);
-    final convSnap = await convRef.get();
-    final convData = convSnap.data() as Map<String, dynamic>?;
-    final participantIds = List<String>.from(convData?['participantIds'] ?? []);
-
-    final unreadUpdate = <String, dynamic>{};
-    for (final uid in participantIds) {
-      if (uid != senderId) {
-        unreadUpdate['unreadCount.$uid'] = FieldValue.increment(1);
-      }
-    }
-
-    batch.update(convRef, {
-      'lastMessage':          lastMessagePreview,
-      'lastMessageSenderId':  senderId,
-      'lastMessageType':      type.name,
-      'lastMessageStatus':    MessageStatus.sent.name,
-      'lastMessageAt':        FieldValue.serverTimestamp(),
-      ...unreadUpdate,
-    });
-
-    await batch.commit();
-
-    // Notify other participants (best-effort).
-    for (final uid in participantIds) {
-      if (uid == senderId) continue;
-      await FcmSender.sendMessageNotification(
-        toUserId: uid,
-        senderName: senderName,
-        message: lastMessagePreview,
-        conversationId: conversationId,
+    try {
+      final res = await _api.sendMessage(
+        convID,
+        type: typeInt,
+        mediaUrl: mediaUrl,
+        mediaName: mediaName,
+        mediaDuration: mediaDuration,
+        replyToID: replyToId != null ? int.tryParse(replyToId) : null,
+        replyToContent: replyToContent,
       );
+      final msg = MessageModel.fromJson(Map<String, dynamic>.from(res));
+      _socket.broadcastSentMessage(Map<String, dynamic>.from(res));
+      return msg;
+    } catch (e) {
+      debugPrint('[ChatService.sendMediaMessage] $e');
+      rethrow;
     }
   }
+
+  Future<void> editMessage({
+    required String conversationId,
+    required String messageId,
+    required String newContent,
+  }) async {
+    final msgID = int.tryParse(messageId);
+    if (msgID == null) return;
+    await _api.updateMessage(msgID, newContent);
+  }
+
+  Future<void> deleteMessageForAll({
+    required String conversationId,
+    required String messageId,
+  }) async {
+    final msgID = int.tryParse(messageId);
+    if (msgID == null) return;
+    await _api.deleteMessage(msgID, all: true);
+  }
+
+  Future<void> deleteMessageForMe({
+    required String conversationId,
+    required String messageId,
+    required String userId,
+  }) async {
+    final msgID = int.tryParse(messageId);
+    if (msgID == null) return;
+    await _api.deleteMessage(msgID, all: false);
+  }
+
+  // ── Read / Delivered / Unread ─────────────────────────────────────
 
   Future<void> markAsRead({
     required String conversationId,
     required String userId,
   }) async {
-    await _conversations.doc(conversationId).update({
-      'unreadCount.$userId': 0,
-    });
+    final id = int.tryParse(conversationId);
+    if (id == null) return;
+    try {
+      await _api.markConversationAsRead(id);
+    } catch (_) {}
+  }
 
-    final unread = await _messages(conversationId)
-        .where('status', whereIn: ['sent', 'delivered'])
-        .where('senderId', isNotEqualTo: userId)
-        .get();
+  Future<void> markAsUnread({
+    required String conversationId,
+    required String userId,
+  }) async {
+    // Pas d'endpoint backend dédié — on laisse le backend gérer via le
+    // prochain message reçu. Aucune action côté client.
+  }
 
-    final batch = _db.batch();
-    for (final doc in unread.docs) {
-      batch.update(doc.reference, {
-        'status': MessageStatus.read.name,
-        'readAt': FieldValue.serverTimestamp(),
-      });
-    }
-    if (unread.docs.isNotEmpty) await batch.commit();
-
-    // Si le dernier message n'est pas de moi, il vient d'être lu
-    final convSnap = await _conversations.doc(conversationId).get();
-    final convData = convSnap.data() as Map<String, dynamic>?;
-    final lastSender = convData?['lastMessageSenderId'] as String?;
-    if (lastSender != null && lastSender != userId) {
-      await _conversations.doc(conversationId).update({
-        'lastMessageStatus': MessageStatus.read.name,
-      });
-    }
+  Future<void> markAsDelivered({
+    required String conversationId,
+    required String userId,
+  }) async {
+    // Pas d'endpoint REST — on passe uniquement par Socket pour signaler
+    // la livraison (le backend doit persister).
+    final convID = int.tryParse(conversationId);
+    if (convID == null) return;
+    _socket.sendMessageStatus(
+      msgID: 0,
+      status: 2, // delivered
+      conversationID: convID,
+    );
   }
 
   Future<void> markMessagesReadByIds({
@@ -272,538 +338,192 @@ class ChatService {
     required String userId,
     required List<String> messageIds,
   }) async {
-    if (messageIds.isEmpty) return;
-
+    final convID = int.tryParse(conversationId);
+    if (convID == null) return;
+    // Marque toute la conversation comme lue (endpoint unique)
     try {
-      final batch = _db.batch();
-      for (final id in messageIds) {
-        final ref = _messages(conversationId).doc(id);
-        batch.update(ref, {
-          'status': MessageStatus.read.name,
-          'readAt': FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
-
-      await _conversations.doc(conversationId).update({
-        'unreadCount.$userId': 0,
-      });
-
-      final convSnap = await _conversations.doc(conversationId).get();
-      final convData = convSnap.data() as Map<String, dynamic>?;
-      final lastSender = convData?['lastMessageSenderId'] as String?;
-      if (lastSender != null && lastSender != userId) {
-        await _conversations.doc(conversationId).update({
-          'lastMessageStatus': MessageStatus.read.name,
-        });
-      }
-    } catch (e) {
-      // Debug pour voir si Firestore bloque l'update
-      // ignore: avoid_print
-      print('[ChatService] markMessagesReadByIds error: $e');
+      await _api.markConversationAsRead(convID);
+    } catch (_) {}
+    // Notifie via socket pour que les autres clients mettent à jour
+    for (final mid in messageIds) {
+      final m = int.tryParse(mid);
+      if (m == null) continue;
+      _socket.sendMessageStatus(
+        msgID: m,
+        status: 3, // read
+        conversationID: convID,
+      );
     }
   }
 
-  Future<void> markAsDelivered({
-    required String conversationId,
-    required String userId,
-  }) async {
-    final unread = await _messages(conversationId)
-        .where('status', isEqualTo: MessageStatus.sent.name)
-        .get();
+  // ════════════════════════════════════════════════════════════════
+  //  USERS / RECHERCHE
+  // ════════════════════════════════════════════════════════════════
 
-    if (unread.docs.isEmpty) return;
-
-    final batch = _db.batch();
-    for (final doc in unread.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final senderId = data['senderId'] as String?;
-      if (senderId == userId) continue;
-      batch.update(doc.reference, {
-        'status': MessageStatus.delivered.name,
-      });
-    }
-    await batch.commit();
-
-    // Si le dernier message n'est pas de moi, il vient d'être délivré
-    final convSnap = await _conversations.doc(conversationId).get();
-    final convData = convSnap.data() as Map<String, dynamic>?;
-    final lastSender = convData?['lastMessageSenderId'] as String?;
-    if (lastSender != null && lastSender != userId) {
-      await _conversations.doc(conversationId).update({
-        'lastMessageStatus': MessageStatus.delivered.name,
-      });
-    }
-  }
-
-  /// Supprimer un message pour tous les utilisateurs
-  /// Le contenu est effacé et le type devient 'deleted'
-  Future<void> deleteMessageForAll({
-    required String conversationId,
-    required String messageId,
-  }) async {
-    try {
-      await _messages(conversationId).doc(messageId).update({
-        'isDeleted': true,
-        'content':   null,
-        'type':      MessageType.deleted.name,
-        'mediaUrl':  null,
-        'mediaName': null,
-      });
-    } catch (e) {
-      // ignore: avoid_print
-      print('[ChatService] deleteMessageForAll error: $e');
-      rethrow;
-    }
-  }
-
-  /// Supprimer un message uniquement pour l'utilisateur courant
-  /// Le message reste visible pour les autres participants
-  Future<void> deleteMessageForMe({
-    required String conversationId,
-    required String messageId,
-    required String userId,
-  }) async {
-    try {
-      await _messages(conversationId).doc(messageId).update({
-        'deletedFor': FieldValue.arrayUnion([userId]),
-      });
-    } catch (e) {
-      // ignore: avoid_print
-      print('[ChatService] deleteMessageForMe error: $e');
-      rethrow;
-    }
-  }
-
-  /// Modifier le contenu d'un message
-  /// Met à jour le contenu, définit isEdited=true et editedAt=now
-  /// Le type est changé en 'text' si c'était un média
-  Future<void> editMessage({
-    required String conversationId,
-    required String messageId,
-    required String newContent,
-  }) async {
-    try {
-      await _messages(conversationId).doc(messageId).update({
-        'content':   newContent,
-        'isEdited':  true,
-        'editedAt':  FieldValue.serverTimestamp(),
-        'type':      MessageType.text.name,
-      });
-    } catch (e) {
-      // ignore: avoid_print
-      print('[ChatService] editMessage error: $e');
-      rethrow;
-    }
-  }
-
-  /// Vérifie si un message peut être modifié par l'utilisateur
-  /// Un message ne peut être modifié que s'il:
-  /// - N'est pas déjà supprimé
-  /// - A été envoyé par l'utilisateur courant
-  /// - Est de type texte
-  Future<bool> canEditMessage({
-    required String conversationId,
-    required String messageId,
-    required String userId,
-  }) async {
-    try {
-      final doc = await _messages(conversationId).doc(messageId).get();
-      if (!doc.exists) return false;
-
-      final data = doc.data() as Map<String, dynamic>;
-      final isDeleted = data['isDeleted'] as bool? ?? false;
-      final senderId = data['senderId'] as String? ?? '';
-      final type = data['type'] as String? ?? 'text';
-
-      return !isDeleted && senderId == userId && type != MessageType.deleted.name;
-    } catch (e) {
-      // ignore: avoid_print
-      print('[ChatService] canEditMessage error: $e');
-      return false;
-    }
-  }
-
-  // ── GROUPES ────────────────────────────────────────────────────────
-
-  Future<String> createGroup({
-    required String creatorId,
-    required String creatorName,
-    required String? creatorPhoto,
-    required String groupName,
-    required List<Map<String, dynamic>> members,
-  }) async {
-    final allIds = [creatorId, ...members.map((m) => m['id'] as String)];
-    final names  = <String, String>{creatorId: creatorName};
-    final photos = <String, String?>{creatorId: creatorPhoto};
-
-    for (final m in members) {
-      names[m['id']]  = m['name'] ?? 'Membre';
-      photos[m['id']] = m['photoUrl'];
-    }
-
-    final conv = ConversationModel(
-      id:               '',
-      participantIds:   allIds,
-      participantNames: names,
-      participantPhotos: photos,
-      unreadCount:      {for (final id in allIds) id: 0},
-      isGroup:          true,
-      groupName:        groupName,
-    );
-
-    final ref = await _conversations.add(conv.toMap());
-    return ref.id;
-  }
-
-  // ── UTILISATEURS ──────────────────────────────────────────────────
-
-  Stream<List<Map<String, dynamic>>> usersStream(String currentUserId) {
-    return _db
-        .collection('users')
-        .where('name', isNotEqualTo: '')
-        .snapshots()
-        .map((snap) => snap.docs
-            .where((doc) => doc.id != currentUserId)
-            .map((doc) => {'id': doc.id, ...doc.data()})
-            .toList());
-  }
-
+  /// Recherche par nom/pseudo/numéro via le backend.
+  /// Retourne une liste de maps `{id, name, phone, photoUrl}` pour compat.
   Future<List<Map<String, dynamic>>> searchUsers({
     required String query,
     required String currentUserId,
   }) async {
-    final snap = await _db
-        .collection('users')
-        .where('name', isGreaterThanOrEqualTo: query)
-        .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-        .limit(20)
-        .get();
-
-    return snap.docs
-        .where((doc) => doc.id != currentUserId)
-        .map((doc) => {'id': doc.id, ...doc.data()})
-        .toList();
+    try {
+      final rows = await _api.searchUsers(query);
+      return rows
+          .whereType<Map>()
+          .map((r) => _userMapFromJson(Map<String, dynamic>.from(r)))
+          .where((u) => u['id'] != currentUserId)
+          .toList();
+    } catch (e) {
+      debugPrint('[ChatService.searchUsers] $e');
+      return const [];
+    }
   }
 
-  /// Rechercher un utilisateur par numéro de téléphone
   Future<Map<String, dynamic>?> findUserByPhone(String phone) async {
-    // Normaliser le numéro de téléphone
-    final normalizedPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // Rechercher dans Firestore par téléphone
-    final snap = await _db
-        .collection('users')
-        .where('phone', isEqualTo: phone)
-        .limit(1)
-        .get();
-
-    if (snap.docs.isEmpty) {
+    final normalized = _normalizePhone(phone);
+    if (normalized.isEmpty) return null;
+    try {
+      final raw = await _api.getUserByPhone(normalized);
+      return _userMapFromJson(raw);
+    } catch (e) {
       return null;
     }
-
-    return {'id': snap.docs.first.id, ...snap.docs.first.data()};
   }
 
-  /// Rechercher des utilisateurs par phones (pour matching avec contacts)
-  /// Optimisé: utilise des requêtes par lot avec les deux formats (avec et sans +)
-  Future<List<Map<String, dynamic>>> findUsersByPhones(List<String> phones) async {
-    // Dédoublonner les numéros et créer les deux formats
-    final uniquePhones = <String>{};
-    final normalizedToOriginal = <String, String>{}; // normalized -> original
-    for (final phone in phones) {
-      final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-      if (normalized.length >= 8) {
-        uniquePhones.add(normalized);
-        normalizedToOriginal[normalized] = phone;
-        
-        // Ajouter aussi le format avec +237 si ça ressemble à un numéro camerounais
-        if (normalized.startsWith('237')) {
-          normalizedToOriginal[normalized] = '+$normalized';
-        }
-      }
-    }
-    
-    if (uniquePhones.isEmpty) return [];
-    
+  /// Recherche batch de users par numéros (séquentiel, résilient aux 404).
+  Future<List<Map<String, dynamic>>> findUsersByPhones(
+      List<String> phones) async {
     final results = <Map<String, dynamic>>[];
-    final seenIds = <String>{};
-    
-    // Firestore whereIn limité à 10 valeurs, donc on fait des lots
-    final phoneList = uniquePhones.toList();
-    const batchSize = 10;
-    
-    // Préparer tous les batches
-    final batches = <List<String>>[];
-    for (var i = 0; i < phoneList.length; i += batchSize) {
-      final end = (i + batchSize > phoneList.length) ? phoneList.length : i + batchSize;
-      final batch = phoneList.sublist(i, end);
-      final batchWithPlus = batch.map((p) => '+$p').toList();
-      batches.add([...batch, ...batchWithPlus]);
-    }
-
-    // Lancer toutes les requêtes en parallèle
-    final futures = batches.map((batch) async {
-      try {
-        return await _db
-            .collection('users')
-            .where('phone', whereIn: batch)
-            .get();
-      } catch (e) {
-        // Fallback sur des queries individuelles pour ce batch
-        final results = <QueryDocumentSnapshot>[];
-        for (final phone in batch) {
-          try {
-            final singleSnap = await _db
-                .collection('users')
-                .where('phone', isEqualTo: phone)
-                .limit(1)
-                .get();
-            results.addAll(singleSnap.docs);
-          } catch (_) {
-            // Ignore
-          }
-        }
-        return results;
-      }
-    });
-
-    // Attendre toutes les requêtes en parallèle
-    final snapshots = await Future.wait(futures);
-
-    // Combiner les résultats
-    for (final snap in snapshots) {
-      if (snap is QuerySnapshot) {
-        for (final doc in snap.docs) {
-          if (!seenIds.contains(doc.id)) {
-            seenIds.add(doc.id);
-            results.add({'id': doc.id, ...doc.data() as Map<String, dynamic>});
-          }
-        }
-      } else if (snap is List<QueryDocumentSnapshot>) {
-        for (final doc in snap) {
-          if (!seenIds.contains(doc.id)) {
-            seenIds.add(doc.id);
-            results.add({'id': doc.id, ...doc.data() as Map<String, dynamic>});
-          }
-        }
+    for (final p in phones) {
+      final u = await findUserByPhone(p);
+      if (u != null && !results.any((e) => e['id'] == u['id'])) {
+        results.add(u);
       }
     }
-
     return results;
   }
 
-  /// Variante progressive: renvoie les résultats au fur et à mesure des batches
+  /// Version progressive — émet la liste cumulée au fur et à mesure.
   Stream<List<Map<String, dynamic>>> findUsersByPhonesProgressive(
       List<String> phones) async* {
-    // Dédoublonner les numéros et créer les deux formats
-    final uniquePhones = <String>{};
-    for (final phone in phones) {
-      final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-      if (normalized.length >= 8) {
-        uniquePhones.add(normalized);
-      }
-    }
+    final accumulated = <Map<String, dynamic>>[];
+    const chunkSize = 8;
 
-    if (uniquePhones.isEmpty) {
-      yield [];
+    final unique = <String>{};
+    for (final p in phones) {
+      final n = _normalizePhone(p);
+      if (n.isNotEmpty) unique.add(n);
+    }
+    final list = unique.toList();
+
+    for (var i = 0; i < list.length; i += chunkSize) {
+      final end = (i + chunkSize).clamp(0, list.length);
+      final chunk = list.sublist(i, end);
+      final results = await Future.wait(chunk.map((p) => findUserByPhone(p)));
+      for (final u in results) {
+        if (u != null && !accumulated.any((e) => e['id'] == u['id'])) {
+          accumulated.add(u);
+        }
+      }
+      yield List<Map<String, dynamic>>.from(accumulated);
+    }
+  }
+
+  /// Stream des utilisateurs disponibles (anciennement toute la collection users).
+  /// On retourne maintenant les contacts locaux Talky sous forme de Map.
+  Stream<List<Map<String, dynamic>>> usersStream(String currentUserId) async* {
+    final ownerID = int.tryParse(currentUserId);
+    if (ownerID == null || ownerID <= 0) {
+      yield const [];
       return;
     }
-
-    final results = <Map<String, dynamic>>[];
-    final seenIds = <String>{};
-    final phoneList = uniquePhones.toList();
-    const batchSize = 10;
-
-    for (var i = 0; i < phoneList.length; i += batchSize) {
-      final end = (i + batchSize > phoneList.length) ? phoneList.length : i + batchSize;
-      final batch = phoneList.sublist(i, end);
-      final batchWithPlus = batch.map((p) => '+$p').toList();
-      final batchQuery = [...batch, ...batchWithPlus];
-
-      try {
-        final snap = await _db
-            .collection('users')
-            .where('phone', whereIn: batchQuery)
-            .get();
-        for (final doc in snap.docs) {
-          if (!seenIds.contains(doc.id)) {
-            seenIds.add(doc.id);
-            results.add({'id': doc.id, ...doc.data()});
-          }
-        }
-      } catch (e) {
-        // Fallback: requêtes individuelles pour ce batch
-        for (final phone in batchQuery) {
-          try {
-            final singleSnap = await _db
-                .collection('users')
-                .where('phone', isEqualTo: phone)
-                .limit(1)
-                .get();
-            for (final doc in singleSnap.docs) {
-              if (!seenIds.contains(doc.id)) {
-                seenIds.add(doc.id);
-                results.add({'id': doc.id, ...doc.data()});
-              }
-            }
-          } catch (_) {
-            // Ignore
-          }
-        }
-      }
-
-      yield List<Map<String, dynamic>>.from(results);
+    await for (final contacts in _contacts.watchContacts(ownerID)) {
+      yield contacts
+          .map((c) => <String, dynamic>{
+                'id': c.alanyaID.toString(),
+                'name': c.contactName,
+                'phone': c.phoneNumber ?? '',
+                'photoUrl': c.contactPhoto,
+              })
+          .toList();
     }
   }
 
-  // ── CONTACTS ─────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════
+  //  CONTACTS (locaux via Hive)
+  // ════════════════════════════════════════════════════════════════
 
-  /// Stream des contacts de l'utilisateur
-  Stream<List<ContactModel>> contactsStream(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('contacts')
-        .orderBy('addedAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => ContactModel.fromMap(
-                doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+  Stream<List<ContactModel>> contactsStream(String userId) async* {
+    final ownerID = int.tryParse(userId);
+    if (ownerID == null || ownerID <= 0) {
+      yield const [];
+      return;
+    }
+    yield* _contacts.watchContacts(ownerID);
   }
 
-  /// Ajouter ou mettre à jour un contact
-  Future<void> addOrUpdateContact({
-    required String currentUserId,
+  Future<void> addContact({
+    required String userId,
     required String contactUserId,
     required String contactName,
     String? contactPhoto,
     String? phoneNumber,
   }) async {
-    // Sauvegarder le contact
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .set({
-      'contactName': contactName,
-      'contactPhoto': contactPhoto,
-      'phoneNumber': phoneNumber,
-      'addedAt': DateTime.now(),
-    }, SetOptions(merge: true));
-
-    // Mettre à jour le nom dans les conversations existantes
-    final convs = await _conversations
-        .where('participantIds', arrayContains: currentUserId)
-        .where('isGroup', isEqualTo: false)
-        .get();
-
-    for (final doc in convs.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final ids = List<String>.from(data['participantIds'] ?? []);
-      if (ids.contains(contactUserId) && ids.length == 2) {
-        // Mettre à jour le nom du contact dans la conversation
-        await doc.reference.update({
-          'participantNames.$contactUserId': contactName,
-          if (contactPhoto != null)
-            'participantPhotos.$contactUserId': contactPhoto,
-        });
-      }
-    }
+    final ownerID = int.tryParse(userId);
+    final alanyaID = int.tryParse(contactUserId);
+    if (ownerID == null || alanyaID == null) return;
+    await _contacts.addOrUpdateContact(
+      ownerID: ownerID,
+      alanyaID: alanyaID,
+      contactName: contactName,
+      contactPhoto: contactPhoto,
+      phoneNumber: phoneNumber,
+    );
   }
 
-  /// Supprimer un contact
   Future<void> removeContact({
-    required String currentUserId,
-    required String contactUserId,
-  }) async {
-    await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .delete();
-  }
-
-  /// Vérifier si un utilisateur est déjà un contact
-  Future<bool> isContact({
-    required String currentUserId,
-    required String contactUserId,
-  }) async {
-    final doc = await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .get();
-    return doc.exists;
-  }
-
-  /// Obtenir un contact spécifique
-  Future<ContactModel?> getContact({
-    required String currentUserId,
-    required String contactUserId,
-  }) async {
-    final doc = await _db
-        .collection('users')
-        .doc(currentUserId)
-        .collection('contacts')
-        .doc(contactUserId)
-        .get();
-    if (doc.exists) {
-      return ContactModel.fromMap(
-          doc.data() as Map<String, dynamic>, doc.id);
-    }
-    return null;
-  }
-
-  // ── OPÉRATIONS SUR LES CONVERSATIONS ─────────────────────────────────
-
-  /// Supprimer une conversation
-  Future<void> deleteConversation({
-    required String conversationId,
-  }) async {
-    // Supprimer tous les messages
-    final messages = await _messages(conversationId).get();
-    final batch = _db.batch();
-    for (final doc in messages.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
-
-    // Supprimer la conversation
-    await _conversations.doc(conversationId).delete();
-  }
-
-  /// Épingler/Désépingler une conversation
-  Future<void> togglePinConversation({
-    required String conversationId,
-    required bool isPinned,
-  }) async {
-    await _conversations.doc(conversationId).update({
-      'isPinned': isPinned,
-    });
-  }
-
-  /// Archiver/Désarchiver une conversation
-  Future<void> toggleArchiveConversation({
-    required String conversationId,
-    required bool isArchived,
-  }) async {
-    await _conversations.doc(conversationId).update({
-      'isArchived': isArchived,
-    });
-  }
-
-  /// Marquer une conversation comme non lue
-  Future<void> markAsUnread({
-    required String conversationId,
     required String userId,
+    required String contactUserId,
   }) async {
-    await _conversations.doc(conversationId).update({
-      'unreadCount.$userId': FieldValue.increment(1),
-    });
+    final ownerID = int.tryParse(userId);
+    final alanyaID = int.tryParse(contactUserId);
+    if (ownerID == null || alanyaID == null) return;
+    await _contacts.removeContact(ownerID: ownerID, alanyaID: alanyaID);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Helpers internes
+  // ════════════════════════════════════════════════════════════════
+
+  Map<String, dynamic> _userMapFromJson(Map<String, dynamic> raw) {
+    return {
+      'id': (raw['alanyaID'] ?? '').toString(),
+      'alanyaID': raw['alanyaID'] as int? ?? 0,
+      'name': raw['nom'] as String? ?? '',
+      'pseudo': raw['pseudo'] as String? ?? '',
+      'phone': raw['alanyaPhone'] as String? ?? '',
+      'photoUrl': raw['avatar_url'] as String?,
+    };
+  }
+
+  String _normalizePhone(String phone) {
+    return phone.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  int _typeToInt(MessageType t) {
+    switch (t) {
+      case MessageType.text:
+        return 0;
+      case MessageType.image:
+        return 1;
+      case MessageType.video:
+        return 2;
+      case MessageType.audio:
+        return 3;
+      case MessageType.file:
+        return 4;
+      case MessageType.deleted:
+        return 0;
+    }
   }
 }

@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/widgets/talky_button.dart';
 import '../../../core/widgets/talky_text_field.dart';
 import '../../../core/widgets/country_picker.dart';
@@ -33,6 +34,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   String? _localImagePath;
   bool _isLoading = false;
   bool _phoneReadOnly = false;
+
+  // True si l'utilisateur vient de Google (pas de phone dans Firebase Auth).
+  // Il doit alors saisir lui-même son numéro, qu'on valide côté backend
+  // (unicité), sans passer par OTP.
+  bool _needsPhoneInput = false;
 
   // Code pays
   String _selectedCountryCode = '+237';
@@ -64,8 +70,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final authService = ref.read(authServiceProvider);
     final phone = authService.currentUser?.phoneNumber ?? '';
     if (phone.isNotEmpty) {
+      // User arrivé par OTP téléphone → numéro figé (déjà validé par Firebase)
       _phoneController.text = phone;
       _phoneReadOnly = true;
+    } else {
+      // User Google → doit saisir son numéro manuellement.
+      // Validation : vérifier qu'il n'est pas déjà pris côté backend.
+      _needsPhoneInput = true;
     }
   }
 
@@ -78,16 +89,45 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
 
     try {
       final authService = ref.read(authServiceProvider);
       final uid = authService.currentUser!.uid;
-      final phone = _phoneController.text.trim().isNotEmpty
-          ? _phoneController.text.trim()
-          : (authService.currentUser!.phoneNumber ?? '');
 
-      // Upload photo vers Cloudinary si sélectionnée
+      // Construction du numéro final :
+      //  - User OTP → déjà dans authService.currentUser.phoneNumber
+      //  - User Google → saisie manuelle + code pays, à envoyer au backend
+      String phone;
+      String? phoneForRegister;
+      if (_needsPhoneInput) {
+        final digits =
+            _phoneController.text.trim().replaceAll(RegExp(r'[^\d]'), '');
+        phone = '$_selectedCountryCode$digits';
+        phoneForRegister = phone;
+
+        // Anti-doublon : vérifier côté backend avant toute tentative d'insert.
+        try {
+          final res = await ApiService.instance.phoneExists(phone);
+          if (res['exists'] == true) {
+            setState(() => _isLoading = false);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Ce numéro est déjà utilisé par un autre compte.'),
+              ),
+            );
+            return;
+          }
+        } on ApiException catch (_) {
+          // Backend injoignable → on laisse le register trancher (409).
+        }
+      } else {
+        phone = authService.currentUser!.phoneNumber ?? '';
+      }
+
       String? photoUrl;
       if (_localImagePath != null) {
         try {
@@ -100,9 +140,39 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         }
       }
 
+      final name = _nameController.text.trim();
+
+      // Convertir le préfixe pays en idPays
+      final idPays =
+          await ApiService.instance.getIdPaysByPrefix(_selectedCountryCode);
+
+      // 1) Créer / mettre à jour le user en MySQL (backend)
+      try {
+        await ApiService.instance.registerUser(
+          nom: name,
+          pseudo: name,
+          avatarUrl: photoUrl,
+          phone: phoneForRegister, // null = on utilise le phone du token (OTP)
+          idPays: idPays,
+        );
+      } on ApiException catch (e) {
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: e.statusCode == 409
+                ? null
+                : Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
+
+      // 2) Sauver le profil dans Firestore (pour les features pas encore migrées)
       final user = UserModel(
         uid: uid,
-        name: _nameController.text.trim(),
+        name: name,
         phone: phone,
         email: authService.currentUser?.email,
         photoUrl: photoUrl,
@@ -112,7 +182,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         preferredLanguage: _selectedLanguage,
         isOnline: true,
       );
-
       await authService.saveUserProfile(user);
       await authService.saveFcmToken(uid);
 
@@ -122,8 +191,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       await settingsNotifier.setThemeMode(_selectedThemeMode);
 
       // Mettre à jour nom + photo dans toutes les conversations existantes
-      await _updateNameInConversations(
-          uid, _nameController.text.trim(), photoUrl);
+      await _updateNameInConversations(uid, name, photoUrl);
 
       // Invalider le cache → router détecte profil complet
       ref.invalidate(profileCompleteProvider);
@@ -289,16 +357,26 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           if (digits.length < 8) return 'Numéro invalide';
                           return null;
                         },
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Numéro de téléphone *',
                           hintText: '6XX XXX XXX',
-                          contentPadding: const EdgeInsets.symmetric(
+                          contentPadding: EdgeInsets.symmetric(
                               horizontal: 16, vertical: 16),
                         ),
                       ),
                     ),
                   ],
                 ).animate(delay: 220.ms).fadeIn().slideY(begin: 0.2, end: 0),
+
+                if (_needsPhoneInput) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Saisis ton numéro : il sera validé à l\'enregistrement.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 

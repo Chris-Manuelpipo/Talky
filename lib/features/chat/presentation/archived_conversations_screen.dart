@@ -11,6 +11,7 @@ import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
 
@@ -20,22 +21,24 @@ class ArchivedConversationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversations = ref.watch(archivedConversationsProvider);
-    final authState = ref.watch(authStateProvider);
-    final currentUid = authState.value?.uid ?? '';
+    final currentUid = ref.watch(currentAlanyaIDStringProvider);
     final colors = context.appThemeColors;
 
-    // Prefetch profils des autres utilisateurs (cache)
+    // Prefetch profils des autres utilisateurs (cache backend)
     ref.listen(archivedConversationsProvider, (_, next) {
-      final uid = ref.read(authStateProvider).value?.uid;
-      if (uid == null) return;
+      final uid = ref.read(currentAlanyaIDStringProvider);
+      if (uid.isEmpty) return;
       next.whenData((list) {
-        final ids = <String>{};
+        final ids = <int>{};
         for (final c in list) {
-          ids.addAll(c.participantIds);
+          for (final pid in c.participantIds) {
+            final i = int.tryParse(pid);
+            if (i != null && i > 0) ids.add(i);
+          }
         }
-        ids.remove(uid);
+        ids.remove(int.tryParse(uid) ?? 0);
         if (ids.isNotEmpty) {
-          ref.read(authServiceProvider).prefetchUserProfiles(ids.toList());
+          ref.read(prefetchBackendUsersProvider(ids.toList()));
         }
       });
     });

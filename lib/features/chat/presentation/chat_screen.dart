@@ -11,6 +11,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 //import '../data/chat_service.dart';
 import '../data/media_service.dart';
@@ -54,8 +55,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _markAsRead() {
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
+    final uid = ref.read(currentAlanyaIDStringProvider);
+    if (uid.isEmpty) return;
     ref.read(chatServiceProvider).markAsRead(
           conversationId: widget.conversationId,
           userId: uid,
@@ -65,12 +66,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    final user = ref.read(authStateProvider).value;
-    if (user == null) return;
+    final uid = ref.read(currentAlanyaIDStringProvider);
+    if (uid.isEmpty) return;
 
     ref.read(sendMessageProvider.notifier).send(
           conversationId: widget.conversationId,
-          senderId: user.uid,
+          senderId: uid,
           content: text,
           replyToId: _replyTo?.id,
           replyToContent: _replyTo?.content,
@@ -112,8 +113,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _openMediaPicker() async {
-    final user = ref.read(authStateProvider).value;
-    if (user == null) return;
+    final uid = ref.read(currentAlanyaIDStringProvider);
+    if (uid.isEmpty) return;
     final senderName = await ref.read(currentUserNameProvider.future);
 
     showModalBottomSheet(
@@ -121,7 +122,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => MediaPickerSheet(
         conversationId: widget.conversationId,
-        senderId: user.uid,
+        senderId: uid,
         senderName: senderName,
       ),
     );
@@ -149,12 +150,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(messagesProvider(widget.conversationId));
-    final currentUid = ref.watch(authStateProvider).value?.uid ?? '';
+    final currentUid = ref.watch(currentAlanyaIDStringProvider);
     final convos = ref.watch(conversationsProvider);
 
     ref.listen(messagesProvider(widget.conversationId), (_, next) {
-      final uid = ref.read(authStateProvider).value?.uid;
-      if (uid == null) return;
+      final uid = ref.read(currentAlanyaIDStringProvider);
+      if (uid.isEmpty) return;
       next.whenData((list) {
         final toRead = list
             .where((m) => m.senderId != uid && m.status != MessageStatus.read)
@@ -272,9 +273,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             VoiceRecorderWidget(
               onRecordingComplete: (path, duration) async {
                 setState(() => _isRecording = false);
-                // Upload + envoi
-                final user = ref.read(authStateProvider).value;
-                if (user == null) return;
+                final uid = ref.read(currentAlanyaIDStringProvider);
+                if (uid.isEmpty) return;
                 try {
                   final file = File(path);
                   final senderName =
@@ -285,7 +285,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   );
                   await ref.read(chatServiceProvider).sendMediaMessage(
                         conversationId: widget.conversationId,
-                        senderId: user.uid,
+                        senderId: uid,
                         senderName: senderName,
                         mediaUrl: url,
                         type: MessageType.audio,
@@ -640,7 +640,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       await ref.read(chatServiceProvider).deleteMessageForMe(
             conversationId: widget.conversationId,
             messageId: msg.id,
-            userId: ref.read(authStateProvider).value?.uid ?? '',
+            userId: ref.read(currentAlanyaIDStringProvider),
           );
     }
   }

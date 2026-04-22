@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth_service.dart';
+import 'backend_user_providers.dart';
 import '../domain/user_model.dart';
 
 // ── Service Auth ───────────────────────────────────────────────────────
@@ -13,29 +14,32 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges;
 });
 
-// ── Provider : profil utilisateur courant ─────────────────────────────
+// ── Provider : profil utilisateur courant (backend /api/auth/me) ──────
 final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) async {
-      if (user == null) return null;
-      return ref.read(authServiceProvider).getUserProfile(user.uid);
-    },
-    loading: () => null,
-    error: (_, __) => null,
-  );
+  return ref.watch(currentBackendUserProvider.future);
 });
 
-// ── Stream : profil utilisateur par uid (cache + updates live) ──────────
+// ── Stream : profil utilisateur par ID (backend + live presence socket) ─
+// L'ID attendu est maintenant l'alanyaID sérialisé en String (ex: "42").
 final userProfileStreamProvider =
-    StreamProvider.family<UserModel?, String>((ref, uid) {
-  return ref.read(authServiceProvider).watchUserProfile(uid);
+    StreamProvider.family<UserModel?, String>((ref, id) {
+  final alanyaID = int.tryParse(id);
+  if (alanyaID == null || alanyaID <= 0) {
+    return const Stream.empty();
+  }
+  return ref.watch(backendUserStreamProvider(alanyaID).stream);
 });
 
 // ── Prefetch cache pour une liste d'utilisateurs ──────────────────────
 final prefetchUserProfilesProvider =
-    FutureProvider.family<void, List<String>>((ref, uids) async {
-  await ref.read(authServiceProvider).prefetchUserProfiles(uids);
+    FutureProvider.family<void, List<String>>((ref, ids) async {
+  final alanyaIDs = <int>[];
+  for (final id in ids) {
+    final i = int.tryParse(id);
+    if (i != null && i > 0) alanyaIDs.add(i);
+  }
+  if (alanyaIDs.isEmpty) return;
+  await ref.read(prefetchBackendUsersProvider(alanyaIDs).future);
 });
 
 // ── Notifier : gestion du flux OTP ────────────────────────────────────

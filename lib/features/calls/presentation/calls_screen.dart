@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../../../core/services/ringback_service.dart';
 import '../../chat/data/chat_providers.dart';
 import '../data/call_providers.dart';
@@ -207,9 +208,10 @@ class _CallsContent extends ConsumerWidget {
             ids.add(call.receiverId);
           }
         }
-        ids.remove(currentUser.uid);
+        final me = ref.read(currentAlanyaIDStringProvider);
+        if (me.isNotEmpty) ids.remove(me);
         if (ids.isNotEmpty) {
-          ref.read(authServiceProvider).prefetchUserProfiles(ids.toList());
+          ref.read(prefetchUserProfilesProvider(ids.toList()));
         }
       });
     });

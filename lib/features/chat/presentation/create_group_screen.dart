@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_service.dart';
 
@@ -59,12 +60,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
     setState(() => _loading = true);
     try {
-      final user = ref.read(authStateProvider).value!;
+      final uid = ref.read(currentAlanyaIDStringProvider);
+      if (uid.isEmpty) {
+        throw Exception('Utilisateur non authentifié');
+      }
       final myName = await ref.read(currentUserNameProvider.future);
+      final me = await ref.read(currentBackendUserProvider.future);
       final convId = await ref.read(chatServiceProvider).createGroup(
-            creatorId: user.uid,
+            creatorId: uid,
             creatorName: myName,
-            creatorPhoto: user.photoURL,
+            creatorPhoto: me?.photoUrl,
             groupName: _nameCtrl.text.trim(),
             members: _selected,
           );
@@ -86,7 +91,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(authStateProvider).value;
+    final currentUid = ref.watch(currentAlanyaIDStringProvider);
 
     return Scaffold(
       backgroundColor: context.appThemeColors.background,
@@ -188,7 +193,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: ref
                   .read(chatServiceProvider)
-                  .usersStream(currentUser?.uid ?? ''),
+                  .usersStream(currentUid),
               builder: (_, snap) {
                 if (!snap.hasData)
                   return const Center(child: CircularProgressIndicator());

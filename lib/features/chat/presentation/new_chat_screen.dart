@@ -11,6 +11,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/services/phone_contacts_service.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/contact_model.dart';
 
@@ -195,15 +196,15 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
     setState(() => _isSearching = true);
 
     try {
-      final currentUser = ref.read(authStateProvider).value;
-      if (currentUser == null) return;
+      final currentUid = ref.read(currentAlanyaIDStringProvider);
+      if (currentUid.isEmpty) return;
 
       final chatService = ref.read(chatServiceProvider);
 
       // Search by name
       final nameResults = await chatService.searchUsers(
         query: query,
-        currentUserId: currentUser.uid,
+        currentUserId: currentUid,
       );
 
       // Also try to search by phone if it looks like a phone number
@@ -552,14 +553,14 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
     );
   }
 
-  Future<String?> _getMyPhotoFromFirestore(String uid) async {
-    final profile = await ref.read(authServiceProvider).getUserProfile(uid);
-    return profile?.photoUrl;
+  Future<String?> _getMyPhotoUrl() async {
+    final me = await ref.read(currentBackendUserProvider.future);
+    return me?.photoUrl;
   }
 
   Future<void> _startChatWithContact(PhoneContact contact) async {
-    final currentUser = ref.read(authStateProvider).value;
-    if (currentUser == null) return;
+    final currentUid = ref.read(currentAlanyaIDStringProvider);
+    if (currentUid.isEmpty) return;
 
     try {
       // Find the Talky user for this contact
@@ -584,11 +585,11 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
       }
 
       final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await _getMyPhotoFromFirestore(currentUser.uid);
+      final myPhoto = await _getMyPhotoUrl();
 
       // Use contact's display name for the conversation
       final convId = await chatService.getOrCreateConversation(
-        currentUserId: currentUser.uid,
+        currentUserId: currentUid,
         currentUserName: myName,
         currentUserPhoto: myPhoto,
         otherUserId: talkyUser['id'] as String,
@@ -615,12 +616,12 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   }
 
   Future<void> _startChatWithUser(Map<String, dynamic> user) async {
-    final currentUser = ref.read(authStateProvider).value;
-    if (currentUser == null) return;
+    final currentUid = ref.read(currentAlanyaIDStringProvider);
+    if (currentUid.isEmpty) return;
 
     try {
       final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await _getMyPhotoFromFirestore(currentUser.uid);
+      final myPhoto = await _getMyPhotoUrl();
 
       final displayName = _resolveDisplayName(
         userName: user['name'] as String?,
@@ -629,7 +630,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
       final convId =
           await ref.read(chatServiceProvider).getOrCreateConversation(
-                currentUserId: currentUser.uid,
+                currentUserId: currentUid,
                 currentUserName: myName,
                 currentUserPhoto: myPhoto,
                 otherUserId: user['id'] as String,

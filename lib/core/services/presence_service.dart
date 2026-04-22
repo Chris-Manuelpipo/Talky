@@ -1,63 +1,57 @@
 // lib/core/services/presence_service.dart
+//
+// Service de présence — migré de Firebase Realtime Database vers Socket.IO.
+// Firebase RTDB et Firestore complètement supprimés.
+// La présence est gérée via SocketService (emit presence:online/offline)
+// et persistée dans MySQL par le backend.
 
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
+import 'socket_service.dart';
+import '../../features/auth/data/auth_service.dart';
 
 class PresenceService {
   PresenceService._();
   static final PresenceService instance = PresenceService._();
 
-  StreamSubscription<DatabaseEvent>? _connSub;
-  StreamSubscription<DatabaseEvent>? _statusSub;
+  String? _currentUid;
+  bool _isRunning = false;
 
+  // ── Démarrer la présence ─────────────────────────────────────────
   Future<void> start(String uid) async {
+    if (_isRunning && _currentUid == uid) return;
     await stop();
 
-    final db = FirebaseDatabase.instance;
-    final fs = FirebaseFirestore.instance;
+    _currentUid = uid;
+    _isRunning  = true;
 
-    final userStatusRef = db.ref('status/$uid');
-    final connectedRef = db.ref('.info/connected');
+    // Signaler la présence en ligne via socket
+    // (le backend met à jour is_online = 1 dans MySQL)
+    SocketService.instance.setOnline();
 
-    _connSub = connectedRef.onValue.listen((event) async {
-      final connected = event.snapshot.value == true;
-      if (!connected) return;
-
-      await userStatusRef.onDisconnect().set({
-        'isOnline': false,
-        'lastSeen': ServerValue.timestamp,
-      });
-
-      await userStatusRef.set({
-        'isOnline': true,
-        'lastSeen': ServerValue.timestamp,
-      });
-
-      await fs.collection('users').doc(uid).update({
-        'isOnline': true,
-        'lastSeen': FieldValue.serverTimestamp(),
-      });
-    });
-
-    _statusSub = userStatusRef.onValue.listen((event) async {
-      final data = event.snapshot.value as Map?;
-      if (data == null) return;
-      final lastSeen = data['lastSeen'];
-
-      await fs.collection('users').doc(uid).update({
-        'isOnline': data['isOnline'] == true,
-        'lastSeen': lastSeen is int
-            ? Timestamp.fromMillisecondsSinceEpoch(lastSeen)
-            : FieldValue.serverTimestamp(),
-      });
-    });
+    debugPrint('[PresenceService] Présence démarrée pour $uid');
   }
 
+  // ── Arrêter la présence ──────────────────────────────────────────
   Future<void> stop() async {
-    await _connSub?.cancel();
-    await _statusSub?.cancel();
-    _connSub = null;
-    _statusSub = null;
+    if (!_isRunning) return;
+
+    // Signaler le départ avant de couper
+    SocketService.instance.setOffline();
+
+    // Mettre à jour MySQL via REST (fallback si socket déjà déconnecté)
+    try {
+      final authService = AuthService();
+      await authService.setOnlineStatus(false);
+    } catch (e) {
+      debugPrint('[PresenceService.stop] $e');
+    }
+
+    _currentUid = null;
+    _isRunning  = false;
+    debugPrint('[PresenceService] Présence arrêtée');
   }
+
+  bool get isRunning => _isRunning;
+  String? get currentUid => _currentUid;
 }

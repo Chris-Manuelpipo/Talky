@@ -76,7 +76,6 @@ class CallService {
 
   String? _myUserId;
   String? _remoteUserId;
-  bool _isVideo = false;
   bool _isGroupCall = false;
   String? _groupRoomId;
   String? _lastError;
@@ -114,6 +113,8 @@ class CallService {
   void connect(String userId) {
     _myUserId = userId;
 
+     final alanyaID = int.parse(userId);
+
     if (_socket != null) {
       if (_socket!.connected) return;
       _socket!.dispose();
@@ -133,12 +134,12 @@ class CallService {
 
     _socket!.onConnect((_) {
       debugPrint('[Socket] Connecté ✅');
-      _socket!.emit('register', _myUserId);
+      _socket!.emit('register', {'alanyaID': alanyaID});
     });
 
     _socket!.onReconnect((_) {
       debugPrint('[Socket] Reconnecté ✅');
-      _socket!.emit('register', _myUserId);
+      _socket!.emit('register', {'alanyaID': alanyaID});
     });
 
     _socket!.onReconnectAttempt((attempt) {
@@ -169,7 +170,6 @@ class CallService {
         offer:       Map<String, dynamic>.from(data['offer']),
       );
       _remoteUserId = incoming.callerId;
-      _isVideo      = incoming.isVideo;
       _incomingCtrl.add(incoming);
       _eventCtrl.add(CallEvent.incomingCall);
 
@@ -369,7 +369,6 @@ class CallService {
     required bool isVideo,
   }) async {
     _remoteUserId = targetUserId;
-    _isVideo      = isVideo;
 
     if (_socket == null || !_socket!.connected) {
       _lastError = 'Connexion au serveur en cours. Réessaie dans 5 secondes';
@@ -417,7 +416,6 @@ class CallService {
   }) async {
     _isGroupCall  = true;
     _groupRoomId  = roomId;
-    _isVideo      = isVideo;
     _remoteUserId = null;
 
     if (_socket == null || !_socket!.connected) {
@@ -464,7 +462,6 @@ class CallService {
   }) async {
     _isGroupCall  = true;
     _groupRoomId  = roomId;
-    _isVideo      = isVideo;
     _remoteUserId = null;
 
     if (_socket == null || !_socket!.connected) {

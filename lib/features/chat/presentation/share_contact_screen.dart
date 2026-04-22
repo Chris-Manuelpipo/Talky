@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 
 class ShareContactScreen extends ConsumerStatefulWidget {
@@ -35,7 +36,7 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(authStateProvider).value;
+    final currentUid = ref.watch(currentAlanyaIDStringProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -70,7 +71,7 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: ref
                   .read(chatServiceProvider)
-                  .usersStream(currentUser?.uid ?? ''),
+                  .usersStream(currentUid),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -98,7 +99,7 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
                     final user = filtered[i];
                     return _UserTile(
                       user: user,
-                      onTap: () => _shareToUser(user, currentUser),
+                      onTap: () => _shareToUser(user, currentUid),
                     );
                   },
                 );
@@ -112,17 +113,18 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
 
   Future<void> _shareToUser(
     Map<String, dynamic> otherUser,
-    dynamic currentUser,
+    String currentUid,
   ) async {
-    if (currentUser == null) return;
+    if (currentUid.isEmpty) return;
 
     try {
       final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await _getMyPhotoFromFirestore(currentUser.uid);
+      final me = await ref.read(currentBackendUserProvider.future);
+      final myPhoto = me?.photoUrl;
 
       final convId =
           await ref.read(chatServiceProvider).getOrCreateConversation(
-                currentUserId: currentUser.uid,
+                currentUserId: currentUid,
                 currentUserName: myName,
                 currentUserPhoto: myPhoto,
                 otherUserId: otherUser['id'] as String,
@@ -130,9 +132,10 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
                 otherUserPhoto: otherUser['photoUrl'] as String?,
               );
 
-      final contactProfile = await ref
-          .read(authServiceProvider)
-          .getUserProfile(widget.contactUserId);
+      final contactIdInt = int.tryParse(widget.contactUserId) ?? 0;
+      final contactProfile = contactIdInt > 0
+          ? await ref.read(backendUserProvider(contactIdInt).future)
+          : null;
       final contactPhone = contactProfile?.phone ?? '';
 
       final content = contactPhone.isNotEmpty
@@ -141,7 +144,7 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
 
       await ref.read(chatServiceProvider).sendMessage(
             conversationId: convId,
-            senderId: currentUser.uid,
+            senderId: currentUid,
             senderName: myName,
             content: content,
           );
@@ -164,11 +167,6 @@ class _ShareContactScreenState extends ConsumerState<ShareContactScreen> {
         ),
       );
     }
-  }
-
-  Future<String?> _getMyPhotoFromFirestore(String uid) async {
-    final profile = await ref.read(authServiceProvider).getUserProfile(uid);
-    return profile?.photoUrl;
   }
 }
 
