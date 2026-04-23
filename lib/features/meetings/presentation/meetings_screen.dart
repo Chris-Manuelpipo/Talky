@@ -22,7 +22,7 @@ class MeetingsScreen extends ConsumerStatefulWidget {
 class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
   @override
   Widget build(BuildContext context) {
-    final colors   = context.appThemeColors;
+    final colors = context.appThemeColors;
     final meetings = ref.watch(meetingsListProvider);
 
     return Scaffold(
@@ -30,7 +30,8 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
       appBar: AppBar(
         backgroundColor: colors.surface,
         title: Text('Réunions',
-            style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600)),
+            style: TextStyle(
+                color: colors.textPrimary, fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh_rounded, color: colors.textSecondary),
@@ -47,8 +48,8 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
       body: meetings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Erreur: $e',
-              style: TextStyle(color: colors.textSecondary)),
+          child:
+              Text('Erreur: $e', style: TextStyle(color: colors.textSecondary)),
         ),
         data: (list) {
           if (list.isEmpty) {
@@ -95,7 +96,7 @@ class _MeetingTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors   = context.appThemeColors;
+    final colors = context.appThemeColors;
     final alanyaID = ref.watch(currentAlanyaIDProvider);
     final isOrganiser = alanyaID == meeting.idOrganiser;
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
@@ -138,21 +139,24 @@ class _MeetingTile extends ConsumerWidget {
                   style: TextStyle(color: colors.textSecondary, fontSize: 11)),
               backgroundColor: colors.surface,
             )
-          : ElevatedButton(
-              onPressed: () => _joinMeeting(context, ref),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: context.primaryColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-              ),
-              child: Text(
-                isOrganiser ? 'Démarrer' : 'Rejoindre',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12),
+          : SizedBox(
+              width: 90,
+              child: ElevatedButton(
+                onPressed: () => _joinMeeting(context, ref),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: context.primaryColor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+                child: Text(
+                  isOrganiser ? 'Démarrer' : 'Rejoindre',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12),
+                ),
               ),
             ),
     );
@@ -204,7 +208,7 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appThemeColors;
-    final fmt    = DateFormat('dd/MM/yyyy HH:mm');
+    final fmt = DateFormat('dd/MM/yyyy HH:mm');
 
     return Container(
       decoration: BoxDecoration(
@@ -212,7 +216,9 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Form(
@@ -224,7 +230,8 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: colors.divider,
                     borderRadius: BorderRadius.circular(2),
@@ -260,7 +267,8 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
                 title: Text(fmt.format(_startTime),
                     style: TextStyle(color: colors.textPrimary)),
                 subtitle: Text('Date de début',
-                    style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                    style:
+                        TextStyle(color: colors.textSecondary, fontSize: 12)),
                 onTap: _pickDateTime,
               ),
               const Divider(),
@@ -268,11 +276,13 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
               // Durée
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.timer_outlined, color: context.primaryColor),
+                leading:
+                    Icon(Icons.timer_outlined, color: context.primaryColor),
                 title: Text('$_duree minutes',
                     style: TextStyle(color: colors.textPrimary)),
                 subtitle: Text('Durée estimée',
-                    style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                    style:
+                        TextStyle(color: colors.textSecondary, fontSize: 12)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -311,8 +321,8 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
               // Participants
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.group_add_rounded,
-                    color: context.primaryColor),
+                leading:
+                    Icon(Icons.group_add_rounded, color: context.primaryColor),
                 title: Text('Ajouter des participants',
                     style: TextStyle(color: colors.textPrimary)),
                 subtitle: Text(
@@ -339,11 +349,11 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
                   ),
                   child: _loading
                       ? const SizedBox(
-                          width: 20, height: 20,
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white)))
+                              valueColor: AlwaysStoppedAnimation(Colors.white)))
                       : const Text('Créer la réunion',
                           style: TextStyle(
                               color: Colors.white,
@@ -374,8 +384,8 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
     if (time == null || !mounted) return;
 
     setState(() {
-      _startTime = DateTime(
-          date.year, date.month, date.day, time.hour, time.minute);
+      _startTime =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
   }
 
@@ -399,14 +409,13 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
 
     try {
       // Générer un room ID unique
-      final room =
-          'talky_${DateTime.now().millisecondsSinceEpoch}';
+      final room = 'talky_${DateTime.now().millisecondsSinceEpoch}';
 
       final response = await ApiService.instance.post('/meetings', body: {
         'start_time': _startTime.toIso8601String(),
-        'duree':      _duree,
-        'objet':      _objetCtrl.text.trim(),
-        'room':       room,
+        'duree': _duree,
+        'objet': _objetCtrl.text.trim(),
+        'room': room,
         'type_media': _isVideo ? 1 : 0,
       }) as Map<String, dynamic>;
 
