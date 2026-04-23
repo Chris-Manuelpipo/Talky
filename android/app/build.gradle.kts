@@ -13,6 +13,15 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    signingConfigs{
+        create("sharedDebug"){
+            storeFile = file("${project.projectDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -35,6 +44,10 @@ android {
     }
 
     buildTypes {
+        getByName("debug"){
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
