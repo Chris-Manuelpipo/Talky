@@ -111,6 +111,13 @@ class NotificationService {
       return;
     }
 
+    if (type == 'meeting_invite' || type == 'meeting_reminder') {
+      // Afficher une notification locale pour les réunions
+      debugPrint('[Notification] Meeting ${type} en foreground');
+      showNotificationFromMessage(message, forceLocal: true);
+      return;
+    }
+
     // Message normal en foreground → afficher une notif locale
     showNotificationFromMessage(message, forceLocal: true);
   }
@@ -244,6 +251,16 @@ class NotificationService {
         } else {
           GoRouter.of(context).go(AppRoutes.home);
         }
+        break;
+
+      case 'meeting_invite':
+        // Naviguer vers l'écran des invitations de réunion
+        GoRouter.of(context).push(AppRoutes.meetings);
+        break;
+
+      case 'meeting_reminder':
+        // Naviguer vers l'écran des réunions
+        GoRouter.of(context).push(AppRoutes.meetings);
         break;
 
       default:

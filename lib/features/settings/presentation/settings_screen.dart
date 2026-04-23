@@ -6,7 +6,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../features/auth/data/auth_providers.dart';
-import '../../../features/auth/data/auth_service.dart';
 import '../../../core/providers/settings_providers.dart';
 import 'profile_settings_screen.dart';
 import 'appearance_settings_screen.dart';

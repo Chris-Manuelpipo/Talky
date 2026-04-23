@@ -3,8 +3,6 @@
 // Aligné sur MySQL : conversation + conv_participants
 // Les participantIds/Names/Photos sont reconstruits depuis l'API
 
-import 'message_model.dart';
-
 class ConversationModel {
   final int conversID;                        // PK MySQL
   final String id;                            // String pour compatibilité UI existante

@@ -1,7 +1,6 @@
 // lib/features/status/presentation/widgets/status_ring.dart
 
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_colors_provider.dart';
 
 class StatusRing extends StatelessWidget {

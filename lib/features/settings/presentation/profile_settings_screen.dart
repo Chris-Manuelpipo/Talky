@@ -1,6 +1,5 @@
 // lib/features/settings/presentation/profile_settings_screen.dart
 
-import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +10,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/domain/user_model.dart';
-import '../../auth/data/auth_service.dart';
 import '../../chat/data/media_service.dart';
 
 class ProfileSettingsScreen extends ConsumerStatefulWidget {

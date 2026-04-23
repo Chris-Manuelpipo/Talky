@@ -378,4 +378,71 @@ class ApiService {
 
   Future<void> endCall(int IDcall, {int status = 1}) async =>
       await put('/calls/$IDcall/end', body: {'status': status});
+
+  // ════════════════════════════════════════════════════════════════
+  //  MEETINGS (RÉUNIONS)
+  // ════════════════════════════════════════════════════════════════
+
+  /// Récupère toutes les réunions de l'utilisateur (organisées + participantes)
+  Future<List<dynamic>> getMeetings() async =>
+      await get('/meetings') as List<dynamic>;
+
+  /// Crée une nouvelle réunion
+  Future<Map<String, dynamic>> createMeeting({
+    required DateTime startTime,
+    required String objet,
+    required String room,
+    int duree = 60,
+    int typeMedia = 0,
+  }) async =>
+      await post('/meetings', body: {
+        'start_time': startTime.toIso8601String(),
+        'duree': duree,
+        'objet': objet,
+        'room': room,
+        'type_media': typeMedia,
+      }) as Map<String, dynamic>;
+
+  /// Récupère les détails d'une réunion avec ses participants
+  Future<Map<String, dynamic>> getMeetingById(int meetingId) async =>
+      await get('/meetings/$meetingId') as Map<String, dynamic>;
+
+  /// Modifie une réunion (organisateur uniquement)
+  Future<Map<String, dynamic>> updateMeeting(
+    int meetingId, {
+    DateTime? startTime,
+    String? objet,
+    String? room,
+    int? duree,
+    bool? isEnd,
+  }) async =>
+      await put('/meetings/$meetingId', body: {
+        if (startTime != null) 'start_time': startTime.toIso8601String(),
+        if (objet != null) 'objet': objet,
+        if (room != null) 'room': room,
+        if (duree != null) 'duree': duree,
+        if (isEnd != null) 'isEnd': isEnd ? 1 : 0,
+      }) as Map<String, dynamic>;
+
+  /// Supprime une réunion (organisateur uniquement)
+  Future<void> deleteMeeting(int meetingId) async =>
+      await delete('/meetings/$meetingId');
+
+  /// Demande à rejoindre une réunion (en attente d'acceptation)
+  Future<void> joinMeeting(int meetingId) async =>
+      await post('/meetings/$meetingId/join', body: {});
+
+  /// Invite des participants à une réunion (organisateur uniquement)
+  Future<void> inviteParticipants(int meetingId, List<int> participantIds) async =>
+      await post('/meetings/$meetingId/invite', body: {
+        'participant_ids': participantIds,
+      });
+
+  /// Accepte une demande de rejoindre la réunion (organisateur, waiting room)
+  Future<void> acceptJoinRequest(int meetingId, int userId) async =>
+      await post('/meetings/$meetingId/accept/$userId', body: {});
+
+  /// Refuse une demande de rejoindre la réunion (organisateur, waiting room)
+  Future<void> declineJoinRequest(int meetingId, int userId) async =>
+      await post('/meetings/$meetingId/decline/$userId', body: {});
 }

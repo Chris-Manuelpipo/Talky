@@ -67,7 +67,7 @@ class CallService {
   factory CallService() => _instance;
   CallService._internal();
 
-  io.Socket? _socket;
+  io.Socket? _socket; 
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
@@ -108,7 +108,7 @@ class CallService {
   String?                          get groupRoomId         => _groupRoomId;
   bool                             get isConnected         => _socket?.connected ?? false;
   String?                          get lastError           => _lastError;
-
+  io.Socket? get socket => _socket;
   // ── Connexion au serveur de signaling ─────────────────────────────
   void connect(String userId) {
     _myUserId = userId;

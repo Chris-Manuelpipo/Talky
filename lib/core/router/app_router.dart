@@ -15,6 +15,8 @@ import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_setup_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/calls/presentation/incoming_call_screen.dart';
+import '../../features/meetings/presentation/meetings_screen.dart';
+import '../../features/meetings/presentation/meeting_invitations_screen.dart';
 
 abstract class AppRoutes {
   static const splash       = '/';
@@ -29,6 +31,8 @@ abstract class AppRoutes {
   static const archivedChats = '/archived-chats';
   static const incomingCall = '/incoming-call';
   static const addStatus = '/add-status';
+  static const meetings = '/meetings';
+  static const meetingInvitations = '/meeting-invitations';
 }
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -133,6 +137,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      GoRoute(path: AppRoutes.meetings,
+          builder: (_, __) => const MeetingsScreen()),
+      GoRoute(path: AppRoutes.meetingInvitations,
+          builder: (_, __) => const MeetingInvitationsScreen()),
     ],
     errorBuilder: (_, state) => Scaffold(
       body: Center(child: Text('Route introuvable: ${state.error}')),

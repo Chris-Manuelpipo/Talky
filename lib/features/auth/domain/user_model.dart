@@ -21,6 +21,14 @@ class UserModel {
   final String status;
   final String preferredLanguage;
 
+  // ── Sanitize photo URL (évite le crash NetworkImage "NON DEFINI") ─────
+  static String? _sanitizePhotoUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return null;
+    final cleaned = url.trim();
+    if (!cleaned.startsWith('http')) return null;
+    return cleaned;
+  }
+
   const UserModel({
     this.alanyaID = 0,
     required this.uid,
@@ -44,7 +52,7 @@ class UserModel {
       name:     json['nom']      as String? ?? '',
       pseudo:   json['pseudo']   as String? ?? '',
       phone:    json['alanyaPhone'] as String? ?? '',
-      photoUrl: json['avatar_url']  as String?,
+      photoUrl: _sanitizePhotoUrl(json['avatar_url'] as String?),
       isOnline: (json['is_online']  as int? ?? 0) == 1,
       lastSeen: json['last_seen'] != null
           ? DateTime.tryParse(json['last_seen'] as String)

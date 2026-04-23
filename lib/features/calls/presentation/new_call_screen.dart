@@ -3,13 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/services/phone_contacts_service.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
-import '../../chat/data/chat_service.dart';
-import '../../chat/domain/contact_model.dart';
 import '../data/call_providers.dart';
 import 'calls_screen.dart';
 import 'call_screen.dart';
@@ -818,10 +815,14 @@ class _UserTile extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.call_rounded, color: context.primaryColor),
             onPressed: onCallAudio,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
           ),
           IconButton(
             icon: Icon(Icons.videocam_rounded, color: context.accentColor),
             onPressed: onCallVideo,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(8),
           ),
         ],
       ),

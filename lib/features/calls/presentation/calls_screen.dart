@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
@@ -13,6 +12,7 @@ import '../data/call_providers.dart';
 import '../domain/call_history_model.dart';
 import 'call_screen.dart';
 import 'new_call_screen.dart';
+import '../../meetings/presentation/meetings_screen.dart';
 
 class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key});
@@ -151,6 +151,18 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
                   fontWeight: FontWeight.w700,
                 )),
         actions: [
+          // Bouton réunions
+          IconButton(
+            icon: Icon(Icons.video_call_rounded,
+                color: context.appThemeColors.textSecondary),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MeetingsScreen()),
+              );
+            },
+            tooltip: 'Réunions',
+          ),
           IconButton(
             icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded,
                 color: context.appThemeColors.textSecondary),

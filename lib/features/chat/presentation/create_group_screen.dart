@@ -7,10 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
-import '../data/chat_service.dart';
 
 class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
@@ -334,7 +332,6 @@ class _UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = user['name'] as String? ?? '?';
     final photo = user['photoUrl'] as String?;
     return Container(
       width: 46,

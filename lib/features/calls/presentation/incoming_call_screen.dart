@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/services/ringback_service.dart';
 import '../../auth/data/auth_providers.dart';
@@ -197,7 +196,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                     child: displayPhoto != null
                         ? ClipOval(
                             child:
-                                Image.network(displayPhoto!, fit: BoxFit.cover))
+                                Image.network(displayPhoto, fit: BoxFit.cover))
                         : Center(
                             child: Icon(Icons.person_rounded,
                                 color: Colors.white, size: 52)),

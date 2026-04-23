@@ -2,7 +2,6 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_colors_provider.dart';
 import '../../domain/message_model.dart';
 import 'package:intl/intl.dart';

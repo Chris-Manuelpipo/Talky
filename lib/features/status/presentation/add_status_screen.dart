@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../chat/data/chat_providers.dart';
@@ -23,7 +22,6 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
   final _textCtrl = TextEditingController();
   final _captionCtrl = TextEditingController();
   File? _selectedFile;
-  bool _isVideo = false;
   bool _isLoading = false;
 
   // Couleurs de fond pour les statuts texte
@@ -61,7 +59,6 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
     if (picked != null)
       setState(() {
         _selectedFile = File(picked.path);
-        _isVideo = false;
       });
   }
 
@@ -71,7 +68,6 @@ class _AddStatusScreenState extends ConsumerState<AddStatusScreen>
     if (picked != null)
       setState(() {
         _selectedFile = File(picked.path);
-        _isVideo = true;
       });
   }
 

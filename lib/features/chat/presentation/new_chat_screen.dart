@@ -4,16 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/phone_contacts_service.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
-import '../domain/contact_model.dart';
 
 class NewChatScreen extends ConsumerStatefulWidget {
   const NewChatScreen({super.key});
@@ -794,7 +790,10 @@ class _UserTile extends StatelessWidget {
     final name =
         displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
     final phone = user['phone'] as String? ?? '';
-    final photo = user['photoUrl'] as String?;
+    final _rawPhoto = user['photoUrl'] as String?;
+    final photo = (_rawPhoto != null && _rawPhoto.startsWith('http'))
+        ? _rawPhoto
+        : null;
 
     return ListTile(
       onTap: onTap,

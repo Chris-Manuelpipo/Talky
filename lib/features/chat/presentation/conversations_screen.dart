@@ -14,7 +14,6 @@ import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
 import '../domain/conversation_model.dart';
-import '../domain/message_model.dart';
 import '../domain/contact_model.dart';
 
 class ConversationsScreen extends ConsumerStatefulWidget {

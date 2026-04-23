@@ -81,9 +81,6 @@ class AppTheme {
   static ThemeData dark(Color accentColor) {
     final primary = AppColors.primaryFromAccent(accentColor);
     final accent = AppColors.accentFromPrimary(primary);
-    final primaryLight = AppColors.primaryLightFromAccent(accentColor);
-    final primaryDark = AppColors.primaryDarkFromAccent(accentColor);
-    final overlay = AppColors.overlayFromAccent(accentColor);
 
     return ThemeData(
       useMaterial3: true,
@@ -370,8 +367,6 @@ class AppTheme {
   static ThemeData light(Color accentColor) {
     final primary = AppColors.primaryFromAccent(accentColor);
     final accent = AppColors.accentFromPrimary(primary);
-    final primaryLight = AppColors.primaryLightFromAccent(accentColor);
-    final primaryDark = AppColors.primaryDarkFromAccent(accentColor);
 
     return ThemeData(
       useMaterial3: true,

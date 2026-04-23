@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/theme/app_colors_provider.dart';
 import '../../domain/message_model.dart';
 import 'package:intl/intl.dart';

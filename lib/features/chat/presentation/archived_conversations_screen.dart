@@ -366,7 +366,6 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appThemeColors;
     if (photoUrl != null && photoUrl!.isNotEmpty) {
       return ClipOval(
         child: CachedNetworkImage(
