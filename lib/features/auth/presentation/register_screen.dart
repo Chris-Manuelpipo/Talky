@@ -2,20 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/widgets/talky_text_field.dart';
 import '../../../core/widgets/talky_button.dart';
+import '../data/auth_providers.dart';
+import '../domain/user_model.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -35,11 +39,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    // TODO Phase 2 : implémenter Firebase Auth
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.go(AppRoutes.home);
+    try {
+      final result = await ApiService.instance.register(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        nom: _nameController.text.trim(),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final userData = result['user'] as Map<String, dynamic>?;
+        final token = result['token'] as String?;
+        if (userData != null && token != null) {
+          final user = UserModel.fromJson({
+            ...userData,
+            'uid': userData['alanyaID']?.toString() ?? '',
+          });
+          ref.read(authCustomProvider.notifier).setUser(user, token);
+        }
+        context.go(AppRoutes.home);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -52,8 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          //onPressed: () => context.go(AppRoutes.login),
-          onPressed: () => null,
+          onPressed: () => context.go(AppRoutes.login),
         ),
       ),
       body: SafeArea(
@@ -140,7 +164,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextStyle(color: colors.textSecondary, fontSize: 14),
                     ),
                     GestureDetector(
-                      //onTap: () => context.go(AppRoutes.login),
+                      onTap: () => context.go(AppRoutes.login),
                       child: Text(
                         'Se connecter',
                         style: TextStyle(

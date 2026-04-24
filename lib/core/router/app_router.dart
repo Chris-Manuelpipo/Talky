@@ -4,30 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/data/auth_providers.dart';
-import '../../features/auth/presentation/phone_screen.dart';
-import '../../features/auth/presentation/otp_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/chat/presentation/create_group_screen.dart';
 import '../../features/chat/presentation/new_chat_screen.dart';
 import '../../features/chat/presentation/archived_conversations_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
-import '../../features/profile/presentation/profile_setup_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/calls/presentation/incoming_call_screen.dart';
 import '../../features/meetings/presentation/meetings_screen.dart';
 import '../../features/meetings/presentation/meeting_invitations_screen.dart';
 
 abstract class AppRoutes {
-  static const splash       = '/';
-  static const onboarding   = '/onboarding';
-  static const phone        = '/phone';
-  static const otp          = '/otp';
-  static const profileSetup = '/profile-setup';
-  static const home         = '/home';
-  static const newChat      = '/new-chat';
-  static const createGroup  = '/create-group';
-  static const chat         = '/chat/:conversationId';
+  static const splash = '/';
+  static const onboarding = '/onboarding';
+  static const login = '/login';
+  static const register = '/register';
+  static const home = '/home';
+  static const newChat = '/new-chat';
+  static const createGroup = '/create-group';
+  static const chat = '/chat/:conversationId';
   static const archivedChats = '/archived-chats';
   static const incomingCall = '/incoming-call';
   static const addStatus = '/add-status';
@@ -37,18 +35,15 @@ abstract class AppRoutes {
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-// ── Provider profil complet ────────────────────────────────────────────
-// Vérifie dans Firestore si le profil de l'utilisateur est complet
+// ── Provider profil complet (custom auth) ───────────────────────────────
 final profileCompleteProvider = FutureProvider<bool>((ref) async {
-  final authState = ref.watch(authStateProvider);
-  final user = authState.value;
-  if (user == null) return false;
-  return ref.read(authServiceProvider).isProfileComplete(user.uid);
+  final authCustom = ref.watch(authCustomProvider);
+  return authCustom.isLoggedIn;
 });
 
 // ── Router ─────────────────────────────────────────────────────────────
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState       = ref.watch(authStateProvider);
+  final authCustom = ref.watch(authCustomProvider);
   final profileComplete = ref.watch(profileCompleteProvider);
 
   return GoRouter(
@@ -56,61 +51,48 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     refreshListenable: _RouterNotifier(ref),
     redirect: (context, state) {
-      final isLoading  = authState.isLoading || profileComplete.isLoading;
-      final isLoggedIn = authState.value != null;
-      final hasProfile = profileComplete.value ?? false;
-      final loc        = state.matchedLocation;
+      final isLoading = profileComplete.isLoading;
+      final isLoggedIn = authCustom.isLoggedIn;
+      final loc = state.matchedLocation;
 
       // Routes publiques (pas de redirection)
-      final isAuthRoute = [
+      final isPublicRoute = [
         AppRoutes.splash,
         AppRoutes.onboarding,
-        AppRoutes.phone,
-        AppRoutes.otp,
+        AppRoutes.login,
+        AppRoutes.register,
       ].contains(loc);
 
       if (isLoading) return null;
 
-      // Non connecté → auth
-      if (!isLoggedIn && !isAuthRoute && loc != AppRoutes.profileSetup) {
-        return AppRoutes.phone;
+      // Non connecté → login
+      if (!isLoggedIn && !isPublicRoute) {
+        return AppRoutes.login;
       }
 
-      // Connecté mais profil incomplet → profile setup
-      if (isLoggedIn && !hasProfile && loc != AppRoutes.profileSetup) {
-        return AppRoutes.profileSetup;
-      }
-
-      // Connecté + profil complet sur une page auth → home
-      if (isLoggedIn && hasProfile && (isAuthRoute || loc == AppRoutes.profileSetup)) {
+      // Connecté sur page publique → home
+      if (isLoggedIn && isPublicRoute) {
         return AppRoutes.home;
       }
 
       return null;
     },
     routes: [
-      GoRoute(path: AppRoutes.splash,
-          builder: (_, __) => const SplashScreen()),
-      GoRoute(path: AppRoutes.onboarding,
-          builder: (_, __) => const OnboardingScreen()),
-      GoRoute(path: AppRoutes.phone,
-          builder: (_, __) => const PhoneScreen()),
+      GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(
-        path: AppRoutes.otp,
-        builder: (_, state) {
-          final extra = state.extra as Map<String, dynamic>? ?? {};
-          return OtpScreen(phoneNumber: extra['phoneNumber'] ?? '');
-        },
-      ),
-      GoRoute(path: AppRoutes.profileSetup,
-          builder: (_, __) => const ProfileSetupScreen()),
-      GoRoute(path: AppRoutes.home,
-          builder: (_, __) => const HomeScreen()),
-      GoRoute(path: AppRoutes.newChat,
-          builder: (_, __) => const NewChatScreen()),
-      GoRoute(path: AppRoutes.createGroup,
+          path: AppRoutes.onboarding,
+          builder: (_, __) => const OnboardingScreen()),
+      GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
+      GoRoute(
+          path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
+      GoRoute(
+          path: AppRoutes.newChat, builder: (_, __) => const NewChatScreen()),
+      GoRoute(
+          path: AppRoutes.createGroup,
           builder: (_, __) => const CreateGroupScreen()),
-      GoRoute(path: AppRoutes.archivedChats,
+      GoRoute(
+          path: AppRoutes.archivedChats,
           builder: (_, __) => const ArchivedConversationsScreen()),
       GoRoute(
         path: AppRoutes.chat,
@@ -119,8 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           return ChatScreen(
             conversationId: conversationId,
-            contactName:    extra['name'] ?? 'Discussion',
-            contactPhoto:   extra['photo'],
+            contactName: extra['name'] ?? 'Discussion',
+            contactPhoto: extra['photo'],
           );
         },
       ),
@@ -137,9 +119,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(path: AppRoutes.meetings,
-          builder: (_, __) => const MeetingsScreen()),
-      GoRoute(path: AppRoutes.meetingInvitations,
+      GoRoute(
+          path: AppRoutes.meetings, builder: (_, __) => const MeetingsScreen()),
+      GoRoute(
+          path: AppRoutes.meetingInvitations,
           builder: (_, __) => const MeetingInvitationsScreen()),
     ],
     errorBuilder: (_, state) => Scaffold(
@@ -151,7 +134,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 // ── Notifier pour rafraîchir le router quand auth change ───────────────
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(Ref ref) {
-    ref.listen(authStateProvider, (_, __) => notifyListeners());
+    ref.listen(authCustomProvider, (_, __) => notifyListeners());
     ref.listen(profileCompleteProvider, (_, __) => notifyListeners());
   }
 }

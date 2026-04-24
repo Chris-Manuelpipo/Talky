@@ -2,20 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../../core/widgets/talky_text_field.dart';
 import '../../../core/widgets/talky_button.dart';
+import '../data/auth_providers.dart';
+import '../domain/user_model.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -33,11 +37,31 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    // TODO Phase 2 : implémenter Firebase Auth
-    await Future.delayed(const Duration(seconds: 1)); // Simulé
-    if (mounted) {
-      setState(() => _isLoading = false);
-      context.go(AppRoutes.home);
+    try {
+      final result = await ApiService.instance.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final userData = result['user'] as Map<String, dynamic>?;
+        final token = result['token'] as String?;
+        if (userData != null && token != null) {
+          final user = UserModel.fromJson({
+            ...userData,
+            'uid': userData['alanyaID']?.toString() ?? '',
+          });
+          ref.read(authCustomProvider.notifier).setUser(user, token);
+        }
+        context.go(AppRoutes.home);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -181,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextStyle(color: colors.textSecondary, fontSize: 14),
                     ),
                     GestureDetector(
-                      //onTap: () => context.go(AppRoutes.register),
+                      onTap: () => context.go(AppRoutes.register),
                       child: Text(
                         'S\'inscrire',
                         style: TextStyle(

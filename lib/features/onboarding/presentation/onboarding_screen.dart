@@ -29,7 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _pageController.nextPage(
           duration: AppConstants.animNormal, curve: Curves.easeInOutCubic);
     } else {
-      context.go(AppRoutes.phone);
+      context.go(AppRoutes.login);
     }
   }
 

@@ -8,9 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors_provider.dart';
-import '../../chat/data/chat_providers.dart';
-import 'dart:async';
 import '../../auth/data/auth_providers.dart';
+import 'dart:async';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -30,28 +29,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await Future.delayed(AppConstants.splashDuration);
     if (!mounted) return;
 
-    final authState = ref.read(authStateProvider);
-    authState.when(
-      data: (user) async {
-        if (user == null) {
-          context.go(AppRoutes.onboarding);
-        } else {
-          final isComplete =
-              await ref.read(authServiceProvider).isProfileComplete(user.uid);
-          if (mounted) {
-            context.go(isComplete ? AppRoutes.home : AppRoutes.profileSetup);
-          }
-          if (isComplete) {
-            await ref.read(authServiceProvider).saveFcmToken(user.uid);
-            // Précharger les contacts en arrière-plan dès le splash
-            unawaited(
-                ref.read(phoneContactsServiceProvider).warmUpIfPermitted());
-          }
-        }
-      },
-      loading: () => context.go(AppRoutes.onboarding),
-      error: (_, __) => context.go(AppRoutes.onboarding),
-    );
+    final authCustom = ref.read(authCustomProvider);
+    if (authCustom.isLoggedIn) {
+      context.go(AppRoutes.home);
+    } else {
+      context.go(AppRoutes.onboarding);
+    }
   }
 
   @override

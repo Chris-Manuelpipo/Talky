@@ -68,12 +68,85 @@ class ApiService {
     );
   }
 
+  // ════════════════════════════════════════════════════════════════
+  //  AUTH CUSTOM (email + password, sans Firebase)
+  // ════════════════════════════════════════════════════════════════
+
+  String? _customToken;
+
+  void setCustomToken(String? token) {
+    _customToken = token;
+  }
+
   Future<Map<String, String>> _headers() async {
-    final token = await _getToken();
+    final customToken = _customToken;
+    final firebaseToken = await _getToken();
     return {
       'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
+      if (customToken != null) 'Authorization': 'Bearer $customToken',
+      if (firebaseToken != null && customToken == null)
+        'Authorization': 'Bearer $firebaseToken',
     };
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String email,
+    required String password,
+    String? nom,
+    String? pseudo,
+    int? idPays,
+    String? fcmToken,
+    String? deviceID,
+  }) async {
+    final result = await post('/auth-custom/register',
+        body: {
+          'email': email,
+          'password': password,
+          if (nom != null) 'nom': nom,
+          if (pseudo != null) 'pseudo': pseudo,
+          if (idPays != null) 'idPays': idPays,
+          if (fcmToken != null) 'fcm_token': fcmToken,
+          if (deviceID != null) 'device_ID': deviceID,
+        },
+        skipAuth: true) as Map<String, dynamic>;
+
+    if (result['token'] != null) {
+      _customToken = result['token'] as String;
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> login({
+    required String email,
+    required String password,
+  }) async {
+    final result = await post('/auth-custom/login',
+        body: {
+          'email': email,
+          'password': password,
+        },
+        skipAuth: true) as Map<String, dynamic>;
+
+    if (result['token'] != null) {
+      _customToken = result['token'] as String;
+    }
+    return result;
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    await post('/auth-custom/reset-password',
+        body: {
+          'email': email,
+          'newPassword': newPassword,
+        },
+        skipAuth: true);
+  }
+
+  void logout() {
+    _customToken = null;
   }
 
   dynamic _parse(http.Response response) {

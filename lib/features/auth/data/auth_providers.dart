@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/services/api_service.dart';
 import 'auth_service.dart';
 import 'backend_user_providers.dart';
 import '../domain/user_model.dart';
@@ -9,7 +10,50 @@ import '../domain/user_model.dart';
 // ── Service Auth ───────────────────────────────────────────────────────
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-// ── Stream : état de connexion Firebase ───────────────────────────────
+// ── State connexion custom (email + password) ────────────────────────
+class AuthCustomState {
+  final bool isLoggedIn;
+  final UserModel? user;
+  final String? token;
+
+  const AuthCustomState({
+    this.isLoggedIn = false,
+    this.user,
+    this.token,
+  });
+
+  AuthCustomState copyWith({
+    bool? isLoggedIn,
+    UserModel? user,
+    String? token,
+  }) {
+    return AuthCustomState(
+      isLoggedIn: isLoggedIn ?? this.isLoggedIn,
+      user: user ?? this.user,
+      token: token ?? this.token,
+    );
+  }
+}
+
+class AuthCustomNotifier extends StateNotifier<AuthCustomState> {
+  AuthCustomNotifier() : super(const AuthCustomState());
+
+  void setUser(UserModel user, String token) {
+    state = AuthCustomState(isLoggedIn: true, user: user, token: token);
+  }
+
+  void logout() {
+    ApiService.instance.logout();
+    state = const AuthCustomState();
+  }
+}
+
+final authCustomProvider =
+    StateNotifierProvider<AuthCustomNotifier, AuthCustomState>((ref) {
+  return AuthCustomNotifier();
+});
+
+// ── Stream : état de connexion Firebase (conservé pour OTP/Google optionnel) ──
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authServiceProvider).authStateChanges;
 });
@@ -119,11 +163,11 @@ class OtpState {
     String? error,
   }) {
     return OtpState(
-      isLoading:      isLoading      ?? this.isLoading,
-      codeSent:       codeSent       ?? this.codeSent,
-      isVerified:     isVerified     ?? this.isVerified,
+      isLoading: isLoading ?? this.isLoading,
+      codeSent: codeSent ?? this.codeSent,
+      isVerified: isVerified ?? this.isVerified,
       verificationId: verificationId ?? this.verificationId,
-      error:          error,
+      error: error,
     );
   }
 }
