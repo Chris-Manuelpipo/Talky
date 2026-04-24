@@ -47,7 +47,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: TextButton(
-                  onPressed: () => context.go(AppRoutes.phone),
+                  onPressed: () => context.go(AppRoutes.login),
                   child: Text('Passer',
                       style:
                           TextStyle(color: colors.textSecondary, fontSize: 14)),
@@ -106,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: TextStyle(
                               color: colors.textSecondary, fontSize: 14)),
                       GestureDetector(
-                        onTap: () => context.go(AppRoutes.phone),
+                        onTap: () => context.go(AppRoutes.login),
                         child: Text('Se connecter',
                             style: TextStyle(
                                 color: colors.primary,
