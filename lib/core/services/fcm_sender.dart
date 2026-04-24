@@ -3,26 +3,10 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-/// Envoie des notifications push via le backend Node (FCM), pas l’ancien serveur signaling seul.
-///
-/// L’URL est dérivée de [API_BASE_URL] (`…/api` → `…/notify`), comme le reste du client.
-/// Surcharge : `--dart-define=NOTIFY_BASE_URL=https://hôte/notify` (URL complète du POST).
+import '../config.dart';
+
 class FcmSender {
-  static String get _notifyEndpoint {
-    const explicit = String.fromEnvironment('NOTIFY_BASE_URL');
-    if (explicit.isNotEmpty) return explicit;
-    const apiBase = String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'https://talky-signaling.onrender.com/api',
-    );
-    final uri = Uri.parse(apiBase);
-    return Uri(
-      scheme: uri.scheme,
-      host: uri.host,
-      port: uri.hasPort ? uri.port : null,
-      path: '/notify',
-    ).toString();
-  }
+  static String get _notifyEndpoint => AppConfig.notifyUrl;
 
   static Future<void> _post(Map<String, dynamic> body) async {
     try {

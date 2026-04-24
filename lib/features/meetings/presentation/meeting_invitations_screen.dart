@@ -28,25 +28,26 @@ class _MeetingInvitationsScreenState
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: colors.surface,
-        title: Text(
-          'Invitations de réunion',
-          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600),
+        backgroundColor: colors.background,
+        title: const Text(
+          'Invitations',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
         ),
+        centerTitle: false,
       ),
       body: meetingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Erreur: $e',
-              style: TextStyle(color: colors.textSecondary)),
+          child:
+              Text('Erreur: $e', style: TextStyle(color: colors.textSecondary)),
         ),
         data: (meetings) {
           // Filtrer les invitations en attente (status = 0, pas organisateur)
           final pendingInvitations = meetings
               .where((m) =>
                   m.idOrganiser != alanyaID &&
-                  m.participants.any((p) =>
-                      p.alanyaID == alanyaID && p.status == 0))
+                  m.participants
+                      .any((p) => p.alanyaID == alanyaID && p.status == 0))
               .toList();
 
           if (pendingInvitations.isEmpty) {
@@ -151,7 +152,8 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 14, color: colors.textSecondary),
+              Icon(Icons.schedule_rounded,
+                  size: 14, color: colors.textSecondary),
               const SizedBox(width: 4),
               Text(
                 fmt.format(widget.meeting.startTime),
@@ -173,7 +175,8 @@ class _InvitationTileState extends ConsumerState<_InvitationTile> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _loading ? null : () => _declineInvitation(context),
+                  onPressed:
+                      _loading ? null : () => _declineInvitation(context),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.red.withOpacity(.5)),
                   ),

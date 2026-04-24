@@ -15,12 +15,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-/// URL du serveur Socket.IO — par défaut la production.
-/// Surcharger via `--dart-define=SOCKET_URL=https://api.exemple.com` au build.
-const String _kDefaultSocketUrl = String.fromEnvironment(
-  'SOCKET_URL',
-  defaultValue: 'https://talky-signaling.onrender.com',
-);
+import '../config.dart';
 
 /// Evénement socket générique représentant un message entrant.
 class SocketMessageEvent {
@@ -100,7 +95,7 @@ class SocketService {
     final token = await _getFirebaseToken();
 
     _socket = io.io(
-      _kDefaultSocketUrl,
+      AppConfig.socketUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()

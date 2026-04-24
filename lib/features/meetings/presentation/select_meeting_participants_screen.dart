@@ -47,15 +47,16 @@ class _SelectMeetingParticipantsScreenState
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
         leading: IconButton(
           icon: Icon(Icons.close_rounded, color: colors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Ajouter des participants',
-          style: TextStyle(color: colors.textPrimary),
+        title: const Text(
+          'Participants',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
         ),
+        centerTitle: false,
         actions: [
           TextButton(
             onPressed: _selectedIds.isEmpty
@@ -78,7 +79,7 @@ class _SelectMeetingParticipantsScreenState
           // ── Barre de recherche ────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            color: colors.surface,
+            color: colors.background,
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _query = v.toLowerCase()),
@@ -109,8 +110,7 @@ class _SelectMeetingParticipantsScreenState
           // ── Liste des contacts ──────────────────────────────────
           Expanded(
             child: conversationsAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Text('Erreur: $e',
                     style: TextStyle(color: colors.textSecondary)),
@@ -125,18 +125,19 @@ class _SelectMeetingParticipantsScreenState
                     final idStr = conv.participantIds[i];
                     final id = int.tryParse(idStr) ?? 0;
                     if (id != myId && id != 0) {
-                      final name = conv.participantNames[idStr] ?? 'Utilisateur';
+                      final name =
+                          conv.participantNames[idStr] ?? 'Utilisateur';
                       var photo = conv.participantPhotos[idStr];
-                      
+
                       // Nettoyer la photo : remplacer "NON DEFINI" par null
-                      if (photo != null && 
-                          (photo.isEmpty || 
-                           photo.toLowerCase() == 'non defini' ||
-                           photo.toLowerCase().contains('non%20defini') ||
-                           photo.toLowerCase().contains('undefined'))) {
+                      if (photo != null &&
+                          (photo.isEmpty ||
+                              photo.toLowerCase() == 'non defini' ||
+                              photo.toLowerCase().contains('non%20defini') ||
+                              photo.toLowerCase().contains('undefined'))) {
                         photo = null;
                       }
-                      
+
                       contactsMap[id] = (name, photo);
                     }
                   }
@@ -158,11 +159,9 @@ class _SelectMeetingParticipantsScreenState
                             size: 48, color: colors.textHint),
                         const SizedBox(height: 16),
                         Text(
-                          _query.isEmpty
-                              ? 'Aucun contact'
-                              : 'Aucun résultat',
-                          style:
-                              TextStyle(color: colors.textSecondary, fontSize: 16),
+                          _query.isEmpty ? 'Aucun contact' : 'Aucun résultat',
+                          style: TextStyle(
+                              color: colors.textSecondary, fontSize: 16),
                         ),
                       ],
                     ),
@@ -184,9 +183,8 @@ class _SelectMeetingParticipantsScreenState
                           horizontal: 16, vertical: 8),
                       leading: CircleAvatar(
                         backgroundColor: context.primaryColor,
-                        backgroundImage: photo != null 
-                            ? NetworkImage(photo)
-                            : null,
+                        backgroundImage:
+                            photo != null ? NetworkImage(photo) : null,
                         child: photo == null
                             ? const Icon(Icons.person_rounded,
                                 color: Colors.white)

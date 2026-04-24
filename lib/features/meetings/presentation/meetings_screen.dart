@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:talky/core/services/api_service.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../data/meeting_providers.dart';
 import '../domain/meeting_model.dart';
 import 'meeting_room_screen.dart';
-
 import 'select_meeting_participants_screen.dart';
+
+class CreateMeetingSheet extends _CreateMeetingSheet {
+  const CreateMeetingSheet();
+}
 
 class MeetingsScreen extends ConsumerStatefulWidget {
   const MeetingsScreen({super.key});
@@ -28,10 +32,10 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: colors.surface,
-        title: Text('Réunions',
-            style: TextStyle(
-                color: colors.textPrimary, fontWeight: FontWeight.w600)),
+        backgroundColor: colors.background,
+        title: const Text('Réunions',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22)),
+        centerTitle: false,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh_rounded, color: colors.textSecondary),
@@ -66,11 +70,9 @@ class _MeetingsScreenState extends ConsumerState<MeetingsScreen> {
               ),
             );
           }
-          return ListView.separated(
+          return ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: list.length,
-            separatorBuilder: (_, __) =>
-                Divider(height: 1, color: colors.divider),
             itemBuilder: (_, i) => _MeetingTile(meeting: list[i]),
           );
         },
@@ -99,15 +101,42 @@ class _MeetingTile extends ConsumerWidget {
     final colors = context.appThemeColors;
     final alanyaID = ref.watch(currentAlanyaIDProvider);
     final isOrganiser = alanyaID == meeting.idOrganiser;
-    final fmt = DateFormat('dd/MM/yyyy HH:mm');
+
+    final now = DateTime.now();
+    final diff = meeting.startTime.difference(now);
+    final isImminent = diff.inMinutes <= 15 && diff.inMinutes > -meeting.duree;
+    final isPast = meeting.startTime.isBefore(now);
+
+    String timeLabel;
+    if (isPast) {
+      timeLabel = 'Passée';
+    } else if (diff.inMinutes < 60) {
+      timeLabel = 'Dans ${diff.inMinutes} min';
+    } else if (diff.inHours < 24) {
+      timeLabel = 'Dans ${diff.inHours}h';
+    } else {
+      timeLabel = DateFormat('dd/MM HH:mm').format(meeting.startTime);
+    }
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        backgroundColor: context.primaryColor.withOpacity(.15),
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isImminent
+              ? context.primaryColor.withOpacity(.2)
+              : context.primaryColor.withOpacity(.1),
+          borderRadius: BorderRadius.circular(12),
+          border: isImminent
+              ? Border.all(color: context.primaryColor, width: 2)
+              : null,
+        ),
         child: Icon(
           meeting.isVideo ? Icons.videocam_rounded : Icons.mic_rounded,
-          color: context.primaryColor,
+          color: isImminent
+              ? context.primaryColor
+              : context.primaryColor.withOpacity(.7),
         ),
       ),
       title: Text(
@@ -122,20 +151,34 @@ class _MeetingTile extends ConsumerWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 2),
-          Text(
-            fmt.format(meeting.startTime),
-            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: isImminent
+                  ? context.primaryColor.withOpacity(.15)
+                  : colors.surface,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              timeLabel,
+              style: TextStyle(
+                color: isImminent ? context.primaryColor : colors.textSecondary,
+                fontSize: 12,
+                fontWeight: isImminent ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
           ),
+          const SizedBox(height: 4),
           Text(
             '${meeting.organiserDisplay} · ${meeting.duree} min',
-            style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            style: TextStyle(color: colors.textSecondary, fontSize: 11),
           ),
         ],
       ),
       trailing: meeting.isEnd
           ? Chip(
-              label: Text('Terminé',
+              label: Text('Terminée',
                   style: TextStyle(color: colors.textSecondary, fontSize: 11)),
               backgroundColor: colors.surface,
             )
@@ -212,7 +255,7 @@ class _CreateMeetingSheetState extends ConsumerState<_CreateMeetingSheet> {
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(

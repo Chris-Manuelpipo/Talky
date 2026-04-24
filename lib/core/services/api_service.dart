@@ -8,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../config.dart';
+
 class ApiException implements Exception {
   final int statusCode;
   final String message;
@@ -22,17 +24,8 @@ class ApiService {
   ApiService._();
   static final ApiService instance = ApiService._();
 
-  // ── Base URL — modifier pour la production ───────────────────────
-  static const String _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue:
-        'https://talky-signaling.onrender.com/api', // Android emulator → localhost
-  );
-
-  // Timeout par défaut
   static const Duration _timeout = Duration(seconds: 15);
 
-  // ── Token Firebase (rafraîchi automatiquement) ───────────────────
   Future<String?> _getToken() async {
     try {
       return await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -42,7 +35,6 @@ class ApiService {
     }
   }
 
-  /// Décode le payload JWT (sans vérifier la signature).
   static Map<String, dynamic>? _decodeJwtPayload(String token) {
     try {
       final parts = token.split('.');
@@ -62,9 +54,6 @@ class ApiService {
     return p['phone_number'] != null || p['talky_phone'] != null;
   }
 
-  /// Après `/auth/register`, le backend pose `talky_phone` sur Firebase.
-  /// Le SDK peut renvoyer un ancien JWT une courte durée : on force le refresh
-  /// jusqu'à ce que le claim soit visible (sinon `/auth/me` renvoie 401).
   Future<void> _refreshTokenUntilPhoneClaim() async {
     for (var i = 0; i < 15; i++) {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
@@ -79,7 +68,6 @@ class ApiService {
     );
   }
 
-  // ── Headers communs ──────────────────────────────────────────────
   Future<Map<String, String>> _headers() async {
     final token = await _getToken();
     return {
@@ -88,7 +76,6 @@ class ApiService {
     };
   }
 
-  // ── Traitement de la réponse ─────────────────────────────────────
   dynamic _parse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
@@ -102,20 +89,19 @@ class ApiService {
     throw ApiException(response.statusCode, message);
   }
 
-  // ── GET ──────────────────────────────────────────────────────────
   Future<dynamic> get(
     String path, {
     Map<String, String>? query,
     bool skipAuth = false,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: query);
+    final uri =
+        Uri.parse('${AppConfig.apiUrl}$path').replace(queryParameters: query);
     final headers =
         skipAuth ? {'Content-Type': 'application/json'} : await _headers();
     final response = await http.get(uri, headers: headers).timeout(_timeout);
     return _parse(response);
   }
 
-  // ── POST ─────────────────────────────────────────────────────────
   Future<dynamic> post(
     String path, {
     Map<String, dynamic>? body,
@@ -125,7 +111,7 @@ class ApiService {
         skipAuth ? {'Content-Type': 'application/json'} : await _headers();
     final response = await http
         .post(
-          Uri.parse('$_baseUrl$path'),
+          Uri.parse('${AppConfig.apiUrl}$path'),
           headers: headers,
           body: body != null ? jsonEncode(body) : null,
         )
@@ -133,11 +119,10 @@ class ApiService {
     return _parse(response);
   }
 
-  // ── PUT ──────────────────────────────────────────────────────────
   Future<dynamic> put(String path, {Map<String, dynamic>? body}) async {
     final response = await http
         .put(
-          Uri.parse('$_baseUrl$path'),
+          Uri.parse('${AppConfig.apiUrl}$path'),
           headers: await _headers(),
           body: body != null ? jsonEncode(body) : null,
         )
@@ -145,9 +130,9 @@ class ApiService {
     return _parse(response);
   }
 
-  // ── DELETE ───────────────────────────────────────────────────────
   Future<dynamic> delete(String path, {Map<String, String>? query}) async {
-    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: query);
+    final uri =
+        Uri.parse('${AppConfig.apiUrl}$path').replace(queryParameters: query);
     final response =
         await http.delete(uri, headers: await _headers()).timeout(_timeout);
     return _parse(response);
@@ -157,24 +142,12 @@ class ApiService {
   //  AUTH
   // ════════════════════════════════════════════════════════════════
 
-  /// Récupère le profil de l'utilisateur connecté
   Future<Map<String, dynamic>> getMe() async =>
       await get('/auth/me') as Map<String, dynamic>;
 
-  /// Met à jour le profil (nom, pseudo, avatar_url, fcm_token, device_ID)
   Future<Map<String, dynamic>> updateMe(Map<String, dynamic> data) async =>
       await put('/auth/me', body: data) as Map<String, dynamic>;
 
-  /// Enregistre le user en MySQL (idempotent).
-  /// - Si le token Firebase contient un `phone_number` (OTP téléphone),
-  ///   on peut omettre [phone] : le backend utilise le numéro du token.
-  /// - Si la connexion s'est faite via Google (pas de phone dans le token),
-  ///   il faut fournir [phone] saisi par l'utilisateur.
-  ///
-  /// Après succès, force le refresh du token Firebase pour récupérer le
-  /// custom claim `talky_phone` posé par le backend — indispensable pour
-  /// que les appels protégés suivants (getMe, conversations, etc.) soient
-  /// reconnus par le middleware auth.
   Future<Map<String, dynamic>> registerUser({
     required String nom,
     String? phone,
@@ -203,15 +176,13 @@ class ApiService {
     return result;
   }
 
-  /// Vérifie si un numéro est déjà utilisé (public — pas de token requis).
-  /// Retourne { exists: bool, alanyaID: int? }.
   Future<Map<String, dynamic>> phoneExists(String phone) async =>
       await get('/auth/phone-exists/$phone', skipAuth: true)
           as Map<String, dynamic>;
 
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════
   //  PAYS (référentiel)
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════
 
   Future<List<dynamic>> getPays() async =>
       await get('/pays', skipAuth: true) as List<dynamic>;
@@ -226,7 +197,7 @@ class ApiService {
 
   // ════════════════════════════════════════════════════════════════
   //  USERS
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> getUserById(int alanyaID) async =>
       await get('/users/$alanyaID') as Map<String, dynamic>;
@@ -243,7 +214,7 @@ class ApiService {
   Future<void> unblockUser(int alanyaID) async =>
       await delete('/users/$alanyaID/block');
 
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   //  CONVERSATIONS
   // ════════════════════════════════════════════════════════════════
 
@@ -253,13 +224,11 @@ class ApiService {
   Future<Map<String, dynamic>> getConversationById(int conversID) async =>
       await get('/conversations/$conversID') as Map<String, dynamic>;
 
-  /// Crée ou retourne une conversation 1-à-1
   Future<Map<String, dynamic>> getOrCreateConversation(
           int participantID) async =>
       await post('/conversations', body: {'participantID': participantID})
           as Map<String, dynamic>;
 
-  /// Crée un groupe
   Future<Map<String, dynamic>> createGroup({
     required List<int> participantIDs,
     required String groupName,
@@ -292,7 +261,7 @@ class ApiService {
   Future<List<dynamic>> getMessages(
     int conversID, {
     int limit = 50,
-    int? before, // msgID pour pagination
+    int? before,
   }) async =>
       await get(
         '/conversations/$conversID/messages',
@@ -328,13 +297,12 @@ class ApiService {
       await put('/messages/$msgID', body: {'content': content})
           as Map<String, dynamic>;
 
-  /// [all] true = supprimer pour tout le monde, false = pour moi uniquement
   Future<void> deleteMessage(int msgID, {bool all = false}) async =>
       await delete('/messages/$msgID', query: {'all': all.toString()});
 
   // ════════════════════════════════════════════════════════════════
   //  STATUTS
-  // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   Future<List<dynamic>> getStatuses() async =>
       await get('/status') as List<dynamic>;
@@ -379,15 +347,13 @@ class ApiService {
   Future<void> endCall(int IDcall, {int status = 1}) async =>
       await put('/calls/$IDcall/end', body: {'status': status});
 
-  // ════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════���═════════════════════
   //  MEETINGS (RÉUNIONS)
   // ════════════════════════════════════════════════════════════════
 
-  /// Récupère toutes les réunions de l'utilisateur (organisées + participantes)
   Future<List<dynamic>> getMeetings() async =>
       await get('/meetings') as List<dynamic>;
 
-  /// Crée une nouvelle réunion
   Future<Map<String, dynamic>> createMeeting({
     required DateTime startTime,
     required String objet,
@@ -403,11 +369,9 @@ class ApiService {
         'type_media': typeMedia,
       }) as Map<String, dynamic>;
 
-  /// Récupère les détails d'une réunion avec ses participants
   Future<Map<String, dynamic>> getMeetingById(int meetingId) async =>
       await get('/meetings/$meetingId') as Map<String, dynamic>;
 
-  /// Modifie une réunion (organisateur uniquement)
   Future<Map<String, dynamic>> updateMeeting(
     int meetingId, {
     DateTime? startTime,
@@ -424,25 +388,21 @@ class ApiService {
         if (isEnd != null) 'isEnd': isEnd ? 1 : 0,
       }) as Map<String, dynamic>;
 
-  /// Supprime une réunion (organisateur uniquement)
   Future<void> deleteMeeting(int meetingId) async =>
       await delete('/meetings/$meetingId');
 
-  /// Demande à rejoindre une réunion (en attente d'acceptation)
   Future<void> joinMeeting(int meetingId) async =>
       await post('/meetings/$meetingId/join', body: {});
 
-  /// Invite des participants à une réunion (organisateur uniquement)
-  Future<void> inviteParticipants(int meetingId, List<int> participantIds) async =>
+  Future<void> inviteParticipants(
+          int meetingId, List<int> participantIds) async =>
       await post('/meetings/$meetingId/invite', body: {
         'participant_ids': participantIds,
       });
 
-  /// Accepte une demande de rejoindre la réunion (organisateur, waiting room)
   Future<void> acceptJoinRequest(int meetingId, int userId) async =>
       await post('/meetings/$meetingId/accept/$userId', body: {});
 
-  /// Refuse une demande de rejoindre la réunion (organisateur, waiting room)
   Future<void> declineJoinRequest(int meetingId, int userId) async =>
       await post('/meetings/$meetingId/decline/$userId', body: {});
 }

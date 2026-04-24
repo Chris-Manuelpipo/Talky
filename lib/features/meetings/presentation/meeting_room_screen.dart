@@ -20,15 +20,15 @@ class MeetingRoomScreen extends ConsumerStatefulWidget {
 
 class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
   // Renderers WebRTC
-  final RTCVideoRenderer _localRenderer  = RTCVideoRenderer();
+  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   final Map<String, RTCVideoRenderer> _remoteRenderers = {};
 
   StreamSubscription<MediaStream?>? _localSub;
   StreamSubscription<Map<String, MediaStream>>? _remoteSub;
   StreamSubscription<MeetingEvent>? _eventSub;
 
-  bool _showChat   = false;
-  final _chatCtrl  = TextEditingController();
+  bool _showChat = false;
+  final _chatCtrl = TextEditingController();
   final _chatScroll = ScrollController();
 
   // Timer durée
@@ -40,8 +40,8 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1),
-        (_) => setState(() => _elapsed++));
+    _timer = Timer.periodic(
+        const Duration(seconds: 1), (_) => setState(() => _elapsed++));
     _initRenderers();
   }
 
@@ -86,8 +86,9 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
           _remoteRenderers[uid]!.srcObject = streams[uid];
         }
         // Supprimer les renderers pour les pairs partis
-        final toRemove =
-            _remoteRenderers.keys.where((k) => !streams.containsKey(k)).toList();
+        final toRemove = _remoteRenderers.keys
+            .where((k) => !streams.containsKey(k))
+            .toList();
         for (final uid in toRemove) {
           _remoteRenderers[uid]?.dispose();
           _remoteRenderers.remove(uid);
@@ -97,7 +98,7 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
 
       _eventSub = service.events.listen((event) {
         if (event == MeetingEvent.ended && mounted) {
-          Navigator.of(context).pop();
+          if (mounted) Navigator.of(context).pop();
         }
       });
 
@@ -144,18 +145,18 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
     final m = (_elapsed % 3600) ~/ 60;
     final s = _elapsed % 60;
     if (h > 0) {
-      return '$h:${m.toString().padLeft(2,'0')}:${s.toString().padLeft(2,'0')}';
+      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
-    return '${m.toString().padLeft(2,'0')}:${s.toString().padLeft(2,'0')}';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors   = context.appThemeColors;
+    final colors = context.appThemeColors;
     final roomState = ref.watch(meetingRoomProvider);
-    final alanyaID  = ref.watch(currentAlanyaIDProvider);
+    final alanyaID = ref.watch(currentAlanyaIDProvider);
     final isOrganiser = alanyaID == widget.meeting.idOrganiser;
-    final isVideo  = widget.meeting.isVideo;
+    final isVideo = widget.meeting.isVideo;
 
     // Afficher l'erreur d'initialisation si elle existe
     if (_initError != null && !_isInitialized) {
@@ -208,7 +209,9 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
 
             // ── Top bar ─────────────────────────────────────────────
             Positioned(
-              top: 0, left: 0, right: 0,
+              top: 0,
+              left: 0,
+              right: 0,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -282,7 +285,9 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
             // ── Chat panel ───────────────────────────────────────────
             if (_showChat)
               Positioned(
-                right: 0, top: 0, bottom: 80,
+                right: 0,
+                top: 0,
+                bottom: 80,
                 width: MediaQuery.of(context).size.width * .75,
                 child: _ChatPanel(
                   messages: roomState.chatMessages,
@@ -301,7 +306,9 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
 
             // ── Barre de contrôles ────────────────────────────────────
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -363,7 +370,10 @@ class _MeetingRoomScreenState extends ConsumerState<MeetingRoomScreen> {
                         } else {
                           ref.read(meetingRoomProvider.notifier).leaveMeeting();
                         }
-                        if (context.mounted) Navigator.of(context).pop();
+                        await Future.delayed(const Duration(milliseconds: 300));
+                        if (mounted && Navigator.canPop(context)) {
+                          Navigator.of(context).pop();
+                        }
                       },
                     ),
                   ],
@@ -449,17 +459,16 @@ class _VideoTile extends StatelessWidget {
             ),
           ),
         Positioned(
-          bottom: 8, left: 8,
+          bottom: 8,
+          left: 8,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(.6),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(label,
-                style:
-                    const TextStyle(color: Colors.white, fontSize: 11)),
+                style: const TextStyle(color: Colors.white, fontSize: 11)),
           ),
         ),
       ],
@@ -501,8 +510,7 @@ class _ControlBtn extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label,
-              style:
-                  const TextStyle(color: Colors.white70, fontSize: 10)),
+              style: const TextStyle(color: Colors.white70, fontSize: 10)),
         ],
       ),
     );
@@ -572,7 +580,8 @@ class _ChatPanel extends StatelessWidget {
           const Divider(color: Colors.white24, height: 1),
           Padding(
             padding: EdgeInsets.only(
-              left: 8, right: 8,
+              left: 8,
+              right: 8,
               bottom: MediaQuery.of(context).viewInsets.bottom + 8,
               top: 8,
             ),

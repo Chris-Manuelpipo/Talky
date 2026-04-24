@@ -3,12 +3,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/data/backend_user_providers.dart';
+import '../../calls/data/call_providers.dart';
 import '../domain/meeting_model.dart';
 import 'meeting_service.dart';
 // ── Service ──────────────────────────────────────────────────────────
 
 final meetingServiceProvider = Provider<MeetingService>((ref) {
   final service = MeetingService();
+
+  // Force la connexion du socket CallService avant d'initialiser les listeners
+  final callService = ref.read(callServiceProvider);
+  callService.connect(ref.read(currentAlanyaIDProvider)?.toString() ?? '');
+
   final alanyaID = ref.read(currentAlanyaIDProvider);
   if (alanyaID != null) {
     service.initSocketListeners(alanyaID.toString());
@@ -22,7 +28,8 @@ final meetingServiceProvider = Provider<MeetingService>((ref) {
 
 // ── Liste des meetings (REST) ────────────────────────────────────────
 
-final meetingsListProvider = FutureProvider.autoDispose<List<MeetingModel>>((ref) async {
+final meetingsListProvider =
+    FutureProvider.autoDispose<List<MeetingModel>>((ref) async {
   final raw = await ApiService.instance.get('/meetings') as List<dynamic>;
   return raw
       .map((e) => MeetingModel.fromJson(e as Map<String, dynamic>))
@@ -51,13 +58,13 @@ class MeetingRoomState {
   final String? error;
 
   const MeetingRoomState({
-    this.isInRoom     = false,
-    this.isStarted    = false,
+    this.isInRoom = false,
+    this.isStarted = false,
     this.meetingID,
-    this.isMuted      = false,
-    this.isCameraOff  = false,
+    this.isMuted = false,
+    this.isCameraOff = false,
     this.participantIDs = const [],
-    this.chatMessages   = const [],
+    this.chatMessages = const [],
     this.error,
   });
 
@@ -72,14 +79,14 @@ class MeetingRoomState {
     String? error,
   }) =>
       MeetingRoomState(
-        isInRoom:       isInRoom       ?? this.isInRoom,
-        isStarted:      isStarted      ?? this.isStarted,
-        meetingID:      meetingID      ?? this.meetingID,
-        isMuted:        isMuted        ?? this.isMuted,
-        isCameraOff:    isCameraOff    ?? this.isCameraOff,
+        isInRoom: isInRoom ?? this.isInRoom,
+        isStarted: isStarted ?? this.isStarted,
+        meetingID: meetingID ?? this.meetingID,
+        isMuted: isMuted ?? this.isMuted,
+        isCameraOff: isCameraOff ?? this.isCameraOff,
         participantIDs: participantIDs ?? this.participantIDs,
-        chatMessages:   chatMessages   ?? this.chatMessages,
-        error:          error,
+        chatMessages: chatMessages ?? this.chatMessages,
+        error: error,
       );
 }
 
@@ -87,7 +94,8 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
   final MeetingService _service;
   final Ref _ref;
 
-  MeetingRoomNotifier(this._service, this._ref) : super(const MeetingRoomState()) {
+  MeetingRoomNotifier(this._service, this._ref)
+      : super(const MeetingRoomState()) {
     _listenToService();
   }
 
@@ -152,14 +160,14 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
         .toList();
 
     await _service.joinRoom(
-      meetingID:              meeting.idMeeting.toString(),
-      myUserID:               myID,
-      isVideo:                meeting.isVideo,
+      meetingID: meeting.idMeeting.toString(),
+      myUserID: myID,
+      isVideo: meeting.isVideo,
       existingParticipantIDs: existingIDs,
     );
 
     state = state.copyWith(
-      meetingID:      meeting.idMeeting.toString(),
+      meetingID: meeting.idMeeting.toString(),
       participantIDs: existingIDs,
     );
   }
@@ -185,7 +193,7 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
     _service.startMeeting(state.meetingID!);
     state = state.copyWith(isStarted: true);
   }
-  
+
   // ── Audio / Vidéo ────────────────────────────────────────────────
   void toggleMute() {
     _service.toggleMute();

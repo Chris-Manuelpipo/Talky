@@ -2,17 +2,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../../../core/services/ringback_service.dart';
 import '../../chat/data/chat_providers.dart';
+import '../../meetings/data/meeting_providers.dart';
 import '../data/call_providers.dart';
 import '../domain/call_history_model.dart';
 import 'call_screen.dart';
 import 'new_call_screen.dart';
 import '../../meetings/presentation/meetings_screen.dart';
+import '../../meetings/presentation/meeting_room_screen.dart';
 
 class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key});
@@ -101,6 +104,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
   final _searchCtrl = TextEditingController();
   bool _searching = false;
   String _query = '';
+  int _selectedTab = 0;
 
   @override
   void dispose() {
@@ -110,62 +114,64 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // S'assurer que le service est connecté
-    ref.watch(callServiceProvider);
-
-    // Écouter les erreurs d'appel
-    ref.listen(callProvider, (prev, next) {
-      if (next.status == CallStatus.idle &&
-          next.errorMessage != null &&
-          next.errorMessage!.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    });
+    final colors = context.appThemeColors;
 
     return Scaffold(
-      backgroundColor: context.appThemeColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: context.appThemeColors.background,
+        backgroundColor: colors.background,
         title: _searching
             ? TextField(
                 controller: _searchCtrl,
                 autofocus: true,
                 onChanged: (v) => setState(() => _query = v.toLowerCase()),
-                style: TextStyle(color: context.appThemeColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Rechercher...',
-                  hintStyle: TextStyle(color: context.appThemeColors.textHint),
+                  hintStyle: TextStyle(color: colors.textHint),
                   border: InputBorder.none,
                 ),
               )
-            : Text('Appels',
+            : const Text('Appels',
                 style: TextStyle(
-                  color: context.appThemeColors.textPrimary,
-                  fontSize: 22,
                   fontWeight: FontWeight.w700,
+                  fontSize: 22,
                 )),
-        actions: [
-          // Bouton réunions
-          IconButton(
-            icon: Icon(Icons.video_call_rounded,
-                color: context.appThemeColors.textSecondary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MeetingsScreen()),
-              );
-            },
-            tooltip: 'Réunions',
+        centerTitle: false,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TabButton(
+                    label: 'Appels',
+                    icon: Icons.call_rounded,
+                    isSelected: _selectedTab == 0,
+                    onTap: () => setState(() => _selectedTab = 0),
+                  ),
+                ),
+                Expanded(
+                  child: _TabButton(
+                    label: 'Réunions',
+                    icon: Icons.video_call_rounded,
+                    isSelected: _selectedTab == 1,
+                    onTap: () => setState(() => _selectedTab = 1),
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+        actions: [
           IconButton(
             icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded,
-                color: context.appThemeColors.textSecondary),
+                color: colors.textSecondary),
             onPressed: () {
               setState(() {
                 _searching = !_searching;
@@ -178,22 +184,245 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
           ),
         ],
       ),
-      body: _CallsContent(query: _query),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
+      body: _selectedTab == 0
+          ? _CallsContent(query: _query)
+          : const _MeetingsTabContent(),
+      floatingActionButton: _SpeedDialFAB(
+        onCallPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const NewCallScreen()),
           );
         },
-        backgroundColor: context.primaryColor,
-        child: const Icon(Icons.add_call, color: Colors.white),
+        onMeetingPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const CreateMeetingSheet(),
+          );
+        },
       ),
     );
   }
 }
 
-// ── Contenu de l'écran d'appels ───────────────────────────────────────
+class _SpeedDialFAB extends StatefulWidget {
+  final VoidCallback onCallPressed;
+  final VoidCallback onMeetingPressed;
+
+  const _SpeedDialFAB({
+    required this.onCallPressed,
+    required this.onMeetingPressed,
+  });
+
+  @override
+  State<_SpeedDialFAB> createState() => _SpeedDialFABState();
+}
+
+class _SpeedDialFABState extends State<_SpeedDialFAB>
+    with SingleTickerProviderStateMixin {
+  bool _isOpen = false;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _isOpen = !_isOpen;
+      if (_isOpen) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    final primaryColor = Theme.of(context).primaryColor;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Réunion button
+        SlideTransition(
+          position: _slideAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 2,
+                    shadowColor: Colors.black26,
+                    child: InkWell(
+                      onTap: () {
+                        _toggle();
+                        widget.onMeetingPressed();
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: Text(
+                          'Réunion',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _ActionButton(
+                    heroTag: 'meeting',
+                    icon: Icons.video_call_rounded,
+                    color: primaryColor,
+                    onTap: () {
+                      _toggle();
+                      widget.onMeetingPressed();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Appel button
+        SlideTransition(
+          position: _slideAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 2,
+                    shadowColor: Colors.black26,
+                    child: InkWell(
+                      onTap: () {
+                        _toggle();
+                        widget.onCallPressed();
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: Text(
+                          'Appel',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _ActionButton(
+                    heroTag: 'call',
+                    icon: Icons.call_rounded,
+                    color: primaryColor,
+                    onTap: () {
+                      _toggle();
+                      widget.onCallPressed();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Main FAB
+        FloatingActionButton(
+          onPressed: _toggle,
+          backgroundColor: primaryColor,
+          elevation: 4,
+          child: AnimatedRotation(
+            turns: _isOpen ? 0.125 : 0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+            child: const Icon(Icons.add, color: Colors.white, size: 28),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final Object heroTag;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.heroTag,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      shape: const CircleBorder(),
+      elevation: 3,
+      shadowColor: color.withOpacity(.4),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
 class _CallsContent extends ConsumerWidget {
   final String query;
 
@@ -205,7 +434,8 @@ class _CallsContent extends ConsumerWidget {
     if (alanyaIdString.isEmpty) return const SizedBox();
 
     final callHistoryAsync = ref.watch(callHistoryProvider(alanyaIdString));
-    final weeklyDurationAsync =ref.watch(weeklyCallDurationProvider(alanyaIdString));
+    final weeklyDurationAsync =
+        ref.watch(weeklyCallDurationProvider(alanyaIdString));
     // Prefetch profils pour l'historique d'appels
     ref.listen(callHistoryProvider(alanyaIdString), (_, next) {
       next.whenData((calls) {
@@ -238,7 +468,7 @@ class _CallsContent extends ConsumerWidget {
           child: callHistoryAsync.when(
             data: (calls) => _CallsList(
               calls: calls,
-              currentUserId: alanyaIdString,   // ← CORRIGÉ
+              currentUserId: alanyaIdString, // ← CORRIGÉ
               query: query,
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -733,5 +963,209 @@ class _CallTypeIndicator extends StatelessWidget {
     }
 
     return Icon(icon, size: 16, color: color);
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appThemeColors;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color:
+                isSelected ? primaryColor.withOpacity(.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? primaryColor : colors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? primaryColor : colors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MeetingsTabContent extends ConsumerWidget {
+  const _MeetingsTabContent();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meetingsAsync = ref.watch(meetingsListProvider);
+    final colors = context.appThemeColors;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return meetingsAsync.when(
+      data: (meetings) {
+        if (meetings.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.video_call_rounded,
+                  size: 64,
+                  color: colors.textSecondary.withOpacity(.4),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Aucune réunion',
+                  style: TextStyle(color: colors.textSecondary),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: meetings.length,
+          itemBuilder: (context, index) {
+            final meeting = meetings[index];
+            final now = DateTime.now();
+            final diff = meeting.startTime.difference(now);
+            final isImminent =
+                diff.inMinutes <= 15 && diff.inMinutes > -meeting.duree;
+            final isPast = meeting.startTime.isBefore(now);
+
+            String timeLabel;
+            if (isPast) {
+              timeLabel = 'Passée';
+            } else if (diff.inMinutes < 60) {
+              timeLabel = 'Dans ${diff.inMinutes} min';
+            } else if (diff.inHours < 24) {
+              timeLabel = 'Dans ${diff.inHours}h';
+            } else {
+              timeLabel = DateFormat('dd/MM HH:mm').format(meeting.startTime);
+            }
+
+            return ListTile(
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isImminent
+                      ? primaryColor.withOpacity(.2)
+                      : primaryColor.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: isImminent
+                      ? Border.all(color: primaryColor, width: 2)
+                      : null,
+                ),
+                child: Icon(
+                  meeting.isVideo ? Icons.videocam_rounded : Icons.mic_rounded,
+                  color:
+                      isImminent ? primaryColor : primaryColor.withOpacity(.7),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                meeting.objet,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isImminent
+                          ? primaryColor.withOpacity(.15)
+                          : colors.surface,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      timeLabel,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight:
+                            isImminent ? FontWeight.w700 : FontWeight.w500,
+                        color: isImminent ? primaryColor : colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${meeting.duree} min',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              trailing: meeting.isEnd
+                  ? Chip(
+                      label: const Text('Terminée',
+                          style: TextStyle(fontSize: 10)),
+                      backgroundColor: colors.surface,
+                      padding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )
+                  : IconButton(
+                      icon: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: colors.textSecondary,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MeetingRoomScreen(meeting: meeting),
+                          ),
+                        );
+                      },
+                    ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child:
+            Text('Erreur: $e', style: TextStyle(color: colors.textSecondary)),
+      ),
+    );
   }
 }
