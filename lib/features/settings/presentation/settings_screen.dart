@@ -663,7 +663,7 @@ class _LogoutButton extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await ref.read(authServiceProvider).signOut();
+              ref.read(authCustomProvider.notifier).logout();
               if (context.mounted) {
                 // Navigation will be handled by router
               }
