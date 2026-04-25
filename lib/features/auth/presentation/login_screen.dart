@@ -179,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {}, // TODO Phase 2
+                    onPressed: () => context.go(AppRoutes.forgotPassword),
                     child: const Text('Mot de passe oublié ?'),
                   ),
                 ).animate(delay: 300.ms).fadeIn(),

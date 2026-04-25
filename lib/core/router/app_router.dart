@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/data/auth_providers.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/chat/presentation/create_group_screen.dart';
 import '../../features/chat/presentation/new_chat_screen.dart';
@@ -22,6 +23,7 @@ abstract class AppRoutes {
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const register = '/register';
+  static const forgotPassword = '/forgot-password';
   static const home = '/home';
   static const newChat = '/new-chat';
   static const createGroup = '/create-group';
@@ -61,6 +63,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         AppRoutes.onboarding,
         AppRoutes.login,
         AppRoutes.register,
+        AppRoutes.forgotPassword,
       ].contains(loc);
 
       if (isLoading) return null;
@@ -85,6 +88,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
       GoRoute(
           path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+          path: AppRoutes.forgotPassword,
+          builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
       GoRoute(
           path: AppRoutes.newChat, builder: (_, __) => const NewChatScreen()),
