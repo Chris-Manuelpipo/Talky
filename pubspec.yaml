@@ -39,6 +39,7 @@ dependencies:
 
   # Médias
   image_picker: ^1.1.2
+  file_picker: ^8.1.2
 
   # Appels 
   flutter_webrtc: ^0.14.2

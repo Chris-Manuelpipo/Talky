@@ -81,6 +81,8 @@ class ApiService {
   Future<Map<String, String>> _headers() async {
     final customToken = _customToken;
     final firebaseToken = await _getToken();
+    debugPrint(
+        '[ApiService] _headers: customToken=${customToken != null}, firebaseToken=${firebaseToken != null}');
     return {
       'Content-Type': 'application/json',
       if (customToken != null) 'Authorization': 'Bearer $customToken',
@@ -171,6 +173,8 @@ class ApiService {
         Uri.parse('${AppConfig.apiUrl}$path').replace(queryParameters: query);
     final headers =
         skipAuth ? {'Content-Type': 'application/json'} : await _headers();
+    debugPrint(
+        '[ApiService] GET $path, skipAuth=$skipAuth, headers=${headers.keys.toList()}');
     final response = await http.get(uri, headers: headers).timeout(_timeout);
     return _parse(response);
   }
@@ -182,6 +186,8 @@ class ApiService {
   }) async {
     final headers =
         skipAuth ? {'Content-Type': 'application/json'} : await _headers();
+    debugPrint(
+        '[ApiService] POST $path, skipAuth=$skipAuth, headers=${headers.keys.toList()}, body=$body');
     final response = await http
         .post(
           Uri.parse('${AppConfig.apiUrl}$path'),

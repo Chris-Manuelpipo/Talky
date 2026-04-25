@@ -42,6 +42,12 @@ class _MediaPickerSheetState extends ConsumerState<MediaPickerSheet> {
     await _upload(file, MessageType.video);
   }
 
+  Future<void> _sendFile() async {
+    final file = await _mediaService.pickFile();
+    if (file == null || !mounted) return;
+    await _upload(file, MessageType.file);
+  }
+
   Future<void> _upload(File file, MessageType type) async {
     if (!mounted) return;
     setState(() {
@@ -66,8 +72,20 @@ class _MediaPickerSheetState extends ConsumerState<MediaPickerSheet> {
               });
           },
         );
-      } else {
+      } else if (type == MessageType.video) {
         url = await _mediaService.uploadVideo(
+          file: file,
+          conversationId: widget.conversationId,
+          onProgress: (p) {
+            if (mounted)
+              setState(() {
+                _progress = p;
+                _statusText = 'Upload ${(p * 100).toInt()}%';
+              });
+          },
+        );
+      } else {
+        url = await _mediaService.uploadFile(
           file: file,
           conversationId: widget.conversationId,
           onProgress: (p) {
@@ -211,7 +229,7 @@ class _MediaPickerSheetState extends ConsumerState<MediaPickerSheet> {
               icon: Icons.insert_drive_file_rounded,
               label: 'Fichier',
               color: const Color(0xFF51CF66),
-              onTap: () => Navigator.pop(context),
+              onTap: _sendFile,
             ),
           ],
         ),
