@@ -44,21 +44,20 @@ Map<String, dynamic> _serialize(UserModel u) => {
       'exclus': u.ghostMode ? 1 : 0,
     };
 
-/// Profil de l'utilisateur courant (basé sur `/api/auth/me`).
+/// Profil de l'utilisateur courant (basé sur `/api/auth-custom/me`).
 /// Persisté localement pour éviter un appel à chaque redémarrage.
 final currentBackendUserProvider = FutureProvider<UserModel?>((ref) async {
-  final auth = ref.watch(authStateProvider);
-  final firebaseUser = auth.value;
-  if (firebaseUser == null) return null;
+  final auth = ref.watch(authCustomProvider);
+  if (!auth.isLoggedIn || auth.user == null) return null;
 
   try {
     final raw = await ApiService.instance.getMe();
     final user = UserModel.fromJson({
       ...raw,
-      'uid': firebaseUser.uid,
+      'uid': raw['alanyaID']?.toString() ?? '',
     });
     await LocalCache.instance.set(
-      '${_userCachePrefix}me_${firebaseUser.uid}',
+      '${_userCachePrefix}me_${auth.user!.alanyaID}',
       _serialize(user),
       ttl: _userCacheTtl,
     );
@@ -68,7 +67,7 @@ final currentBackendUserProvider = FutureProvider<UserModel?>((ref) async {
   } catch (e) {
     debugPrint('[currentBackendUserProvider] $e');
     final entry = LocalCache.instance
-        .getEntry('${_userCachePrefix}me_${firebaseUser.uid}');
+        .getEntry('${_userCachePrefix}me_${auth.user!.alanyaID}');
     if (entry != null) return _deserialize(entry.data);
     return null;
   }
@@ -106,7 +105,8 @@ final backendUserProvider =
   try {
     final raw = await ApiService.instance.getUserById(alanyaID);
     final user = UserModel.fromJson(raw);
-    await LocalCache.instance.set(cacheKey, _serialize(user), ttl: _userCacheTtl);
+    await LocalCache.instance
+        .set(cacheKey, _serialize(user), ttl: _userCacheTtl);
     return user;
   } catch (e) {
     if (cachedEntry != null) return _deserialize(cachedEntry.data);

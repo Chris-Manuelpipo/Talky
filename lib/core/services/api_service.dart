@@ -216,10 +216,10 @@ class ApiService {
   // ════════════════════════════════════════════════════════════════
 
   Future<Map<String, dynamic>> getMe() async =>
-      await get('/auth/me') as Map<String, dynamic>;
+      await get('/auth-custom/me') as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> updateMe(Map<String, dynamic> data) async =>
-      await put('/auth/me', body: data) as Map<String, dynamic>;
+      await put('/auth-custom/me', body: data) as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> registerUser({
     required String nom,
