@@ -138,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TalkyTextField(
                   controller: _emailController,
                   label: 'Adresse email',
-                  hint: 'vous@entreprise.com',
+                  hint: 'etchomechris2000@gmail.com',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
