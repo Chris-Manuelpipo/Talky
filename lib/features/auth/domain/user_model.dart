@@ -6,15 +6,15 @@
 // profile_settings, etc.). Ces champs sont optionnels côté backend.
 
 class UserModel {
-  final int alanyaID;       // Clé primaire MySQL (0 si inconnu / Firestore-only)
-  final String uid;         // UID Firebase (conservé pour l'auth)
-  final String name;        // nom
-  final String pseudo;      // pseudo
-  final String phone;       // alanyaPhone
-  final String? photoUrl;   // avatar_url
-  final bool isOnline;      // is_online
+  final int alanyaID; // Clé primaire MySQL (0 si inconnu / Firestore-only)
+  final String uid; // UID Firebase (conservé pour l'auth)
+  final String name; // nom
+  final String pseudo; // pseudo
+  final String phone; // alanyaPhone
+  final String? photoUrl; // avatar_url
+  final bool isOnline; // is_online
   final DateTime? lastSeen; // last_seen
-  final bool ghostMode;     // exclus
+  final bool ghostMode; // exclus
 
   // ── Champs legacy (Firestore) ──────────────────────────────────────
   final String? email;
@@ -48,12 +48,12 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       alanyaID: json['alanyaID'] as int? ?? 0,
-      uid:      json['uid']      as String? ?? '',
-      name:     json['nom']      as String? ?? '',
-      pseudo:   json['pseudo']   as String? ?? '',
-      phone:    json['alanyaPhone'] as String? ?? '',
+      uid: json['uid'] as String? ?? '',
+      name: json['nom'] as String? ?? '',
+      pseudo: json['pseudo'] as String? ?? '',
+      phone: json['alanyaPhone'] as String? ?? '',
       photoUrl: _sanitizePhotoUrl(json['avatar_url'] as String?),
-      isOnline: (json['is_online']  as int? ?? 0) == 1,
+      isOnline: (json['is_online'] as int? ?? 0) == 1,
       lastSeen: json['last_seen'] != null
           ? DateTime.tryParse(json['last_seen'] as String)
           : null,
@@ -78,12 +78,12 @@ class UserModel {
     }
 
     return UserModel(
-      uid:      (map['uid']   ?? '').toString(),
-      name:     (map['name']  ?? '').toString(),
-      phone:    (map['phone'] ?? '').toString(),
-      email:    map['email']?.toString(),
+      uid: (map['uid'] ?? '').toString(),
+      name: (map['name'] ?? '').toString(),
+      phone: (map['phone'] ?? '').toString(),
+      email: map['email']?.toString(),
       photoUrl: map['photoUrl']?.toString(),
-      status:   (map['status'] ?? 'Disponible sur Talky').toString(),
+      status: (map['status'] ?? 'Disponible sur Talky').toString(),
       preferredLanguage: (map['preferredLanguage'] ?? 'fr').toString(),
       isOnline: map['isOnline'] == true,
       lastSeen: lastSeen,
@@ -92,27 +92,30 @@ class UserModel {
   }
 
   Map<String, dynamic> toMap() => {
-    'uid':                uid,
-    'name':               name,
-    'phone':              phone,
-    'email':              email,
-    'photoUrl':           photoUrl,
-    'status':             status,
-    'preferredLanguage':  preferredLanguage,
-    'isOnline':           isOnline,
-    if (lastSeen != null) 'lastSeen': lastSeen!.millisecondsSinceEpoch,
-    'ghostMode':          ghostMode,
-  };
+        'uid': uid,
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'photoUrl': photoUrl,
+        'status': status,
+        'preferredLanguage': preferredLanguage,
+        'isOnline': isOnline,
+        if (lastSeen != null) 'lastSeen': lastSeen!.millisecondsSinceEpoch,
+        'ghostMode': ghostMode,
+      };
 
-  // ── UserModel → API REST ─────────────────────────────────────────
+  // ── UserModel → JSON (for persistence) ─────────────────────────
   Map<String, dynamic> toJson() => {
-    'alanyaID':    alanyaID,
-    'nom':         name,
-    'pseudo':      pseudo,
-    'alanyaPhone': phone,
-    'avatar_url':  photoUrl,
-    'is_online':   isOnline ? 1 : 0,
-  };
+        'alanyaID': alanyaID,
+        'uid': uid,
+        'nom': name,
+        'pseudo': pseudo,
+        'alanyaPhone': phone,
+        'avatar_url': photoUrl,
+        'is_online': isOnline ? 1 : 0,
+        if (lastSeen != null) 'last_seen': lastSeen!.toIso8601String(),
+        'exclus': ghostMode ? 1 : 0,
+      };
 
   UserModel copyWith({
     String? name,
@@ -127,17 +130,17 @@ class UserModel {
     String? preferredLanguage,
   }) {
     return UserModel(
-      alanyaID:  alanyaID,
-      uid:       uid,
-      name:      name      ?? this.name,
-      pseudo:    pseudo    ?? this.pseudo,
-      phone:     phone     ?? this.phone,
-      photoUrl:  photoUrl  ?? this.photoUrl,
-      isOnline:  isOnline  ?? this.isOnline,
-      lastSeen:  lastSeen  ?? this.lastSeen,
+      alanyaID: alanyaID,
+      uid: uid,
+      name: name ?? this.name,
+      pseudo: pseudo ?? this.pseudo,
+      phone: phone ?? this.phone,
+      photoUrl: photoUrl ?? this.photoUrl,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
       ghostMode: ghostMode ?? this.ghostMode,
-      email:     email     ?? this.email,
-      status:    status    ?? this.status,
+      email: email ?? this.email,
+      status: status ?? this.status,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
     );
   }

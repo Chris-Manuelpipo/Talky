@@ -38,24 +38,28 @@ abstract class AppRoutes {
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // ── Provider profil complet (custom auth) ───────────────────────────────
-final profileCompleteProvider = FutureProvider<bool>((ref) async {
+final profileCompleteProvider = Provider<bool>((ref) {
   final authCustom = ref.watch(authCustomProvider);
+  // Pendant la restauration, on considère le profil comme "en cours"
+  // Le router gérera l'état de chargement via isRestoring
   return authCustom.isLoggedIn;
 });
 
 // ── Router ─────────────────────────────────────────────────────────────
 final routerProvider = Provider<GoRouter>((ref) {
   final authCustom = ref.watch(authCustomProvider);
-  final profileComplete = ref.watch(profileCompleteProvider);
+  final isLoggedIn = authCustom.isLoggedIn;
+  final isRestoring = authCustom.isRestoring;
 
   return GoRouter(
     initialLocation: AppRoutes.splash,
     navigatorKey: rootNavigatorKey,
     refreshListenable: _RouterNotifier(ref),
     redirect: (context, state) {
-      final isLoading = profileComplete.isLoading;
-      final isLoggedIn = authCustom.isLoggedIn;
       final loc = state.matchedLocation;
+
+      // Pendant la restauration de session, ne pas rediriger
+      if (isRestoring) return null;
 
       // Routes publiques (pas de redirection)
       final isPublicRoute = [
@@ -65,8 +69,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         AppRoutes.register,
         AppRoutes.forgotPassword,
       ].contains(loc);
-
-      if (isLoading) return null;
 
       // Non connecté → login
       if (!isLoggedIn && !isPublicRoute) {

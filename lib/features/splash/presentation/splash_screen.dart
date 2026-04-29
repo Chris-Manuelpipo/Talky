@@ -30,10 +30,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     final authCustom = ref.read(authCustomProvider);
-    if (authCustom.isLoggedIn) {
-      context.go(AppRoutes.home);
+
+    // Attendre la fin de la restauration de session
+    if (authCustom.isRestoring) {
+      // Attendre que la restauration soit terminée
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+      final updated = ref.read(authCustomProvider);
+      if (updated.isLoggedIn) {
+        context.go(AppRoutes.home);
+      } else {
+        context.go(AppRoutes.onboarding);
+      }
     } else {
-      context.go(AppRoutes.onboarding);
+      if (authCustom.isLoggedIn) {
+        context.go(AppRoutes.home);
+      } else {
+        context.go(AppRoutes.onboarding);
+      }
     }
   }
 

@@ -1,7 +1,10 @@
 // lib/features/auth/data/auth_providers.dart
 
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/api_service.dart';
 import 'auth_service.dart';
 import 'backend_user_providers.dart';
@@ -15,35 +18,72 @@ class AuthCustomState {
   final bool isLoggedIn;
   final UserModel? user;
   final String? token;
+  final bool isRestoring;
 
   const AuthCustomState({
     this.isLoggedIn = false,
     this.user,
     this.token,
+    this.isRestoring = false,
   });
 
   AuthCustomState copyWith({
     bool? isLoggedIn,
     UserModel? user,
     String? token,
+    bool? isRestoring,
   }) {
     return AuthCustomState(
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       user: user ?? this.user,
       token: token ?? this.token,
+      isRestoring: isRestoring ?? this.isRestoring,
     );
   }
 }
 
 class AuthCustomNotifier extends StateNotifier<AuthCustomState> {
-  AuthCustomNotifier() : super(const AuthCustomState());
+  AuthCustomNotifier() : super(const AuthCustomState(isRestoring: true)) {
+    _restoreSession();
+  }
 
   void setUser(UserModel user, String token) {
     state = AuthCustomState(isLoggedIn: true, user: user, token: token);
+    _saveAuthState(user, token);
   }
 
-  void logout() {
-    ApiService.instance.logout();
+  Future<void> _saveAuthState(UserModel user, String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_user', jsonEncode(user.toJson()));
+    await prefs.setString('auth_token', token);
+  }
+
+  Future<void> _restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final userJson = prefs.getString('auth_user');
+
+    if (token != null && userJson != null) {
+      try {
+        final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+        final user = UserModel.fromJson(userMap);
+        // Restore token in ApiService
+        await ApiService.instance.setCustomToken(token);
+        state = AuthCustomState(isLoggedIn: true, user: user, token: token);
+        return;
+      } catch (e) {
+        debugPrint('[AuthCustomNotifier] Failed to restore session: $e');
+      }
+    }
+    // No valid session found
+    state = const AuthCustomState(isRestoring: false);
+  }
+
+  Future<void> logout() async {
+    await ApiService.instance.logout();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_user');
+    await prefs.remove('auth_token');
     state = const AuthCustomState();
   }
 }

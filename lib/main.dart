@@ -1,6 +1,5 @@
 // lib/main.dart
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,32 +33,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await NotificationService.instance.showNotificationFromMessage(message);
 }
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initializeDateFormatting('fr_FR', null);
-  
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-      debugPrint('Firebase initialization: $e');
-    }
-
-  
-  final String? token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
-  print(token);
-  if (token != null) {
-    // Afficher en morceaux de 200 chars
-    for (int i = 0; i < token.length; i += 200) {
-      final end = (i + 200 < token.length) ? i + 200 : token.length;
-      debugPrint('TOKEN[$i]: ${token.substring(i, end)}');
-    }
-    debugPrint('TOKEN_END (longueur: ${token.length})');
+    debugPrint('Firebase initialization: $e');
   }
+
   await LocalCache.init();
 
   final sharedPreferences = await SharedPreferences.getInstance();

@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 
@@ -73,9 +74,29 @@ class ApiService {
   // ════════════════════════════════════════════════════════════════
 
   String? _customToken;
+  static const String _tokenKey = 'auth_token';
 
-  void setCustomToken(String? token) {
+  Future<void> setCustomToken(String? token) async {
     _customToken = token;
+    final prefs = await SharedPreferences.getInstance();
+    if (token != null) {
+      await prefs.setString(_tokenKey, token);
+    } else {
+      await prefs.remove(_tokenKey);
+    }
+  }
+
+  Future<String?> getSavedToken() async {
+    if (_customToken != null) return _customToken;
+    final prefs = await SharedPreferences.getInstance();
+    _customToken = prefs.getString(_tokenKey);
+    return _customToken;
+  }
+
+  Future<void> clearToken() async {
+    _customToken = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
   }
 
   Future<Map<String, String>> _headers() async {
@@ -113,7 +134,7 @@ class ApiService {
         skipAuth: true) as Map<String, dynamic>;
 
     if (result['token'] != null) {
-      _customToken = result['token'] as String;
+      await setCustomToken(result['token'] as String);
     }
     return result;
   }
@@ -130,7 +151,7 @@ class ApiService {
         skipAuth: true) as Map<String, dynamic>;
 
     if (result['token'] != null) {
-      _customToken = result['token'] as String;
+      await setCustomToken(result['token'] as String);
     }
     return result;
   }
@@ -147,8 +168,8 @@ class ApiService {
         skipAuth: true);
   }
 
-  void logout() {
-    _customToken = null;
+  Future<void> logout() async {
+    await clearToken();
   }
 
   dynamic _parse(http.Response response) {
