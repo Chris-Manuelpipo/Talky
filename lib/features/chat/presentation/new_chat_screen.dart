@@ -3,10 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../../../core/constants/app_icons.dart';
 import '../../../core/router/app_router.dart';
-import '../../../core/services/phone_contacts_service.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../data/chat_providers.dart';
@@ -24,16 +21,12 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   String _query = '';
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
-  bool _hasPermission = false;
   bool _isLoadingContacts = true;
-  bool _permissionDeniedPermanently = false;
   bool _contactsLoadInProgress = false;
   bool _contactsLoaded = false;
-  final Map<String, String> _phoneToContactName = {};
 
-  // Phone contacts matched with Talky users
-  List<_ContactWithPhoto> _onTalkyContacts = [];
-  List<PhoneContact> _notOnTalkyContacts = [];
+  // Preferred contacts from backend
+  List<Map<String, dynamic>> _preferredContacts = [];
 
   late TabController _tabController;
 
@@ -65,117 +58,32 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
   void _ensureContactsLoaded() {
     if (_contactsLoaded || _contactsLoadInProgress) return;
-    _loadPhoneContacts();
+    _loadPreferredContacts();
   }
 
-  Future<void> _loadPhoneContacts() async {
+  Future<void> _loadPreferredContacts() async {
     if (_contactsLoadInProgress) return;
     _contactsLoadInProgress = true;
     setState(() => _isLoadingContacts = true);
 
     try {
-      final service = ref.read(phoneContactsServiceProvider);
-      final hasPermission = await service.requestPermission();
-
-      if (!hasPermission) {
-        // Vérifier si la permission est définitivement refusée
-        final status = await Permission.contacts.status;
-        setState(() {
-          _hasPermission = false;
-          _permissionDeniedPermanently = status.isPermanentlyDenied;
-          _isLoadingContacts = false;
-        });
-        _contactsLoadInProgress = false;
-        return;
-      }
-
-      _hasPermission = true;
-      final phoneContacts = await service.getContactsCached();
-
-      // Debug: Show all contacts regardless
-      // ignore: avoid_print
-      print('[NewChatScreen] Phone contacts: ${phoneContacts.length}');
-
-      if (phoneContacts.isEmpty) {
-        setState(() {
-          _onTalkyContacts = [];
-          _notOnTalkyContacts = [];
-          _isLoadingContacts = false;
-        });
-        _contactsLoadInProgress = false;
-        _contactsLoaded = true;
-        return;
-      }
-
-      // Extract all phone numbers from contacts
-      final allPhones = <String>[];
-      for (final contact in phoneContacts) {
-        for (final phone in contact.phones) {
-          final normalized = _normalizePhone(phone);
-          if (normalized.isNotEmpty) {
-            _phoneToContactName[normalized] = contact.displayName;
-          }
-        }
-        allPhones.addAll(contact.phones);
-      }
-
-      // Find users on Talky by phone numbers (progressif)
       final chatService = ref.read(chatServiceProvider);
-      await for (final talkyUsers
-          in chatService.findUsersByPhonesProgressive(allPhones)) {
-        if (!mounted) break;
-
-        // Create a map of phone -> user for quick lookup
-        final phoneToUser = <String, Map<String, dynamic>>{};
-        for (final user in talkyUsers) {
-          final phone = user['phone'] as String?;
-          if (phone != null) {
-            phoneToUser[phone.replaceAll(RegExp(r'[^\d]'), '')] = user;
-          }
-        }
-
-        // Match contacts with Talky users - store with photo
-        final onTalky = <_ContactWithPhoto>[];
-        final notOnTalky = <PhoneContact>[];
-
-        for (final contact in phoneContacts) {
-          String? photoUrl;
-          bool isOnTalky = false;
-
-          for (final phone in contact.phones) {
-            final normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
-            if (phoneToUser.containsKey(normalized)) {
-              isOnTalky = true;
-              photoUrl = phoneToUser[normalized]?['photoUrl'] as String?;
-              break;
-            }
-          }
-
-          if (isOnTalky) {
-            onTalky
-                .add(_ContactWithPhoto(contact: contact, photoUrl: photoUrl));
-          } else {
-            notOnTalky.add(contact);
-          }
-        }
-
-        setState(() {
-          _onTalkyContacts = onTalky;
-          _notOnTalkyContacts = notOnTalky;
-        });
-      }
+      final contacts = await chatService.getPreferredContacts();
 
       if (mounted) {
         setState(() {
+          _preferredContacts = contacts;
           _isLoadingContacts = false;
         });
       }
       _contactsLoadInProgress = false;
       _contactsLoaded = true;
     } catch (e) {
-      setState(() {
-        _isLoadingContacts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingContacts = false;
+        });
+      }
       _contactsLoadInProgress = false;
     }
   }
@@ -197,13 +105,13 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
       final chatService = ref.read(chatServiceProvider);
 
-      // Search by name
+      // Search by name via API
       final nameResults = await chatService.searchUsers(
         query: query,
         currentUserId: currentUid,
       );
 
-      // Also try to search by phone if it looks like a phone number
+      // Also try to search by phone (alanyaPhone) if it looks like a phone number
       List<Map<String, dynamic>> phoneResults = [];
       if (RegExp(r'^[\d\s\-+()]+$').hasMatch(query) && query.length >= 8) {
         final user = await chatService.findUserByPhone(query);
@@ -264,54 +172,6 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
   }
 
   Widget _buildContactsTab() {
-    if (!_hasPermission) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.contacts,
-                  size: 64, color: context.appThemeColors.textHint),
-              SizedBox(height: 16),
-              Text('Permission requise',
-                  style: TextStyle(
-                      color: context.appThemeColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600)),
-              SizedBox(height: 8),
-              Text(
-                _permissionDeniedPermanently
-                    ? 'L\'accès aux contacts a été refusé. Veuillez l\'activer dans les paramètres.'
-                    : 'Accordez l\'accès à vos contacts pour voir\nvos contacts Talky',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: context.appThemeColors.textSecondary),
-              ),
-              SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_permissionDeniedPermanently) {
-                    await openAppSettings();
-                  } else {
-                    _loadPhoneContacts();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: context.primaryColor,
-                ),
-                child: Text(
-                  _permissionDeniedPermanently
-                      ? 'Ouvrir les paramètres'
-                      : 'Autoriser',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Column(
       children: [
         // Bouton créer un groupe
@@ -355,7 +215,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             onChanged: (v) => setState(() => _query = v.toLowerCase()),
             style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Rechercher un contact...',
+              hintText: 'Rechercher par nom ou alanyaphone...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
               prefixIcon: Icon(Icons.search_rounded,
                   color: context.appThemeColors.textHint),
@@ -378,19 +238,15 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
 
   Widget _buildContactsList() {
     // Filter contacts based on query
-    final filteredOnTalky = _query.isEmpty
-        ? _onTalkyContacts
-        : _onTalkyContacts
-            .where((c) => c.contact.displayName.toLowerCase().contains(_query))
+    final filteredContacts = _query.isEmpty
+        ? _preferredContacts
+        : _preferredContacts
+            .where((c) =>
+                (c['name'] as String? ?? '').toLowerCase().contains(_query) ||
+                (c['pseudo'] as String? ?? '').toLowerCase().contains(_query))
             .toList();
 
-    final filteredNotOnTalky = _query.isEmpty
-        ? _notOnTalkyContacts
-        : _notOnTalkyContacts
-            .where((c) => c.displayName.toLowerCase().contains(_query))
-            .toList();
-
-    if (filteredOnTalky.isEmpty && filteredNotOnTalky.isEmpty) {
+    if (filteredContacts.isEmpty) {
       final colors = context.appThemeColors;
       return Center(
         child: Column(
@@ -402,9 +258,12 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
               Text('Chargement des contacts...',
                   style: TextStyle(color: colors.textSecondary)),
             ] else ...[
-              Icon(AppIcons.group, size: 48, color: colors.textHint),
+              Icon(Icons.contacts, size: 48, color: colors.textHint),
               SizedBox(height: 12),
-              Text('Aucun contact trouvé',
+              Text(
+                  _preferredContacts.isEmpty
+                      ? 'Aucun contact préféré'
+                      : 'Aucun contact trouvé',
                   style: TextStyle(color: colors.textSecondary)),
             ],
           ],
@@ -412,71 +271,15 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
       );
     }
 
-    return ListView(
-      children: [
-        // Contacts sur Talky
-        if (filteredOnTalky.isNotEmpty) ...[
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'CONTACTS SUR TALKY',
-              style: TextStyle(
-                color: context.primaryColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          ...filteredOnTalky.map((c) => _PhoneContactTile(
-                contact: c.contact,
-                photoUrl: c.photoUrl,
-                isOnTalky: true,
-                onTap: () => _startChatWithContact(c.contact),
-              )),
-        ],
-
-        // Inviter sur Talky
-        if (filteredNotOnTalky.isNotEmpty) ...[
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'INVITER SUR TALKY',
-              style: TextStyle(
-                color: context.appThemeColors.textHint,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          ...filteredNotOnTalky.map((contact) => _PhoneContactTile(
-                contact: contact,
-                isOnTalky: false,
-                onTap: () => _inviteContact(contact),
-              )),
-        ],
-
-        if (_isLoadingContacts)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Chargement des contacts...',
-                  style: TextStyle(color: context.appThemeColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-      ],
+    return ListView.builder(
+      itemCount: filteredContacts.length,
+      itemBuilder: (context, index) {
+        final contact = filteredContacts[index];
+        return _UserTile(
+          user: contact,
+          onTap: () => _startChatWithUser(contact),
+        );
+      },
     );
   }
 
@@ -491,7 +294,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
             onChanged: _searchUsers,
             style: TextStyle(color: context.appThemeColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Rechercher par numéro ou nom...',
+              hintText: 'Rechercher par nom ou alanyaphone...',
               hintStyle: TextStyle(color: context.appThemeColors.textHint),
               prefixIcon: Icon(Icons.search_rounded,
                   color: context.appThemeColors.textHint),
@@ -521,7 +324,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                           SizedBox(height: 12),
                           Text(
                             _searchCtrl.text.isEmpty
-                                ? 'Entrez un numéro ou un nom'
+                                ? 'Entrez un nom'
                                 : 'Aucun utilisateur trouvé',
                             style: TextStyle(
                                 color: context.appThemeColors.textSecondary),
@@ -533,10 +336,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
                       itemCount: _searchResults.length,
                       itemBuilder: (_, i) {
                         final user = _searchResults[i];
-                        final displayName = _resolveDisplayName(
-                          userName: user['name'] as String?,
-                          phone: user['phone'] as String?,
-                        );
+                        final displayName = user['name'] as String? ??
+                            user['pseudo'] as String? ??
+                            'Utilisateur';
                         return _UserTile(
                           user: user,
                           displayNameOverride: displayName,
@@ -549,80 +351,18 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
     );
   }
 
-  Future<String?> _getMyPhotoUrl() async {
-    final me = await ref.read(currentBackendUserProvider.future);
-    return me?.photoUrl;
-  }
-
-  Future<void> _startChatWithContact(PhoneContact contact) async {
-    final currentUid = ref.read(currentAlanyaIDStringProvider);
-    if (currentUid.isEmpty) return;
-
-    try {
-      // Find the Talky user for this contact
-      final chatService = ref.read(chatServiceProvider);
-      Map<String, dynamic>? talkyUser;
-
-      for (final phone in contact.phones) {
-        final user = await chatService.findUserByPhone(phone);
-        if (user != null) {
-          talkyUser = user;
-          break;
-        }
-      }
-
-      if (talkyUser == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Utilisateur non trouvé sur Talky')),
-          );
-        }
-        return;
-      }
-
-      final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await _getMyPhotoUrl();
-
-      // Use contact's display name for the conversation
-      final convId = await chatService.getOrCreateConversation(
-        currentUserId: currentUid,
-        currentUserName: myName,
-        currentUserPhoto: myPhoto,
-        otherUserId: talkyUser['id'] as String,
-        otherUserName: contact.displayName, // Use phone contact name
-        otherUserPhoto: talkyUser['photoUrl'] as String?,
-      );
-
-      if (mounted) {
-        context.push(
-          AppRoutes.chat.replaceAll(':conversationId', convId),
-          extra: {
-            'name': contact.displayName,
-            'photo': talkyUser['photoUrl'],
-          },
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _startChatWithUser(Map<String, dynamic> user) async {
     final currentUid = ref.read(currentAlanyaIDStringProvider);
     if (currentUid.isEmpty) return;
 
     try {
       final myName = await ref.read(currentUserNameProvider.future);
-      final myPhoto = await _getMyPhotoUrl();
+      final myPhoto = await ref
+          .read(currentBackendUserProvider.future)
+          .then((u) => u?.photoUrl);
 
-      final displayName = _resolveDisplayName(
-        userName: user['name'] as String?,
-        phone: user['phone'] as String?,
-      );
+      final displayName =
+          user['name'] as String? ?? user['pseudo'] as String? ?? 'Utilisateur';
 
       final convId =
           await ref.read(chatServiceProvider).getOrCreateConversation(
@@ -651,127 +391,6 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen>
       }
     }
   }
-
-  void _inviteContact(PhoneContact contact) {
-    // Show dialog to send invitation
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.appThemeColors.surface,
-        title: Text('Inviter sur Talky',
-            style: TextStyle(color: context.appThemeColors.textPrimary)),
-        content: Text(
-          'Voulez-vous inviter "${contact.displayName}" à rejoindre Talky?',
-          style: TextStyle(color: context.appThemeColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // In a full implementation, this would send an SMS invitation
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Invitation envoyée à ${contact.displayName}!'),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.primaryColor,
-            ),
-            child: Text('Inviter', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _normalizePhone(String phone) {
-    return phone.replaceAll(RegExp(r'[^\d]'), '');
-  }
-
-  String _resolveDisplayName({String? userName, String? phone}) {
-    if (phone == null || phone.isEmpty) {
-      return userName ?? 'Utilisateur';
-    }
-    final normalized = _normalizePhone(phone);
-    if (normalized.isEmpty) return userName ?? 'Utilisateur';
-    return _phoneToContactName[normalized] ?? (userName ?? 'Utilisateur');
-  }
-}
-
-class _ContactWithPhoto {
-  final PhoneContact contact;
-  final String? photoUrl;
-
-  const _ContactWithPhoto({required this.contact, this.photoUrl});
-}
-
-class _PhoneContactTile extends StatelessWidget {
-  final PhoneContact contact;
-  final bool isOnTalky;
-  final String? photoUrl;
-  final VoidCallback onTap;
-
-  const _PhoneContactTile({
-    required this.contact,
-    required this.isOnTalky,
-    this.photoUrl,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: photoUrl == null ? context.primaryColor : null,
-          image: photoUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(photoUrl!), fit: BoxFit.cover)
-              : null,
-        ),
-        child: photoUrl == null
-            ? const Center(
-                child:
-                    Icon(Icons.person_rounded, color: Colors.white, size: 24))
-            : null,
-      ),
-      title: Text(contact.displayName,
-          style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: context.appThemeColors.textPrimary)),
-      subtitle: Text(
-        contact.phones.isNotEmpty ? contact.phones.first : '',
-        style: TextStyle(
-            color: context.appThemeColors.textSecondary, fontSize: 12),
-      ),
-      trailing: isOnTalky
-          ? Icon(Icons.chat_rounded, color: context.primaryColor)
-          : Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: context.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Inviter',
-                style: TextStyle(
-                  color: context.primaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-    );
-  }
 }
 
 class _UserTile extends StatelessWidget {
@@ -789,11 +408,10 @@ class _UserTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final name =
         displayNameOverride ?? (user['name'] as String? ?? 'Utilisateur');
-    final phone = user['phone'] as String? ?? '';
+    final pseudo = user['pseudo'] as String? ?? '';
     final _rawPhoto = user['photoUrl'] as String?;
-    final photo = (_rawPhoto != null && _rawPhoto.startsWith('http'))
-        ? _rawPhoto
-        : null;
+    final photo =
+        (_rawPhoto != null && _rawPhoto.startsWith('http')) ? _rawPhoto : null;
 
     return ListTile(
       onTap: onTap,
@@ -817,7 +435,7 @@ class _UserTile extends StatelessWidget {
           style: TextStyle(
               fontWeight: FontWeight.w600,
               color: context.appThemeColors.textPrimary)),
-      subtitle: Text(phone,
+      subtitle: Text(pseudo,
           style: TextStyle(
               color: context.appThemeColors.textSecondary, fontSize: 12)),
       trailing: Icon(Icons.chat_rounded, color: context.primaryColor),

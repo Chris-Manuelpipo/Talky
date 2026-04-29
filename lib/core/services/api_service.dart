@@ -308,6 +308,9 @@ class ApiService {
   Future<List<dynamic>> searchUsers(String query) async =>
       await get('/users/search', query: {'q': query}) as List<dynamic>;
 
+  Future<List<dynamic>> getPreferredContacts() async =>
+      await get('/users/me/contacts') as List<dynamic>;
+
   Future<void> blockUser(int alanyaID) async =>
       await post('/users/$alanyaID/block');
 

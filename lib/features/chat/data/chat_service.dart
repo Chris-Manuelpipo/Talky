@@ -379,6 +379,20 @@ class ChatService {
     }
   }
 
+  /// Récupère les contacts préférés de l'utilisateur depuis le backend.
+  Future<List<Map<String, dynamic>>> getPreferredContacts() async {
+    try {
+      final rows = await _api.getPreferredContacts();
+      return rows
+          .whereType<Map>()
+          .map((r) => _userMapFromJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      debugPrint('[ChatService.getPreferredContacts] $e');
+      return const [];
+    }
+  }
+
   Future<Map<String, dynamic>?> findUserByPhone(String phone) async {
     final normalized = _normalizePhone(phone);
     if (normalized.isEmpty) return null;
