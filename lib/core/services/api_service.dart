@@ -195,9 +195,18 @@ class ApiService {
     final headers =
         skipAuth ? {'Content-Type': 'application/json'} : await _headers();
     debugPrint(
-        '[ApiService] GET $path, skipAuth=$skipAuth, headers=${headers.keys.toList()}');
-    final response = await http.get(uri, headers: headers).timeout(_timeout);
-    return _parse(response);
+        '[ApiService] GET $path, skipAuth=$skipAuth, headers=${headers.keys.toList()}, url=$uri');
+    try {
+      final response = await http.get(uri, headers: headers).timeout(_timeout);
+      debugPrint('[ApiService] GET $path response status: ${response.statusCode}');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        debugPrint('[ApiService] GET $path success, body length: ${response.body.length}');
+      }
+      return _parse(response);
+    } catch (e) {
+      debugPrint('[ApiService] GET $path FAILED: $e');
+      rethrow;
+    }
   }
 
   Future<dynamic> post(

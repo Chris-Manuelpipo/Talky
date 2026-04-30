@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors_provider.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../auth/data/backend_user_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../data/call_providers.dart';
 import 'calls_screen.dart';
@@ -106,15 +107,15 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
     setState(() => _isSearching = true);
 
     try {
-      final currentUser = ref.read(authStateProvider).value;
-      if (currentUser == null) return;
+      final currentUid = ref.read(currentAlanyaIDStringProvider);
+      if (currentUid.isEmpty) return;
 
       final chatService = ref.read(chatServiceProvider);
 
       // Search by name via API
       final nameResults = await chatService.searchUsers(
         query: query,
-        currentUserId: currentUser.uid,
+        currentUserId: currentUid,
       );
 
       // Also try to search by phone (alanyaPhone) if it looks like a phone number
@@ -379,6 +380,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
             }
           },
           onLongPress: () => _toggleSelection(contactId),
+          ref: ref,
         );
       },
     );
@@ -447,6 +449,7 @@ class _NewCallScreenState extends ConsumerState<NewCallScreen>
                             user['photoUrl'] as String?,
                             false,
                           ),
+                          ref: ref,
                         );
                       },
                     ),
@@ -461,11 +464,13 @@ class _ContactTile extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final WidgetRef ref;
 
   const _ContactTile({
     required this.contact,
     required this.isSelected,
     required this.onTap,
+    required this.ref,
     this.onLongPress,
   });
 
@@ -538,7 +543,7 @@ class _ContactTile extends StatelessWidget {
               Navigator.of(context).pop();
               CallsScreen.startCallFromContact(
                 context,
-                context as WidgetRef,
+                ref,
                 contact['id'].toString(),
                 displayName,
                 contact['photoUrl'] as String?,
@@ -556,7 +561,7 @@ class _ContactTile extends StatelessWidget {
               Navigator.of(context).pop();
               CallsScreen.startCallFromContact(
                 context,
-                context as WidgetRef,
+                ref,
                 contact['id'].toString(),
                 displayName,
                 contact['photoUrl'] as String?,

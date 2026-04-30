@@ -9,7 +9,7 @@ class AppConfig {
   static String get signalingUrl {
     return String.fromEnvironment(
       'SIGNALING_URL',
-      defaultValue: 'http://$_kDefaultHost/api',
+      defaultValue: 'http://$_kDefaultHost',
     );
   }
 
@@ -23,7 +23,7 @@ class AppConfig {
   static String get socketUrl {
     return String.fromEnvironment(
       'SOCKET_URL',
-      defaultValue: 'http://$_kDefaultHost/api',
+      defaultValue: 'http://$_kDefaultHost',
     );
   }
 

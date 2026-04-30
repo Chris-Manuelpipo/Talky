@@ -1,32 +1,57 @@
 // lib/features/meetings/data/meeting_providers.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/socket_service.dart';
 import '../../auth/data/backend_user_providers.dart';
-import '../../calls/data/call_providers.dart';
 import '../domain/meeting_model.dart';
 import 'meeting_service.dart';
-// ── Service ──────────────────────────────────────────────────────────
 
 final meetingServiceProvider = Provider<MeetingService>((ref) {
   final service = MeetingService();
 
-  // Force la connexion du socket CallService avant d'initialiser les listeners
-  final callService = ref.read(callServiceProvider);
-  callService.connect(ref.read(currentAlanyaIDProvider)?.toString() ?? '');
-
-  final alanyaID = ref.read(currentAlanyaIDProvider);
-  if (alanyaID != null) {
-    service.initSocketListeners(alanyaID.toString());
-  }
-  ref.listen<int?>(currentAlanyaIDProvider, (_, next) {
-    if (next != null) service.initSocketListeners(next.toString());
+  // Initialize when socket is connected
+  final socketSub =
+      SocketService.instance.onConnectedChange.listen((connected) {
+    if (connected) {
+      final alanyaID = ref.read(currentAlanyaIDProvider);
+      if (alanyaID != null) {
+        debugPrint(
+            '[meetingServiceProvider] Socket connected, calling MeetingService.connect()');
+        service.connect(alanyaID.toString());
+      }
+    }
   });
-  ref.onDispose(() => service.dispose());
+
+  // If socket is already connected at provider creation time
+  if (SocketService.instance.isConnected) {
+    final alanyaID = ref.read(currentAlanyaIDProvider);
+    if (alanyaID != null) {
+      debugPrint(
+          '[meetingServiceProvider] Socket already connected, initializing immediately');
+      service.connect(alanyaID.toString());
+    }
+  }
+
+  // Listen for alanyaID changes
+  ref.listen<int?>(currentAlanyaIDProvider, (_, next) {
+    if (next != null && SocketService.instance.isConnected) {
+      debugPrint('[meetingServiceProvider] alanyaID changed, re-registering');
+      service.connect(next.toString());
+    } else if (next == null) {
+      debugPrint('[meetingServiceProvider] alanyaID cleared (logout)');
+      service.disconnect();
+    }
+  });
+
+  ref.onDispose(() {
+    socketSub.cancel();
+    service.dispose();
+  });
+
   return service;
 });
-
-// ── Liste des meetings (REST) ────────────────────────────────────────
 
 final meetingsListProvider =
     FutureProvider.autoDispose<List<MeetingModel>>((ref) async {
@@ -36,16 +61,12 @@ final meetingsListProvider =
       .toList();
 });
 
-// ── Détail d'un meeting ──────────────────────────────────────────────
-
 final meetingDetailProvider =
     FutureProvider.family.autoDispose<MeetingModel, int>((ref, id) async {
   final raw =
       await ApiService.instance.get('/meetings/$id') as Map<String, dynamic>;
   return MeetingModel.fromJson(raw);
 });
-
-// ── État de la room active ───────────────────────────────────────────
 
 class MeetingRoomState {
   final bool isInRoom;
@@ -112,7 +133,7 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
           state = const MeetingRoomState();
           break;
         case MeetingEvent.failed:
-          state = state.copyWith(error: 'Connexion à la réunion échouée');
+          state = state.copyWith(error: "Connexion à la réunion échouée");
           break;
         case MeetingEvent.connected:
           break;
@@ -138,21 +159,20 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
     });
   }
 
-  // ── Rejoindre ────────────────────────────────────────────────────
   Future<void> joinMeeting(MeetingModel meeting) async {
+    state = const MeetingRoomState();
+
     final alanyaID = _ref.read(currentAlanyaIDProvider);
     if (alanyaID == null) return;
     final myID = alanyaID.toString();
 
-    // REST: enregistrer la participation
+    // REST: register participation
     try {
       await ApiService.instance
           .post('/meetings/${meeting.idMeeting}/join', body: {});
-    } catch (_) {}
-
-    // Socket: demande de rejoindre (l'organisateur valide)
-    _service.initSocketListeners(myID);
-    _service.currentMeetingID; // warm up
+    } catch (e) {
+      debugPrint('[MeetingRoom] REST join failed: $e');
+    }
 
     final existingIDs = meeting.participants
         .map((p) => p.alanyaID.toString())
@@ -172,29 +192,37 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
     );
   }
 
-  // ── Quitter ───────────────────────────────────────────────────────
-  void leaveMeeting() {
+  Future<void> leaveMeeting() async {
+    if (state.meetingID == null) return;
+
+    try {
+      await ApiService.instance
+          .post('/meetings/${state.meetingID}/leave', body: {});
+      debugPrint('[MeetingRoom] REST leave meeting succeeded');
+    } catch (e) {
+      debugPrint('[MeetingRoom] REST leave meeting failed: $e');
+    }
+
     _service.leaveRoom();
     state = const MeetingRoomState();
   }
 
-  // ── Terminer (organisateur) ───────────────────────────────────────
   Future<void> endMeeting(int meetingID) async {
     try {
       await ApiService.instance.put('/meetings/$meetingID', body: {'isEnd': 1});
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[MeetingRoom] REST end meeting failed: $e');
+    }
     _service.endMeetingForAll();
     state = const MeetingRoomState();
   }
 
-  // ── Commencer (organisateur) ──────────────────────────────────────
   void startMeeting() {
     if (state.meetingID == null) return;
     _service.startMeeting(state.meetingID!);
     state = state.copyWith(isStarted: true);
   }
 
-  // ── Audio / Vidéo ────────────────────────────────────────────────
   void toggleMute() {
     _service.toggleMute();
     state = state.copyWith(isMuted: !state.isMuted);
@@ -205,7 +233,6 @@ class MeetingRoomNotifier extends StateNotifier<MeetingRoomState> {
     state = state.copyWith(isCameraOff: !state.isCameraOff);
   }
 
-  // ── Chat ─────────────────────────────────────────────────────────
   void sendChat(String message) => _service.sendChat(message);
 }
 

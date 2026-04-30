@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config.dart';
+import 'api_service.dart';
 
 /// Evénement socket générique représentant un message entrant.
 class SocketMessageEvent {
@@ -62,6 +63,8 @@ class SocketService {
   io.Socket? _socket;
   int? _myAlanyaID;
   bool _registered = false;
+  bool _authFallbackTried = false;
+  final Set<int> _joinedConversations = {};
 
   // ── Streams broadcast ───────────────────────────────────────────────
   final _connectedCtrl = StreamController<bool>.broadcast();
@@ -78,6 +81,7 @@ class SocketService {
 
   bool get isConnected => _socket?.connected ?? false;
   int? get myAlanyaID => _myAlanyaID;
+  io.Socket? get socket => _socket;
 
   // ── Connexion ────────────────────────────────────────────────────────
   Future<void> connect(int alanyaID) async {
@@ -92,7 +96,7 @@ class SocketService {
       _socket = null;
     }
 
-    final token = await _getFirebaseToken();
+    final customToken = await ApiService.instance.getSavedToken();
 
     _socket = io.io(
       AppConfig.socketUrl,
@@ -103,19 +107,40 @@ class SocketService {
           .setReconnectionAttempts(999)
           .setReconnectionDelay(2000)
           .setReconnectionDelayMax(10000)
-          .setAuth(token != null ? {'token': token} : <String, dynamic>{})
+          .setAuth(customToken != null
+              ? {'token': customToken}
+              : <String, dynamic>{})
           .build(),
     );
 
     _socket!
-      ..onConnect((_) {
+      ..onConnect((_) async {
         debugPrint('[SocketService] Connecté');
         _connectedCtrl.add(true);
+        await _authenticateSocket(alanyaID);
+      })
+      ..on('auth:verified', (_) {
+        debugPrint('[SocketService] Auth verified ✅');
         _emitRegister();
       })
-      ..onReconnect((_) {
-        debugPrint('[SocketService] Reconnecté');
+      ..on('auth:error', (data) async {
+        debugPrint('[SocketService] Auth error: $data');
+        if (!_authFallbackTried) {
+          _authFallbackTried = true;
+          final fbToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+          if (fbToken != null) {
+            debugPrint(
+                '[SocketService] Fallback auth:login with Firebase token');
+            _socket!.emit('auth:login', {'token': fbToken});
+            return;
+          }
+        }
         _emitRegister();
+      })
+      ..onReconnect((_) async {
+        debugPrint('[SocketService] Reconnecté');
+        _authFallbackTried = false;
+        await _authenticateSocket(_myAlanyaID!);
       })
       ..onDisconnect((_) {
         debugPrint('[SocketService] Déconnecté');
@@ -133,12 +158,22 @@ class SocketService {
     _socket!.connect();
   }
 
-  Future<String?> _getFirebaseToken() async {
-    try {
-      return await FirebaseAuth.instance.currentUser?.getIdToken();
-    } catch (_) {
-      return null;
+  // ── Auth du socket (JWT custom → Firebase → register fallback) ─────
+  Future<void> _authenticateSocket(int alanyaID) async {
+    final customToken = await ApiService.instance.getSavedToken();
+    if (customToken != null) {
+      debugPrint('[SocketService] Auth:login with custom JWT');
+      _socket!.emit('auth:login', {'token': customToken});
+      return;
     }
+    final fbToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (fbToken != null) {
+      debugPrint('[SocketService] Auth:login with Firebase token');
+      _socket!.emit('auth:login', {'token': fbToken});
+      return;
+    }
+    debugPrint('[SocketService] No token available, fallback to register');
+    _emitRegister();
   }
 
   void _emitRegister() {
@@ -148,6 +183,10 @@ class SocketService {
     _registered = true;
     // Informer le backend qu'on est en ligne
     _socket!.emit('presence:online', {'userID': id});
+    // Rejoindre toutes les conversations actives après reconnexion
+    for (final convId in _joinedConversations) {
+      _socket!.emit('join_conversation', {'conversationID': convId});
+    }
   }
 
   void _wireEvents() {
@@ -220,10 +259,12 @@ class SocketService {
 
   // ── Rejoindre / quitter une conversation ─────────────────────────────
   void joinConversation(int conversationID) {
+    _joinedConversations.add(conversationID);
     _socket?.emit('join_conversation', {'conversationID': conversationID});
   }
 
   void leaveConversation(int conversationID) {
+    _joinedConversations.remove(conversationID);
     _socket?.emit('leave_conversation', {'conversationID': conversationID});
   }
 
@@ -292,6 +333,7 @@ class SocketService {
     _socket = null;
     _registered = false;
     _myAlanyaID = null;
+    _joinedConversations.clear();
     _connectedCtrl.add(false);
   }
 

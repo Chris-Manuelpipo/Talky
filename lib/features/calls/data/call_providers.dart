@@ -1,36 +1,61 @@
 import '../../../core/services/api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/socket_service.dart';
 import 'call_service.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../auth/data/backend_user_providers.dart';
 import '../../chat/data/chat_providers.dart';
 import '../domain/call_history_model.dart';
 
-// APRÈS
 final callServiceProvider = Provider<CallService>((ref) {
   final service = CallService();
 
-  // Connexion immédiate si l'alanyaID est déjà résolu (session active)
-  final alanyaID = ref.read(currentAlanyaIDProvider);
-  if (alanyaID != null) {
-    service.connect(alanyaID.toString());
+  debugPrint('[callServiceProvider] Initializing CallService');
+
+  // Register listeners when socket is connected
+  final socketSub =
+      SocketService.instance.onConnectedChange.listen((connected) {
+    if (connected) {
+      final alanyaID = ref.read(currentAlanyaIDProvider);
+      if (alanyaID != null) {
+        debugPrint(
+            '[callServiceProvider] Socket connected, calling CallService.connect()');
+        service.connect(alanyaID.toString());
+      }
+    }
+  });
+
+  // If socket is already connected at provider creation time
+  if (SocketService.instance.isConnected) {
+    final alanyaID = ref.read(currentAlanyaIDProvider);
+    if (alanyaID != null) {
+      debugPrint(
+          '[callServiceProvider] Socket already connected, initializing immediately');
+      service.connect(alanyaID.toString());
+    }
   }
 
-  // Connexion / déconnexion au changement d'alanyaID (login / logout)
+  // Listen for alanyaID changes (login/logout)
   ref.listen<int?>(currentAlanyaIDProvider, (prev, next) {
-    if (next != null) {
+    if (next != null && SocketService.instance.isConnected) {
+      debugPrint('[callServiceProvider] alanyaID changed, re-registering');
       service.connect(next.toString());
-    } else {
+    } else if (next == null) {
+      debugPrint('[callServiceProvider] alanyaID cleared (logout)');
       service.disconnect();
     }
   });
 
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(() {
+    debugPrint('[callServiceProvider] Disposing CallService');
+    socketSub.cancel();
+    service.dispose();
+  });
+
   return service;
 });
 
-// Notifier pour l'état d'un appel en cours
 enum CallStatus { idle, calling, ringing, connected, ended }
 
 class GroupParticipant {
@@ -61,15 +86,15 @@ class CallState {
   final String? errorMessage;
 
   const CallState({
-    this.status      = CallStatus.idle,
+    this.status = CallStatus.idle,
     this.remoteUserId,
     this.remoteName,
     this.remotePhoto,
-    this.isGroup     = false,
+    this.isGroup = false,
     this.groupRoomId,
     this.groupParticipants = const [],
-    this.isVideo     = false,
-    this.isMuted     = false,
+    this.isVideo = false,
+    this.isMuted = false,
     this.isCameraOff = false,
     this.isSpeakerOn = false,
     this.incomingCall,
@@ -90,21 +115,22 @@ class CallState {
     bool? isSpeakerOn,
     IncomingCallData? incomingCall,
     String? errorMessage,
-  }) => CallState(
-    status:       status       ?? this.status,
-    remoteUserId: remoteUserId ?? this.remoteUserId,
-    remoteName:   remoteName   ?? this.remoteName,
-    remotePhoto:  remotePhoto  ?? this.remotePhoto,
-    isGroup:      isGroup      ?? this.isGroup,
-    groupRoomId:  groupRoomId  ?? this.groupRoomId,
-    groupParticipants: groupParticipants ?? this.groupParticipants,
-    isVideo:      isVideo      ?? this.isVideo,
-    isMuted:      isMuted      ?? this.isMuted,
-    isCameraOff:  isCameraOff  ?? this.isCameraOff,
-    isSpeakerOn:  isSpeakerOn  ?? this.isSpeakerOn,
-    incomingCall: incomingCall ?? this.incomingCall,
-    errorMessage: errorMessage ?? this.errorMessage,
-  );
+  }) =>
+      CallState(
+        status: status ?? this.status,
+        remoteUserId: remoteUserId ?? this.remoteUserId,
+        remoteName: remoteName ?? this.remoteName,
+        remotePhoto: remotePhoto ?? this.remotePhoto,
+        isGroup: isGroup ?? this.isGroup,
+        groupRoomId: groupRoomId ?? this.groupRoomId,
+        groupParticipants: groupParticipants ?? this.groupParticipants,
+        isVideo: isVideo ?? this.isVideo,
+        isMuted: isMuted ?? this.isMuted,
+        isCameraOff: isCameraOff ?? this.isCameraOff,
+        isSpeakerOn: isSpeakerOn ?? this.isSpeakerOn,
+        incomingCall: incomingCall ?? this.incomingCall,
+        errorMessage: errorMessage ?? this.errorMessage,
+      );
 }
 
 class CallNotifier extends StateNotifier<CallState> {
@@ -118,50 +144,42 @@ class CallNotifier extends StateNotifier<CallState> {
   final Map<String, GroupParticipant> _groupParticipants = {};
 
   CallNotifier(this._service, this._ref) : super(const CallState()) {
-    debugPrint('[CallNotifier] >>> Initializing CallNotifier');
+    debugPrint('[CallNotifier] Initializing');
     _listenEvents();
-    debugPrint('[CallNotifier] >>> Event listeners registered');
   }
 
   void _listenEvents() {
-    // SYNC listener first - minimal delay for status updates
+    // SYNC listener for instant status updates
     _service.events.listen((event) {
       if (event == CallEvent.callConnected) {
-        debugPrint('[CallNotifier] [SYNC] CallConnected detected - updating status immediately');
         _callStartTime = DateTime.now();
         state = state.copyWith(status: CallStatus.connected);
-        debugPrint('[CallNotifier] [SYNC] Status updated to CONNECTED - state is now: ${state.status}');
       }
     }, onError: (error) {
-      debugPrint('[CallNotifier] [SYNC] Error in listener: $error');
+      debugPrint('[CallNotifier] Error in sync listener: $error');
     });
 
-    // ASYNC listener for non-status events (DB saves, etc)
+    // ASYNC listener for DB operations
     _service.events.listen((event) async {
-      debugPrint('[CallNotifier] [ASYNC] Event received: $event');
       switch (event) {
         case CallEvent.callAnswered:
-          // C'est juste un détail de signaling - ne pas changer le statut UI
-          // Le status ne change qu'avec callConnected
           break;
         case CallEvent.callConnected:
-          // Status already updated by SYNC listener above
-          // This async listener only handles DB operations
-          debugPrint('[CallNotifier] [ASYNC] CallConnected received - DB operations only');
-          // Status update is handled by SYNC listener for zero-delay UI responsiveness
           break;
         case CallEvent.callRejected:
-          // Sauvegarder l'appel manqué
           await _saveMissedCall();
           state = const CallState();
           break;
         case CallEvent.callEnded:
-          // Sauvegarder l'appel terminé
           await _saveCompletedCall();
           state = const CallState();
+          final alanyaId = _ref.read(currentAlanyaIDStringProvider);
+          if (alanyaId.isNotEmpty) {
+            _ref.invalidate(callHistoryProvider(alanyaId));
+            _ref.invalidate(weeklyCallDurationProvider(alanyaId));
+          }
           break;
         case CallEvent.callFailed:
-          // Sauvegarder l'appel manqué en cas d'échec
           await _saveMissedCall();
           state = state.copyWith(
             status: CallStatus.idle,
@@ -172,27 +190,27 @@ class CallNotifier extends StateNotifier<CallState> {
           break;
       }
     }, onError: (error) {
-      debugPrint('[CallNotifier] [ASYNC] Error in listener: $error');
+      debugPrint('[CallNotifier] Error in async listener: $error');
     });
 
     _service.incomingCalls.listen((incoming) {
       state = state.copyWith(
-        status:      CallStatus.ringing,
+        status: CallStatus.ringing,
         incomingCall: incoming,
-        remoteName:  incoming.callerName,
+        remoteName: incoming.callerName,
         remotePhoto: incoming.callerPhoto,
-        isVideo:     incoming.isVideo,
-        isGroup:     incoming.isGroup,
+        isVideo: incoming.isVideo,
+        isGroup: incoming.isGroup,
         groupRoomId: incoming.roomId,
       );
     });
 
     _service.groupEvents.listen((event) {
       if (event.type == 'participants' && event.participants != null) {
-        // Reset list with ids only (names will be updated on join events)
         _groupParticipants.clear();
         for (final id in event.participants!) {
-          _groupParticipants[id] = GroupParticipant(id: id, name: 'Utilisateur');
+          _groupParticipants[id] =
+              GroupParticipant(id: id, name: 'Utilisateur');
         }
       } else if (event.type == 'user_joined' && event.userId != null) {
         _groupParticipants[event.userId!] = GroupParticipant(
@@ -215,11 +233,10 @@ class CallNotifier extends StateNotifier<CallState> {
     String? targetPhoto,
     required bool isVideo,
   }) async {
-    final user   = _ref.read(authStateProvider).value;
+    final user = _ref.read(authStateProvider).value;
     if (user == null) return;
     final myName = await _ref.read(currentUserNameProvider.future);
 
-    // Stocker les infos pour le保存
     _pendingTargetUserId = targetUserId;
     _pendingTargetName = targetName;
     _pendingTargetPhoto = targetPhoto;
@@ -227,22 +244,22 @@ class CallNotifier extends StateNotifier<CallState> {
     _callStartTime = null;
 
     state = state.copyWith(
-      status:       CallStatus.calling,
+      status: CallStatus.calling,
       remoteUserId: targetUserId,
-      remoteName:   targetName,
-      remotePhoto:  targetPhoto,
-      isVideo:      isVideo,
-      isSpeakerOn:  false,
+      remoteName: targetName,
+      remotePhoto: targetPhoto,
+      isVideo: isVideo,
+      isSpeakerOn: false,
       errorMessage: null,
     );
 
-    // Initialiser l'audio sur écouteur AVANT de lancer l'appel
     await _service.initializeCallAudio();
 
     await _service.callUser(
       targetUserId: targetUserId,
-      callerName:   myName,
-      isVideo:      isVideo,
+      callerName: myName,
+      callerPhoto: user.photoURL,
+      isVideo: isVideo,
     );
   }
 
@@ -252,13 +269,11 @@ class CallNotifier extends StateNotifier<CallState> {
     List<GroupParticipant> initialParticipants = const [],
     String groupName = 'Appel de groupe',
   }) async {
-    // APRÈS
     final user = _ref.read(authStateProvider).value;
     if (user == null) return;
     final myName = await _ref.read(currentUserNameProvider.future);
     final myPhoto = user.photoURL;
 
-    // Utiliser alanyaID pour le roomId (cohérent avec le signaling server)
     final alanyaID = _ref.read(currentAlanyaIDProvider);
     if (alanyaID == null) return;
     final roomId = '${alanyaID}_${DateTime.now().millisecondsSinceEpoch}';
@@ -285,7 +300,6 @@ class CallNotifier extends StateNotifier<CallState> {
       errorMessage: null,
     );
 
-    // Initialiser l'audio sur écouteur AVANT de lancer l'appel
     await _service.initializeCallAudio();
 
     await _service.startGroupCall(
@@ -299,19 +313,18 @@ class CallNotifier extends StateNotifier<CallState> {
 
   Future<void> answerCall() async {
     if (state.incomingCall == null) return;
-    
-    // Stocker les infos pour l'appel entrant
+
     _pendingTargetUserId = state.incomingCall!.callerId;
     _pendingTargetName = state.incomingCall!.callerName;
     _pendingTargetPhoto = state.incomingCall!.callerPhoto;
     _isOutgoing = false;
     _callStartTime = null;
-    
+
     await _service.answerCall(state.incomingCall!);
     state = state.copyWith(
-      status:       CallStatus.calling,
+      status: CallStatus.calling,
       remoteUserId: state.incomingCall!.callerId,
-      isSpeakerOn:  false,
+      isSpeakerOn: false,
     );
   }
 
@@ -323,7 +336,6 @@ class CallNotifier extends StateNotifier<CallState> {
     if (user == null) return;
     final myName = await _ref.read(currentUserNameProvider.future);
 
-    // alanyaID requis pour l'identification dans la room de groupe
     final alanyaID = _ref.read(currentAlanyaIDProvider);
     if (alanyaID == null) return;
 
@@ -332,7 +344,7 @@ class CallNotifier extends StateNotifier<CallState> {
 
     await _service.joinGroupCall(
       roomId: incoming.roomId!,
-      userId: alanyaID.toString(), // ← CORRIGÉ
+      userId: alanyaID.toString(),
       userName: myName,
       userPhoto: user.photoURL,
       isVideo: incoming.isVideo,
@@ -356,7 +368,6 @@ class CallNotifier extends StateNotifier<CallState> {
       _pendingTargetName = state.incomingCall!.callerName;
       _pendingTargetPhoto = state.incomingCall!.callerPhoto;
       _isOutgoing = false;
-      
       _service.rejectCall(state.incomingCall!.callerId);
       _saveMissedCall();
     }
@@ -375,12 +386,12 @@ class CallNotifier extends StateNotifier<CallState> {
 
   void setIncomingCallData(IncomingCallData incoming) {
     state = state.copyWith(
-      status:      CallStatus.ringing,
+      status: CallStatus.ringing,
       incomingCall: incoming,
-      remoteName:  incoming.callerName,
+      remoteName: incoming.callerName,
       remotePhoto: incoming.callerPhoto,
-      isVideo:     incoming.isVideo,
-      isGroup:     incoming.isGroup,
+      isVideo: incoming.isVideo,
+      isGroup: incoming.isGroup,
       groupRoomId: incoming.roomId,
     );
   }
@@ -424,18 +435,18 @@ class CallNotifier extends StateNotifier<CallState> {
       return;
     }
     if (_pendingTargetUserId == null) return;
-    
+
     final user = _ref.read(authStateProvider).value;
     if (user == null) return;
-    
+
     final myName = await _ref.read(currentUserNameProvider.future);
     final myPhoto = user.photoURL;
-    
+
     int durationSeconds = 0;
     if (_callStartTime != null) {
       durationSeconds = DateTime.now().difference(_callStartTime!).inSeconds;
     }
-    
+
     final historyService = _ref.read(callHistoryServiceProvider);
     await historyService.saveCallHistory(
       currentUserId: user.uid,
@@ -448,7 +459,7 @@ class CallNotifier extends StateNotifier<CallState> {
       durationSeconds: durationSeconds,
       isVideo: state.isVideo,
     );
-    
+
     _clearPendingCall();
   }
 
@@ -486,17 +497,16 @@ class CallNotifier extends StateNotifier<CallState> {
       return;
     }
     if (_pendingTargetUserId == null) return;
-    
+
     final user = _ref.read(authStateProvider).value;
     if (user == null) return;
-    
+
     final myName = await _ref.read(currentUserNameProvider.future);
     final myPhoto = user.photoURL;
-    
+
     final historyService = _ref.read(callHistoryServiceProvider);
-    
+
     if (_isOutgoing) {
-      // Appel sortant qui n'a pas été répondu
       await historyService.saveCallHistory(
         currentUserId: user.uid,
         currentUserName: myName,
@@ -509,7 +519,7 @@ class CallNotifier extends StateNotifier<CallState> {
         isVideo: state.isVideo,
       );
     }
-    
+
     _clearPendingCall();
   }
 
@@ -521,8 +531,12 @@ class CallNotifier extends StateNotifier<CallState> {
   }
 
   void endCall() {
+    final currentStatus = state.status;
+    if (currentStatus == CallStatus.connected ||
+        currentStatus == CallStatus.calling) {
+      state = state.copyWith(status: CallStatus.ended);
+    }
     _service.endCall();
-    state = const CallState();
   }
 
   void toggleMute() {
@@ -546,9 +560,9 @@ class CallNotifier extends StateNotifier<CallState> {
   String? _mapError(String? reason) {
     switch (reason) {
       case 'user_offline':
-        return 'L’utilisateur n’est pas connecté';
+        return "L'utilisateur n'est pas connecté";
       default:
-        return reason == null ? 'Échec de l’appel' : 'Erreur: $reason';
+        return reason == null ? "Échec de l'appel" : 'Erreur: $reason';
     }
   }
 }
@@ -559,19 +573,28 @@ final callProvider = StateNotifierProvider<CallNotifier, CallState>((ref) {
 });
 
 // ── Call History Provider ─────────────────────────────────────────────
- 
+
 final callHistoryProvider =
-    FutureProvider.family<List<CallHistoryModel>, String>((ref, alanyaId) async {
-  // alanyaId est ignoré côté serveur (JWT identifie l'utilisateur)
-  // mais conservé comme paramètre family pour la compatibilité des call sites
-  final raw = await ApiService.instance.get('/calls') as List<dynamic>;
-  return raw
-      .map((e) => CallHistoryModel.fromJson(e as Map<String, dynamic>))
-      .toList();
+    FutureProvider.family<List<CallHistoryModel>, String>(
+        (ref, alanyaId) async {
+  debugPrint(
+      '[callHistoryProvider] Fetching call history (alanyaId=$alanyaId)');
+  try {
+    final raw = await ApiService.instance.get('/calls') as List<dynamic>;
+    final calls = raw
+        .map((e) => CallHistoryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+    debugPrint(
+        '[callHistoryProvider] Mapped to ${calls.length} CallHistoryModel objects');
+    return calls;
+  } catch (e, st) {
+    debugPrint('[callHistoryProvider] ERROR: $e');
+    debugPrintStack(stackTrace: st);
+    rethrow;
+  }
 });
 
-// Provider pour la durée totale des appels de la semaine
-// APRÈS
+// Provider for weekly call duration
 final weeklyCallDurationProvider =
     FutureProvider.family<int, String>((ref, alanyaId) async {
   final calls = await ref.watch(callHistoryProvider(alanyaId).future);
@@ -585,18 +608,7 @@ final weeklyCallDurationProvider =
       .fold<int>(0, (sum, c) => sum + c.durationSeconds);
 });
 
-// Service pour sauvegarder l'historique des appels
-
 class CallHistoryService {
-  /// L'historique 1-à-1 est géré automatiquement par le socket backend :
-  ///   - call_user     → INSERT callHistory (status=missed par défaut)
-  ///   - answer_call   → UPDATE status=1, start_time=NOW()
-  ///   - reject_call   → UPDATE status=2
-  ///   - end_call      → UPDATE duree=TIMESTAMPDIFF(...)
-  ///
-  /// Les appels de groupe ne sont pas encore trackés en MySQL
-  /// (la table callHistory n'a pas de colonne groupe).
-  /// Cette méthode est intentionnellement vide pour éviter les doublons.
   Future<void> saveCallHistory({
     required String currentUserId,
     required String currentUserName,
@@ -613,9 +625,10 @@ class CallHistoryService {
     required int durationSeconds,
     required bool isVideo,
   }) async {
-    // no-op — historique géré par le socket backend (MySQL)
+    // no-op — history managed by socket backend (MySQL)
   }
 }
+
 final callHistoryServiceProvider = Provider<CallHistoryService>((ref) {
   return CallHistoryService();
 });

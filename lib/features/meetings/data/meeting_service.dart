@@ -4,19 +4,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../calls/data/call_service.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
-// ── Événements de salle ──────────────────────────────────────────────
+import '../../../core/services/socket_service.dart';
+
 enum MeetingEvent {
   joined,
   started,
   ended,
   failed,
-  connected, // premier flux distant reçu
+  connected,
 }
 
 class MeetingParticipantEvent {
-  final String type;    // 'joined' | 'left' | 'participants'
+  final String type;
   final String userID;
   final List<String>? participantIDs;
   const MeetingParticipantEvent({
@@ -37,12 +38,10 @@ class MeetingChatMessage {
   });
 }
 
-// ── ICE config (identique à CallService) ─────────────────────────────
-const _iceServers = {
+const _iceConfig = {
   'iceServers': [
     {'urls': 'stun:stun.l.google.com:19302'},
     {'urls': 'stun:stun1.l.google.com:19302'},
-    {'urls': 'stun:stun.relay.metered.ca:80'},
     {
       'urls': [
         'turn:global.relay.metered.ca:80',
@@ -50,7 +49,7 @@ const _iceServers = {
         'turn:global.relay.metered.ca:443',
         'turns:global.relay.metered.ca:443?transport=tcp',
       ],
-      'username':   '4ccd30e6211751522c93c044',
+      'username': '4ccd30e6211751522c93c044',
       'credential': 'iB+/hPI3lLayZAKn',
     },
   ],
@@ -62,10 +61,8 @@ class MeetingService {
   factory MeetingService() => _instance;
   MeetingService._internal();
 
-  // ── Partagé avec CallService (même socket, même connexion) ──────
-  final CallService _callService = CallService();
+  io.Socket? get _socket => SocketService.instance.socket;
 
-  // ── État WebRTC ──────────────────────────────────────────────────
   MediaStream? _localStream;
   final Map<String, RTCPeerConnection> _peerConnections = {};
   final Map<String, MediaStream> _remoteStreams = {};
@@ -74,8 +71,14 @@ class MeetingService {
   String? _currentMeetingID;
   bool _connectedEmitted = false;
 
-  // ── Streams publics ──────────────────────────────────────────────
-  final _eventCtrl       = StreamController<MeetingEvent>.broadcast();
+  bool _listenersInitialized = false;
+  StreamSubscription<bool>? _connectionSub;
+  Completer<void>? _roomJoinedCompleter;
+
+  final Map<String, List<RTCIceCandidate>> _pendingIceCandidates = {};
+  final Map<String, bool> _remoteDescriptionSet = {};
+
+  final _eventCtrl = StreamController<MeetingEvent>.broadcast();
   final _localStreamCtrl = StreamController<MediaStream?>.broadcast();
   final _remoteStreamsCtrl =
       StreamController<Map<String, MediaStream>>.broadcast();
@@ -83,31 +86,44 @@ class MeetingService {
       StreamController<MeetingParticipantEvent>.broadcast();
   final _chatCtrl = StreamController<MeetingChatMessage>.broadcast();
 
-  Stream<MeetingEvent>               get events         => _eventCtrl.stream;
-  Stream<MediaStream?>               get localStream    => _localStreamCtrl.stream;
-  Stream<Map<String, MediaStream>>   get remoteStreams  => _remoteStreamsCtrl.stream;
-  Stream<MeetingParticipantEvent>    get participantEvents => _participantCtrl.stream;
-  Stream<MeetingChatMessage>         get chatMessages   => _chatCtrl.stream;
+  Stream<MeetingEvent> get events => _eventCtrl.stream;
+  Stream<MediaStream?> get localStream => _localStreamCtrl.stream;
+  Stream<Map<String, MediaStream>> get remoteStreams =>
+      _remoteStreamsCtrl.stream;
+  Stream<MeetingParticipantEvent> get participantEvents =>
+      _participantCtrl.stream;
+  Stream<MeetingChatMessage> get chatMessages => _chatCtrl.stream;
 
-  MediaStream?             get currentLocalStream  => _localStream;
+  MediaStream? get currentLocalStream => _localStream;
   Map<String, MediaStream> get currentRemoteStreams => Map.from(_remoteStreams);
-  String?                  get currentMeetingID    => _currentMeetingID;
+  String? get currentMeetingID => _currentMeetingID;
 
-  // ── Initialisation des listeners socket ─────────────────────────
-  bool _socketListenersRegistered = false;
+  bool get isMuted =>
+      _localStream?.getAudioTracks().firstOrNull?.enabled == false;
 
-  void initSocketListeners(String myUserID) {
-    _myUserID = myUserID;
-    if (_socketListenersRegistered) return;
-    _socketListenersRegistered = true;
-
-    final socket = _callService.socket;
+  /// Idempotent — registers listeners once, resets on reconnection.
+  void initListeners() {
+    if (_listenersInitialized) return;
+    if (_myUserID == null) {
+      debugPrint('[MeetingService.initListeners()] No userId set, skipping');
+      return;
+    }
+    final socket = _socket;
     if (socket == null) {
-      debugPrint('[MeetingService] Socket non disponible');
+      debugPrint('[MeetingService.initListeners()] Socket is null, skipping');
       return;
     }
 
-    // ── Salle ──────────────────────────────────────────────────
+    _listenersInitialized = true;
+    debugPrint(
+        '[MeetingService.initListeners()] Registering all socket listeners');
+
+    socket.on('meeting:room_joined', (data) {
+      debugPrint('[Meeting] meeting:room_joined — room joined successfully');
+      _roomJoinedCompleter?.complete();
+      _roomJoinedCompleter = null;
+    });
+
     socket.on('meeting:started', (data) {
       debugPrint('[Meeting] meeting:started');
       _eventCtrl.add(MeetingEvent.started);
@@ -119,24 +135,13 @@ class MeetingService {
       _eventCtrl.add(MeetingEvent.ended);
     });
 
-    socket.on('meeting:accepted', (data) {
-      debugPrint('[Meeting] meeting:accepted — on peut rejoindre la room');
-      // Le REST join + socket join_meeting_room sont gérés par MeetingNotifier
-    });
-
-    socket.on('meeting:declined', (data) {
-      debugPrint('[Meeting] meeting:declined');
-      _cleanup();
-      _eventCtrl.add(MeetingEvent.failed);
-    });
-
     socket.on('meeting:user_joined', (data) {
       final userID = data['userID']?.toString() ?? '';
       debugPrint('[Meeting] user_joined: $userID');
-      // Initier une PeerConnection vers le nouveau participant
       _initiatePeerTo(userID);
       _participantCtrl.add(MeetingParticipantEvent(
-        type: 'joined', userID: userID,
+        type: 'joined',
+        userID: userID,
       ));
     });
 
@@ -145,22 +150,23 @@ class MeetingService {
       debugPrint('[Meeting] user_left: $userID');
       _removePeer(userID);
       _participantCtrl.add(MeetingParticipantEvent(
-        type: 'left', userID: userID,
+        type: 'left',
+        userID: userID,
       ));
     });
 
     socket.on('meeting:message', (data) {
       _chatCtrl.add(MeetingChatMessage(
-        userID:  data['userID']?.toString() ?? '',
+        userID: data['userID']?.toString() ?? '',
         message: data['message']?.toString() ?? '',
-        sentAt:  DateTime.now(),
+        sentAt: DateTime.now(),
       ));
     });
 
-    // ── WebRTC ─────────────────────────────────────────────────
+    // ── WebRTC signaling ─────────────────────────────────────────
     socket.on('meeting:offer', (data) async {
       final fromUserID = data['fromUserID']?.toString();
-      final offer      = data['offer'];
+      final offer = data['offer'];
       if (fromUserID == null || offer == null) return;
       debugPrint('[Meeting] offer from $fromUserID');
 
@@ -168,43 +174,117 @@ class MeetingService {
       await pc.setRemoteDescription(
         RTCSessionDescription(offer['sdp'], offer['type']),
       );
+      _remoteDescriptionSet[fromUserID] = true;
+
+      // Flush pending ICE candidates for this user
+      final pending = _pendingIceCandidates[fromUserID] ?? [];
+      for (final candidate in pending) {
+        try {
+          await pc.addCandidate(candidate);
+        } catch (e) {
+          debugPrint(
+              '[Meeting] Error adding pending ICE candidate from $fromUserID: $e');
+        }
+      }
+      _pendingIceCandidates[fromUserID]?.clear();
+
       final answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      _callService.socket?.emit('meeting:answer', {
+      _socket?.emit('meeting:answer', {
         'meetingID': _currentMeetingID,
-        'toUserID':  fromUserID,
-        'answer':    {'sdp': answer.sdp, 'type': answer.type},
+        'toUserID': fromUserID,
+        'answer': {'sdp': answer.sdp, 'type': answer.type},
       });
     });
 
     socket.on('meeting:answer', (data) async {
       final fromUserID = data['fromUserID']?.toString();
-      final answer     = data['answer'];
+      final answer = data['answer'];
       if (fromUserID == null || answer == null) return;
       debugPrint('[Meeting] answer from $fromUserID');
 
       final pc = _peerConnections[fromUserID];
-      await pc?.setRemoteDescription(
+      if (pc == null) return;
+      await pc.setRemoteDescription(
         RTCSessionDescription(answer['sdp'], answer['type']),
       );
+      _remoteDescriptionSet[fromUserID] = true;
+
+      // Flush pending ICE candidates
+      final pending = _pendingIceCandidates[fromUserID] ?? [];
+      for (final candidate in pending) {
+        try {
+          await pc.addCandidate(candidate);
+        } catch (e) {
+          debugPrint(
+              '[Meeting] Error adding pending ICE candidate from $fromUserID: $e');
+        }
+      }
+      _pendingIceCandidates[fromUserID]?.clear();
     });
 
     socket.on('meeting:ice_candidate', (data) async {
       final fromUserID = data['fromUserID']?.toString();
-      final cand       = data['candidate'];
+      final cand = data['candidate'];
       if (fromUserID == null || cand == null) return;
 
       final pc = _peerConnections[fromUserID];
-      await pc?.addCandidate(RTCIceCandidate(
+      if (pc == null) return;
+
+      final candidate = RTCIceCandidate(
         cand['candidate'] as String,
-        cand['sdpMid']    as String?,
-        cand['sdpMLineIndex'] as int,
-      ));
+        cand['sdpMid'] as String?,
+        (cand['sdpMLineIndex'] as int?) ?? 0,
+      );
+
+      if (_remoteDescriptionSet[fromUserID] != true) {
+        _pendingIceCandidates.putIfAbsent(fromUserID, () => []);
+        _pendingIceCandidates[fromUserID]?.add(candidate);
+      } else {
+        try {
+          await pc.addCandidate(candidate);
+        } catch (e) {
+          debugPrint(
+              '[Meeting] Error adding ICE candidate from $fromUserID: $e');
+        }
+      }
     });
   }
 
-  // ── Rejoindre une réunion (après REST join + socket join_request) ──
+  void _removeListeners() {
+    final socket = _socket;
+    if (socket == null) return;
+    socket.off('meeting:room_joined');
+    socket.off('meeting:started');
+    socket.off('meeting:ended');
+    socket.off('meeting:user_joined');
+    socket.off('meeting:user_left');
+    socket.off('meeting:message');
+    socket.off('meeting:offer');
+    socket.off('meeting:answer');
+    socket.off('meeting:ice_candidate');
+    _listenersInitialized = false;
+  }
+
+  /// Called once by meetingServiceProvider.
+  /// Handles initial connection + reconnection.
+  void connect(String userId) {
+    _myUserID = userId;
+    _connectionSub?.cancel();
+    _connectionSub =
+        SocketService.instance.onConnectedChange.listen((connected) {
+      if (connected) {
+        debugPrint('[MeetingService] Socket reconnected, re-init listeners');
+        _removeListeners();
+        initListeners();
+      }
+    });
+    initListeners();
+  }
+
+  /// Join a meeting room. Emits meeting:join_room and waits for meeting:room_joined
+  /// (with 5s timeout) before initiating PeerConnections.
   Future<void> joinRoom({
     required String meetingID,
     required String myUserID,
@@ -212,20 +292,25 @@ class MeetingService {
     required List<String> existingParticipantIDs,
   }) async {
     _currentMeetingID = meetingID;
-    _myUserID         = myUserID;
+    _myUserID = myUserID;
     _connectedEmitted = false;
 
-    // Rejoindre la room socket
-    _callService.socket?.emit('meeting:create', {
-      'meetingID':   meetingID,
-      'organiserID': myUserID,
-      'meetingName': '',
+    _roomJoinedCompleter = Completer<void>();
+    _socket?.emit('meeting:join_room', {
+      'meetingID': meetingID,
+      'userID': myUserID,
     });
 
-    // Acquérir le flux local
+    try {
+      await _roomJoinedCompleter?.future.timeout(const Duration(seconds: 5));
+      debugPrint('[Meeting] Room joined successfully');
+    } catch (e) {
+      debugPrint('[Meeting] Timeout waiting for room_joined: $e');
+      _roomJoinedCompleter = null;
+    }
+
     await _getLocalStream(isVideo: isVideo);
 
-    // Initier une PeerConnection vers chaque participant déjà présent
     for (final uid in existingParticipantIDs) {
       if (uid != myUserID) await _initiatePeerTo(uid);
     }
@@ -233,10 +318,9 @@ class MeetingService {
     _eventCtrl.add(MeetingEvent.joined);
   }
 
-  // ── Quitter la réunion ────────────────────────────────────────────
   void leaveRoom() {
     if (_currentMeetingID != null) {
-      _callService.socket?.emit('meeting:leave', {
+      _socket?.emit('meeting:leave', {
         'meetingID': _currentMeetingID,
       });
     }
@@ -244,10 +328,9 @@ class MeetingService {
     _eventCtrl.add(MeetingEvent.ended);
   }
 
-  // ── Terminer pour tout le monde (organisateur) ────────────────────
   void endMeetingForAll() {
     if (_currentMeetingID != null) {
-      _callService.socket?.emit('meeting:end', {
+      _socket?.emit('meeting:end', {
         'meetingID': _currentMeetingID,
       });
     }
@@ -255,22 +338,19 @@ class MeetingService {
     _eventCtrl.add(MeetingEvent.ended);
   }
 
-  // ── Envoyer un message de chat ────────────────────────────────────
+  void startMeeting(String meetingID) {
+    _socket?.emit('meeting:start', {'meetingID': meetingID});
+  }
+
   void sendChat(String message) {
     if (_currentMeetingID == null || _myUserID == null) return;
-    _callService.socket?.emit('meeting:chat', {
+    _socket?.emit('meeting:chat', {
       'meetingID': _currentMeetingID,
-      'userID':    _myUserID,
-      'message':   message,
+      'userID': _myUserID,
+      'message': message,
     });
   }
 
-  // ── Démarrer la réunion (organisateur) ───────────────────────────────
-  void startMeeting(String meetingID) {
-    _callService.socket?.emit('meeting:start', {'meetingID': meetingID});
-  }
-
-  // ── Toggle micro / caméra ─────────────────────────────────────────
   void toggleMute() {
     _localStream?.getAudioTracks().forEach((t) => t.enabled = !t.enabled);
   }
@@ -279,48 +359,43 @@ class MeetingService {
     _localStream?.getVideoTracks().forEach((t) => t.enabled = !t.enabled);
   }
 
-  bool get isMuted =>
-      _localStream?.getAudioTracks().firstOrNull?.enabled == false;
-
-  // ── Initier une PeerConnection (offer) vers un pair ───────────────
   Future<void> _initiatePeerTo(String userID) async {
     if (userID == _myUserID) return;
     final pc = await _getOrCreatePeer(userID);
     final offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    _callService.socket?.emit('meeting:offer', {
+    _socket?.emit('meeting:offer', {
       'meetingID': _currentMeetingID,
-      'toUserID':  userID,
-      'offer':     {'sdp': offer.sdp, 'type': offer.type},
+      'toUserID': userID,
+      'offer': {'sdp': offer.sdp, 'type': offer.type},
     });
   }
 
-  // ── Créer ou récupérer une PeerConnection pour un pair ────────────
   Future<RTCPeerConnection> _getOrCreatePeer(String userID) async {
     final existing = _peerConnections[userID];
     if (existing != null) return existing;
 
-    final pc = await createPeerConnection(_iceServers);
+    _pendingIceCandidates[userID] = [];
+    _remoteDescriptionSet[userID] = false;
+
+    final pc = await createPeerConnection(_iceConfig);
     _peerConnections[userID] = pc;
 
-    // Ajouter les tracks locaux
     _localStream?.getTracks().forEach((t) => pc.addTrack(t, _localStream!));
 
-    // ICE candidates
     pc.onIceCandidate = (candidate) {
-      _callService.socket?.emit('meeting:ice_candidate', {
+      _socket?.emit('meeting:ice_candidate', {
         'meetingID': _currentMeetingID,
-        'toUserID':  userID,
+        'toUserID': userID,
         'candidate': {
-          'candidate':     candidate.candidate,
-          'sdpMid':        candidate.sdpMid,
+          'candidate': candidate.candidate,
+          'sdpMid': candidate.sdpMid,
           'sdpMLineIndex': candidate.sdpMLineIndex,
         },
       });
     };
 
-    // Flux distants
     pc.onTrack = (event) async {
       MediaStream stream;
       if (event.streams.isNotEmpty) {
@@ -338,7 +413,6 @@ class MeetingService {
       }
     };
 
-    // Gestion déconnexion d'un pair
     pc.onConnectionState = (state) {
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
@@ -349,28 +423,25 @@ class MeetingService {
     return pc;
   }
 
-  // ── Supprimer un pair ─────────────────────────────────────────────
   void _removePeer(String userID) {
     _peerConnections[userID]?.close();
     _peerConnections.remove(userID);
     _remoteStreams[userID]?.dispose();
     _remoteStreams.remove(userID);
+    _pendingIceCandidates.remove(userID);
+    _remoteDescriptionSet.remove(userID);
     _remoteStreamsCtrl.add(Map.from(_remoteStreams));
   }
 
-  // ── Acquérir le flux local ────────────────────────────────────────
-  // Demande les permissions nécessaires ET WITH FALLBACK audio-only si vidéo échoue
   Future<void> _getLocalStream({required bool isVideo}) async {
     try {
-      // Vérifier et demander les permissions
       final audioPermission = await _requestAudioPermission();
       if (!audioPermission) {
-        debugPrint('[MeetingService] Audio permission refusée');
+        debugPrint('[MeetingService] Audio permission denied');
         _eventCtrl.add(MeetingEvent.failed);
         return;
       }
 
-      // Essayer d'acquérir le flux avec vidéo si demandé
       if (isVideo) {
         final videoPermission = await _requestVideoPermission();
         if (videoPermission) {
@@ -379,7 +450,7 @@ class MeetingService {
               'audio': {
                 'echoCancellation': true,
                 'noiseSuppression': true,
-                'autoGainControl':  true,
+                'autoGainControl': true,
               },
               'video': {
                 'facingMode': 'user',
@@ -390,51 +461,48 @@ class MeetingService {
             _localStreamCtrl.add(_localStream);
             return;
           } catch (e) {
-            debugPrint('[MeetingService] Erreur vidéo: $e, fallback audio...');
+            debugPrint(
+                '[MeetingService] Video error: $e, fallback to audio...');
           }
         }
       }
 
-      // Fallback: audio-only
-      debugPrint('[MeetingService] Utilisation audio-only');
+      debugPrint('[MeetingService] Using audio-only');
       _localStream = await navigator.mediaDevices.getUserMedia({
         'audio': {
           'echoCancellation': true,
           'noiseSuppression': true,
-          'autoGainControl':  true,
+          'autoGainControl': true,
         },
         'video': false,
       });
       _localStreamCtrl.add(_localStream);
     } catch (e) {
-      debugPrint('[MeetingService] Erreur getUserMedia: $e');
+      debugPrint('[MeetingService] getUserMedia error: $e');
       _eventCtrl.add(MeetingEvent.failed);
     }
   }
 
-  // ── Demander permission audio ────────────────────────────────────
   Future<bool> _requestAudioPermission() async {
     try {
       final status = await Permission.microphone.request();
-      return status.isGranted || status.isDenied;
+      return status.isGranted;
     } catch (e) {
-      debugPrint('[MeetingService] Erreur permission audio: $e');
+      debugPrint('[MeetingService] Audio permission error: $e');
       return false;
     }
   }
 
-  // ── Demander permission vidéo ────────────────────────────────────
   Future<bool> _requestVideoPermission() async {
     try {
       final status = await Permission.camera.request();
-      return status.isGranted || status.isDenied;
+      return status.isGranted;
     } catch (e) {
-      debugPrint('[MeetingService] Erreur permission vidéo: $e');
+      debugPrint('[MeetingService] Video permission error: $e');
       return false;
     }
   }
 
-  // ── Nettoyage ─────────────────────────────────────────────────────
   void _cleanup() {
     _localStream?.dispose();
     _localStream = null;
@@ -442,12 +510,25 @@ class MeetingService {
     _peerConnections.keys.toList().forEach(_removePeer);
     _peerConnections.clear();
     _remoteStreams.clear();
+    _pendingIceCandidates.clear();
+    _remoteDescriptionSet.clear();
     _remoteStreamsCtrl.add({});
     _currentMeetingID = null;
     _connectedEmitted = false;
+    _roomJoinedCompleter = null;
+  }
+
+  void disconnect() {
+    _connectionSub?.cancel();
+    _connectionSub = null;
+    _removeListeners();
+    _cleanup();
   }
 
   void dispose() {
+    _connectionSub?.cancel();
+    _connectionSub = null;
+    _removeListeners();
     _cleanup();
     _eventCtrl.close();
     _localStreamCtrl.close();

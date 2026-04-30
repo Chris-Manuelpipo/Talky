@@ -60,16 +60,20 @@ class CallsScreen extends ConsumerStatefulWidget {
 
     final service = ref.read(callServiceProvider);
     if (!service.isConnected) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connexion au serveur en cours... Réessaie dans 5s'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      // Attendre la connexion au serveur (max 5 secondes)
+      final connected = await service.waitForConnection(timeoutSeconds: 5);
+      if (!connected) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible de se connecter au serveur'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
       }
-      return;
     }
 
     try {
@@ -431,8 +435,13 @@ class _CallsContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final alanyaIdString = ref.watch(currentAlanyaIDStringProvider);
-    if (alanyaIdString.isEmpty) return const SizedBox();
+    debugPrint('[_CallsContent] alanyaIdString=$alanyaIdString');
+    if (alanyaIdString.isEmpty) {
+      debugPrint('[_CallsContent] alanyaIdString is empty, showing loader');
+      return const Center(child: CircularProgressIndicator());
+    }
 
+    debugPrint('[_CallsContent] Watching callHistoryProvider($alanyaIdString)');
     final callHistoryAsync = ref.watch(callHistoryProvider(alanyaIdString));
     final weeklyDurationAsync =
         ref.watch(weeklyCallDurationProvider(alanyaIdString));
@@ -466,17 +475,27 @@ class _CallsContent extends ConsumerWidget {
         // Liste des appels
         Expanded(
           child: callHistoryAsync.when(
-            data: (calls) => _CallsList(
-              calls: calls,
-              currentUserId: alanyaIdString, // ← CORRIGÉ
-              query: query,
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Text('Erreur: $e',
-                  style:
-                      TextStyle(color: context.appThemeColors.textSecondary)),
-            ),
+            data: (calls) {
+              debugPrint('[_CallsContent] data: SUCCESS received ${calls.length} calls');
+              return _CallsList(
+                calls: calls,
+                currentUserId: alanyaIdString, // ← CORRIGÉ
+                query: query,
+              );
+            },
+            loading: () {
+              debugPrint('[_CallsContent] state: LOADING...');
+              return const Center(child: CircularProgressIndicator());
+            },
+            error: (e, st) {
+              debugPrint('[_CallsContent] error: $e');
+              debugPrintStack(stackTrace: st);
+              return Center(
+                child: Text('Erreur: $e',
+                    style:
+                        TextStyle(color: context.appThemeColors.textSecondary)),
+              );
+            },
           ),
         ),
       ],
@@ -857,7 +876,7 @@ class _CallTile extends ConsumerWidget {
       ),
       subtitle: Row(
         children: [
-          _CallTypeIndicator(callType: call.type, isOutgoing: isOutgoing),
+          _CallTypeIndicator(callType: call.getCallType(currentUserId), isOutgoing: isOutgoing),
           const SizedBox(width: 4),
           Text(
             _formatTime(call.timestamp),
@@ -1148,11 +1167,19 @@ class _MeetingsTabContent extends ConsumerWidget {
                         size: 16,
                         color: colors.textSecondary,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
+                        final fullMeeting = await ref.read(
+                            meetingDetailProvider(meeting.idMeeting).future);
+                        if (!context.mounted) return;
+                        await ref
+                            .read(meetingRoomProvider.notifier)
+                            .joinMeeting(fullMeeting);
+                        if (!context.mounted) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => MeetingRoomScreen(meeting: meeting),
+                            builder: (_) =>
+                                MeetingRoomScreen(meeting: fullMeeting),
                           ),
                         );
                       },

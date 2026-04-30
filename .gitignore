@@ -50,3 +50,6 @@ app.*.map.json
 .dart_tool
 KILO.md 
 lib.zip
+docs/FLUTTER_SOCKET_INTEGRATION.md
+lib/features/calls/data/models.dart
+meeting_corrections_summary.md
